@@ -6,33 +6,24 @@ import {
   parseArguments,
   readJson,
   repositoryRoot,
-  requireVersion,
+  requireReleaseChannel,
 } from "./lib.mjs";
 
 const argumentsMap = parseArguments(process.argv.slice(2));
 const rootManifest = await readJson(join(repositoryRoot, "package.json"));
-const requestedVersion = requireVersion(
+const requestedVersionArgument =
   argumentsMap.get("version") === true ||
-    argumentsMap.get("version") === undefined
+  argumentsMap.get("version") === undefined
     ? rootManifest.version
-    : argumentsMap.get("version"),
+    : argumentsMap.get("version");
+const { channel, version: requestedVersion } = requireReleaseChannel(
+  requestedVersionArgument,
+  argumentsMap.get("channel") ?? "preview",
 );
-const channel = argumentsMap.get("channel") ?? "preview";
-
-if (!new Set(["preview", "stable"]).has(channel)) {
-  throw new Error(`Channel must be preview or stable, received ${channel}`);
-}
 if (rootManifest.version !== requestedVersion) {
   throw new Error(
     `Root version ${rootManifest.version} does not match ${requestedVersion}`,
   );
-}
-if (
-  channel === "stable" &&
-  requestedVersion !== "1.0.0" &&
-  requestedVersion.startsWith("0.")
-) {
-  throw new Error("Stable releases cannot use a 0.x Preview version");
 }
 
 const packagePaths = [

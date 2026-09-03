@@ -15,6 +15,10 @@ const sourceExtensions = new Set([
   ".sh",
   ".ps1",
   ".sql",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
 ]);
 const ignoredDirectories = new Set([
   "node_modules",

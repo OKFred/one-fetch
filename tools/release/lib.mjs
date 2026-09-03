@@ -100,6 +100,24 @@ export function requireVersion(value) {
   return value;
 }
 
+export function requireReleaseChannel(version, channel) {
+  const checkedVersion = requireVersion(version);
+  if (!new Set(["preview", "stable"]).has(channel)) {
+    throw new Error(`Channel must be preview or stable, received ${channel}`);
+  }
+  if (channel === "stable" && checkedVersion.includes("-")) {
+    throw new Error("Stable releases cannot use a prerelease version");
+  }
+  if (channel === "stable" && checkedVersion.startsWith("0.")) {
+    throw new Error("Stable releases cannot use a 0.x Preview version");
+  }
+  return { channel, version: checkedVersion };
+}
+
+export function gitWorktreeStatus() {
+  return git("status", "--porcelain=v1", "--untracked-files=all");
+}
+
 export function releaseDirectory(version, outputRoot = defaultOutputRoot) {
   return assertInsideRepository(
     join(resolve(outputRoot), requireVersion(version)),

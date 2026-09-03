@@ -7,27 +7,29 @@ import {
   defaultOutputRoot,
   digestFile,
   git,
+  gitWorktreeStatus,
   join,
   listFiles,
   parseArguments,
   readJson,
   releaseDirectory,
   repositoryRoot,
+  requireReleaseChannel,
   writeFile,
   writeJson,
 } from "./lib.mjs";
 
 const argumentsMap = parseArguments(process.argv.slice(2));
 const rootManifest = await readJson(join(repositoryRoot, "package.json"));
-const version =
+const versionArgument =
   argumentsMap.get("version") === true ||
   argumentsMap.get("version") === undefined
     ? rootManifest.version
     : argumentsMap.get("version");
-const channel = argumentsMap.get("channel") ?? "preview";
-if (!new Set(["preview", "stable"]).has(channel)) {
-  throw new Error(`Channel must be preview or stable, received ${channel}`);
-}
+const { channel, version } = requireReleaseChannel(
+  versionArgument,
+  argumentsMap.get("channel") ?? "preview",
+);
 const outputRoot =
   argumentsMap.get("output") === true ||
   argumentsMap.get("output") === undefined
@@ -61,9 +63,9 @@ for (const path of artifactPaths) {
 
 const commit = git("rev-parse", "HEAD");
 const commitTime = git("show", "-s", "--format=%cI", "HEAD");
-const dirty = git("status", "--porcelain", "--untracked-files=no").length > 0;
+const dirty = gitWorktreeStatus().length > 0;
 if (channel === "stable" && dirty) {
-  throw new Error("Stable review artifacts require a clean tracked worktree");
+  throw new Error("Stable review artifacts require a clean worktree");
 }
 await writeJson(join(outputDirectory, manifestFilename), {
   schemaVersion: 1,
