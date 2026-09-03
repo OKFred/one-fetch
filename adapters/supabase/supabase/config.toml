@@ -25,9 +25,9 @@ enabled = false
 [functions.one-fetch-control]
 enabled = true
 verify_jwt = false
-entrypoint = "./functions/one-fetch-control/index.ts"
+entrypoint = "./functions/one-fetch-control/.one-fetch-bundle/index.js"
 
 [functions.one-fetch-gateway]
 enabled = true
 verify_jwt = false
-entrypoint = "./functions/one-fetch-gateway/index.ts"
+entrypoint = "./functions/one-fetch-gateway/.one-fetch-bundle/index.js"

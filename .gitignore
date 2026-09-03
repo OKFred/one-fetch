@@ -4,6 +4,7 @@ coverage/
 .cache/
 .turbo/
 .wrangler/
+adapters/supabase/supabase/functions/*/.one-fetch-bundle/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
