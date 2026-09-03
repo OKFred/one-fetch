@@ -214,7 +214,7 @@ Deno.test(
   "Health and configuration reject a different stored instance",
   async () => {
     const otherInstance = "00000000-0000-4000-8000-000000000099";
-    const migrations = await controlMigrationHistory();
+    const migrations = controlMigrationHistory();
     const healthDatabase: Database = {
       rpc: <T>() =>
         Promise.resolve({
@@ -264,7 +264,7 @@ Deno.test(
 Deno.test(
   "Initialized health requires a stored instance identity",
   async () => {
-    const migrations = await controlMigrationHistory();
+    const migrations = controlMigrationHistory();
     const database: Database = {
       rpc: <T>() =>
         Promise.resolve({
@@ -328,9 +328,16 @@ Deno.test(
         new Promise<Response>((_resolve, reject) => {
           const signal = init?.signal;
           if (!signal) return reject(new Error("missing timeout signal"));
-          signal.addEventListener("abort", () => reject(signal.reason), {
-            once: true,
-          });
+          signal.addEventListener(
+            "abort",
+            () =>
+              reject(
+                signal.reason instanceof Error
+                  ? signal.reason
+                  : new Error("database request aborted"),
+              ),
+            { once: true },
+          );
         }),
     });
     await expectDatabaseFailure(

@@ -211,7 +211,7 @@ Deno.test(
 
 Deno.test("Health reflects audit degradation", async () => {
   const environment = await controlTestEnvironment();
-  const migrations = await controlMigrationHistory();
+  const migrations = controlMigrationHistory();
   const degradedDatabase: Database = {
     rpc: <T>() =>
       Promise.resolve({

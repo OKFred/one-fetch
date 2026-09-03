@@ -1,5 +1,5 @@
 import type { SupabaseEnvironment } from "./env.ts";
-import { z } from "zod";
+import type { ZodType } from "zod";
 
 const DATABASE_RPC_TIMEOUT_MS = 15_000;
 
@@ -23,7 +23,7 @@ export class StorageContractError extends Error {
 
 export function parseStorageResult<T>(
   operation: string,
-  schema: z.ZodType<T>,
+  schema: ZodType<T>,
   value: unknown,
 ): T {
   const result = schema.safeParse(value);

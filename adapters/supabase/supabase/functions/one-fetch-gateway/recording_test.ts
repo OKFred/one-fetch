@@ -195,9 +195,16 @@ for (const failure of ["database_transport", "database_timeout"] as const) {
                   reject(new Error("missing database timeout signal"));
                   return;
                 }
-                signal.addEventListener("abort", () => reject(signal.reason), {
-                  once: true,
-                });
+                signal.addEventListener(
+                  "abort",
+                  () =>
+                    reject(
+                      signal.reason instanceof Error
+                        ? signal.reason
+                        : new Error("database request aborted"),
+                    ),
+                  { once: true },
+                );
               });
             }
             return new Response(

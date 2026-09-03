@@ -154,7 +154,7 @@ Deno.test("Health and canonical OpenAPI are public and validated", async () => {
         instanceId: environment.instanceId,
         initialized: true,
         auditDegraded: false,
-        migrations: await migrationHistory(),
+        migrations: migrationHistory(),
       } as T);
     },
   };

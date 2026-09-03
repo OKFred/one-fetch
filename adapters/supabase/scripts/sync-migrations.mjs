@@ -1,8 +1,10 @@
+import { Buffer } from "node:buffer";
+import console from "node:console";
 import { createHash } from "node:crypto";
 import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 
 const ALGORITHM = "self-zeroed-sha256-v1";
 const ZERO_CHECKSUM = "0".repeat(64);
