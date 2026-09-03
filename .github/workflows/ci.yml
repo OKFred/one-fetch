@@ -171,6 +171,7 @@ jobs:
       - run: node tools/release/check-dependency-policy.mjs
       - run: node tools/release/check-source-size.mjs
       - run: node --test tools/release/*.test.mjs
+      - run: pnpm --filter @one-fetch/conformance... build
       - run: pnpm exec eslint .
       - run: pnpm exec prettier --check .
 
