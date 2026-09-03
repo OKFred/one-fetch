@@ -87,7 +87,7 @@ export const useControlStore = defineStore("control", () => {
     ReturnType<AdminControlApi["capabilities"]>
   > | null>(null);
   const bootstrap = ref<BootstrapState | null>(null);
-  const configuration = ref<RuntimeConfiguration | null>(null);
+  const configuration = shallowRef<RuntimeConfiguration | null>(null);
   const tokens = ref<Awaited<ReturnType<AdminControlApi["listTokens"]>>>([]);
   const audit = ref<AuditPage>({ events: [] });
   const session = ref<SessionState | null>(null);
