@@ -1,6 +1,10 @@
 import { createPrivateKey, createPublicKey, sign } from "node:crypto";
 
-import type { UnsignedAuditEventV1 } from "@one-fetch/protocol";
+import {
+  AuditEventV1Schema,
+  type AuditEventV1,
+  type UnsignedAuditEventV1,
+} from "@one-fetch/protocol";
 
 import { randomId, sha256Hex, stableJson } from "./crypto.js";
 import type { DatabaseClient } from "./database.js";
@@ -37,9 +41,10 @@ const removeForbiddenFields = (value: unknown): unknown => {
     if (NEVER_RECORD_KEYS.has(key.toLowerCase().replaceAll(/[^a-z-]/gu, "")))
       continue;
     if (key === "headers" && Array.isArray(nested)) {
+      const headers = nested as unknown[];
       entries.push([
         key,
-        nested.map((header) => {
+        headers.map((header) => {
           if (!header || typeof header !== "object") return header;
           const entry = header as { name?: unknown; value?: unknown };
           return typeof entry.name === "string" &&
@@ -157,5 +162,50 @@ export class AuditLedger {
        FROM audit_events ${clause} ORDER BY sequence DESC LIMIT ?`,
       parameters,
     );
+  }
+
+  async listEvents(
+    limit = 100,
+    cursor?: string,
+  ): Promise<{ events: AuditEventV1[]; nextCursor?: string }> {
+    if (cursor !== undefined && !/^[1-9][0-9]*$/u.test(cursor)) {
+      throw new TypeError("Audit cursor is invalid");
+    }
+    const bounded = Math.max(1, Math.min(limit, 1_000));
+    const beforeSequence = cursor === undefined ? undefined : Number(cursor);
+    if (
+      beforeSequence !== undefined &&
+      (!Number.isSafeInteger(beforeSequence) || beforeSequence < 1)
+    ) {
+      throw new TypeError("Audit cursor is outside the supported range");
+    }
+    const clause = beforeSequence === undefined ? "" : "WHERE sequence < ?";
+    const parameters =
+      beforeSequence === undefined ? [bounded] : [beforeSequence, bounded];
+    const rows = await this.#database.all<{
+      canonical_json: string;
+      content_sha256: string;
+      sequence: number;
+      signature: string;
+    }>(
+      `SELECT sequence, canonical_json, content_sha256, signature
+       FROM audit_events ${clause} ORDER BY sequence DESC LIMIT ?`,
+      parameters,
+    );
+    const events = rows.map((row) =>
+      AuditEventV1Schema.parse({
+        ...(JSON.parse(row.canonical_json) as Record<string, unknown>),
+        integrity: {
+          keyId: this.#keyId,
+          payloadHash: row.content_sha256,
+          signature: row.signature,
+        },
+      }),
+    );
+    const next = rows.length === bounded ? rows.at(-1)?.sequence : undefined;
+    return {
+      events,
+      ...(next === undefined ? {} : { nextCursor: String(next) }),
+    };
   }
 }

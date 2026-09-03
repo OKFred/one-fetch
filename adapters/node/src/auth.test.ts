@@ -95,6 +95,11 @@ describe("Node authentication and audit storage", () => {
     const serialized = JSON.stringify(audit);
     expect(serialized).not.toContain(issued.token);
     expect(serialized).not.toContain("correct horse battery staple");
+
+    const page = await services.audit.listEvents(2);
+    expect(page.events).toHaveLength(2);
+    expect(page.events[0]?.integrity.payloadHash).toMatch(/^[0-9a-f]{64}$/u);
+    expect(page.nextCursor).toMatch(/^[1-9][0-9]*$/u);
   });
 
   it("logs out the current session without exposing session credentials", async () => {
