@@ -10,6 +10,7 @@ export const ControlFeatureV1Schema = z.enum([
   "gateway-pause",
   "sessions",
   "totp",
+  "password-change",
   "webhooks",
 ]);
 export type ControlFeatureV1 = z.infer<typeof ControlFeatureV1Schema>;

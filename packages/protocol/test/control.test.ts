@@ -4,6 +4,7 @@ import {
   AlertsResponseV1Schema,
   AuditPageV1Schema,
   CONTROL_ROUTES_V1,
+  ChangePasswordRequestV1Schema,
   ControlErrorV1Schema,
   ControlFeatureStatusListV1Schema,
   ExecutionTokenListV1Schema,
@@ -81,6 +82,20 @@ describe("Control API schemas", () => {
     ).toBe(false);
   });
 
+  it("defines strict session-security payloads", () => {
+    expect(
+      ChangePasswordRequestV1Schema.safeParse({
+        schemaVersion: 1,
+        currentPassword: "correct horse battery staple",
+        newPassword: "correct horse battery staple",
+      }).success,
+    ).toBe(false);
+    expect(CONTROL_ROUTES_V1.session("session-1")).toBe(
+      "/api/v1/auth/sessions/session-1",
+    );
+    expect(CONTROL_ROUTES_V1.totpPrepare).toBe("/api/v1/auth/totp/prepare");
+  });
+
   it("requires nested Control errors from arbitrary top-level payloads", () => {
     expect(
       ControlErrorV1Schema.safeParse({
@@ -103,7 +118,7 @@ describe("Control API schemas", () => {
 
 describe("Control API route contract", () => {
   it("keeps management routes under the Control origin", () => {
-    expect(CONTROL_ROUTES_V1.auditEvents).toBe("/api/v1/audit/events");
+    expect(CONTROL_ROUTES_V1.auditEvents).toBe("/api/v1/audit");
     expect(CONTROL_ROUTES_V1.executionToken("token-1")).toBe(
       "/api/v1/tokens/execution/token-1",
     );

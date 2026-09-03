@@ -3,6 +3,7 @@ export * from "./codec.js";
 export * from "./common.js";
 export * from "./constants.js";
 export * from "./control.js";
+export * from "./control-auth.js";
 export * from "./control-features.js";
 export * from "./control-management.js";
 export * from "./control-routes.js";
