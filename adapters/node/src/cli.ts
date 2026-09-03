@@ -10,13 +10,25 @@ if (server.bootstrapToken) {
   console.log(server.bootstrapToken);
 }
 
+let fatalFailure = false;
+void server.fatal.then(async (error) => {
+  fatalFailure = true;
+  console.error("Fatal database worker failure; shutting down:", error.message);
+  process.exitCode = 1;
+  try {
+    await server.terminated;
+  } catch (shutdownError) {
+    console.error("Node adapter shutdown failed:", shutdownError);
+  }
+});
+
 let stopping = false;
 const stop = async (signal: string): Promise<void> => {
   if (stopping) return;
   stopping = true;
   console.log(`Received ${signal}; shutting down`);
   await server.close();
-  process.exitCode = 0;
+  if (!fatalFailure) process.exitCode = 0;
 };
 
 process.once("SIGINT", () => void stop("SIGINT"));
