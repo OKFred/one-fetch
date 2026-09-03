@@ -15,9 +15,9 @@ import {
   ExecutionTokenRevokeResponseV1Schema,
   SetGatewayPausedRequestV1Schema,
   UpdatePolicyRequestV1Schema,
-  type ControlFeatureStatusListV1,
 } from "@one-fetch/protocol";
 
+import { controlFeatureStatuses } from "./control-feature-statuses.js";
 import {
   authorizeAdmin,
   bearer,
@@ -40,41 +40,6 @@ const auditQuery = z.object({
   cursor: z.string().min(1).max(1_024).optional(),
   limit: z.coerce.number().int().min(1).max(1_000).default(100),
 });
-
-const featureStatuses = (): ControlFeatureStatusListV1 =>
-  ControlFeatureStatusListV1Schema.parse({
-    schemaVersion: 1,
-    features: [
-      {
-        schemaVersion: 1,
-        feature: "alerts",
-        state: "unsupported",
-        reason: "Signed Webhook alerts are not available in the Node Preview",
-      },
-      {
-        schemaVersion: 1,
-        feature: "backups",
-        state: "unsupported",
-        reason: "Use the documented SQLite backup runbook during Preview",
-      },
-      {
-        schemaVersion: 1,
-        feature: "audit-export",
-        state: "unsupported",
-        reason: "Signed JSONL export is not available in the Node Preview",
-      },
-      { schemaVersion: 1, feature: "gateway-pause", state: "supported" },
-      { schemaVersion: 1, feature: "sessions", state: "supported" },
-      { schemaVersion: 1, feature: "totp", state: "supported" },
-      { schemaVersion: 1, feature: "password-change", state: "supported" },
-      {
-        schemaVersion: 1,
-        feature: "webhooks",
-        state: "unsupported",
-        reason: "Webhook delivery is not available in the Node Preview",
-      },
-    ],
-  });
 
 const requireAdmin = async (
   dependencies: ControlDependencies,
@@ -402,7 +367,7 @@ export const registerControlManagementRoutes = (
       ) {
         return context.json(controlError("unauthorized", "Unauthorized"), 401);
       }
-      return context.json(featureStatuses(), 200);
+      return context.json(controlFeatureStatuses(), 200);
     },
   );
 
@@ -424,7 +389,9 @@ export const registerControlManagementRoutes = (
       }
       const feature = context.req.valid("param").feature;
       return context.json(
-        featureStatuses().features.find((entry) => entry.feature === feature)!,
+        controlFeatureStatuses().features.find(
+          (entry) => entry.feature === feature,
+        )!,
         200,
       );
     },
