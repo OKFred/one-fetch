@@ -32,32 +32,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "instanceId": {
-                      "type": "string"
-                    },
+                    "instanceId": { "type": "string" },
                     "service": {
                       "type": "string",
-                      "enum": [
-                        "one-fetch-control"
-                      ]
+                      "enum": ["one-fetch-control"]
                     },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "ok",
-                        "degraded"
-                      ]
-                    },
-                    "version": {
-                      "type": "string"
-                    }
+                    "status": { "type": "string", "enum": ["ok", "degraded"] },
+                    "version": { "type": "string" }
                   },
-                  "required": [
-                    "instanceId",
-                    "service",
-                    "status",
-                    "version"
-                  ],
+                  "required": ["instanceId", "service", "status", "version"],
                   "additionalProperties": false
                 }
               }
@@ -71,11 +54,7 @@
         "responses": {
           "200": {
             "description": "Current adapter capabilities",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           }
         }
       }
@@ -90,15 +69,8 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
-                    "initialized": {
-                      "type": "boolean"
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
+                    "initialized": { "type": "boolean" },
                     "instanceId": {
                       "type": "string",
                       "minLength": 1,
@@ -106,11 +78,7 @@
                       "pattern": "^[A-Za-z0-9._:-]+$"
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "initialized",
-                    "instanceId"
-                  ],
+                  "required": ["schemaVersion", "initialized", "instanceId"],
                   "additionalProperties": false
                 }
               }
@@ -126,12 +94,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "bootstrapSecret": {
                     "type": "string",
                     "minLength": 32,
@@ -167,12 +130,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "accessToken": {
                       "type": "string",
                       "minLength": 32,
@@ -232,9 +190,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -242,16 +198,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -269,12 +220,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "username": {
                     "type": "string",
                     "minLength": 1,
@@ -299,9 +245,7 @@
                     "minLength": 1,
                     "maxLength": 256
                   },
-                  "rememberDevice": {
-                    "type": "boolean"
-                  }
+                  "rememberDevice": { "type": "boolean" }
                 },
                 "required": [
                   "schemaVersion",
@@ -322,12 +266,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "accessToken": {
                       "type": "string",
                       "minLength": 32,
@@ -387,9 +326,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -397,16 +334,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -433,9 +365,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -443,16 +373,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -470,22 +395,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "refreshToken": {
                     "type": "string",
                     "minLength": 32,
                     "maxLength": 4096
                   }
                 },
-                "required": [
-                  "schemaVersion",
-                  "refreshToken"
-                ],
+                "required": ["schemaVersion", "refreshToken"],
                 "additionalProperties": false
               }
             }
@@ -499,12 +416,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "accessToken": {
                       "type": "string",
                       "minLength": 32,
@@ -564,9 +476,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -574,16 +484,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -594,11 +499,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Revoked session",
@@ -607,28 +508,16 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "sessionId": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
                       "pattern": "^[A-Za-z0-9._:-]+$"
                     },
-                    "revokedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
+                    "revokedAt": { "type": "string", "format": "date-time" }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "sessionId",
-                    "revokedAt"
-                  ],
+                  "required": ["schemaVersion", "sessionId", "revokedAt"],
                   "additionalProperties": false
                 }
               }
@@ -655,9 +544,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -665,16 +552,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -685,11 +567,7 @@
     },
     "/api/v1/auth/sessions": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Administrator sessions",
@@ -698,23 +576,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "sessions": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "schemaVersion": {
-                            "type": "number",
-                            "enum": [
-                              1
-                            ]
-                          },
+                          "schemaVersion": { "type": "number", "enum": [1] },
                           "id": {
                             "type": "string",
                             "minLength": 1,
@@ -733,9 +601,7 @@
                             "type": "string",
                             "format": "date-time"
                           },
-                          "current": {
-                            "type": "boolean"
-                          },
+                          "current": { "type": "boolean" },
                           "deviceFingerprint": {
                             "type": "string",
                             "minLength": 1,
@@ -755,10 +621,7 @@
                       "maxItems": 10000
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "sessions"
-                  ],
+                  "required": ["schemaVersion", "sessions"],
                   "additionalProperties": false
                 }
               }
@@ -785,9 +648,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -795,16 +656,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -815,11 +671,7 @@
     },
     "/api/v1/auth/sessions/{sessionId}": {
       "delete": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "parameters": [
           {
             "schema": {
@@ -841,28 +693,16 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "sessionId": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
                       "pattern": "^[A-Za-z0-9._:-]+$"
                     },
-                    "revokedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
+                    "revokedAt": { "type": "string", "format": "date-time" }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "sessionId",
-                    "revokedAt"
-                  ],
+                  "required": ["schemaVersion", "sessionId", "revokedAt"],
                   "additionalProperties": false
                 }
               }
@@ -889,9 +729,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -899,16 +737,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -935,9 +768,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -945,16 +776,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -965,11 +791,7 @@
     },
     "/api/v1/auth/totp/prepare": {
       "post": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "TOTP preparation",
@@ -978,12 +800,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "secret": {
                       "type": "string",
                       "minLength": 16,
@@ -996,11 +813,7 @@
                       "maxLength": 4096
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "secret",
-                    "otpauthUri"
-                  ],
+                  "required": ["schemaVersion", "secret", "otpauthUri"],
                   "additionalProperties": false
                 }
               }
@@ -1027,9 +840,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1037,16 +848,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1057,11 +863,7 @@
     },
     "/api/v1/auth/totp/enable": {
       "post": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1069,21 +871,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "code": {
                     "type": "string",
                     "pattern": "^(?:[0-9]{6}|[0-9]{8})$"
                   }
                 },
-                "required": [
-                  "schemaVersion",
-                  "code"
-                ],
+                "required": ["schemaVersion", "code"],
                 "additionalProperties": false
               }
             }
@@ -1097,16 +891,8 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
-                    "enabledAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
+                    "enabledAt": { "type": "string", "format": "date-time" },
                     "recoveryCodes": {
                       "type": "array",
                       "items": {
@@ -1118,11 +904,7 @@
                       "maxItems": 64
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "enabledAt",
-                    "recoveryCodes"
-                  ],
+                  "required": ["schemaVersion", "enabledAt", "recoveryCodes"],
                   "additionalProperties": false
                 }
               }
@@ -1149,9 +931,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1159,16 +939,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1195,9 +970,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1205,16 +978,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1225,11 +993,7 @@
     },
     "/api/v1/auth/password": {
       "post": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1237,12 +1001,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "currentPassword": {
                     "type": "string",
                     "minLength": 1,
@@ -1254,11 +1013,7 @@
                     "maxLength": 1024
                   }
                 },
-                "required": [
-                  "schemaVersion",
-                  "currentPassword",
-                  "newPassword"
-                ],
+                "required": ["schemaVersion", "currentPassword", "newPassword"],
                 "additionalProperties": false
               }
             }
@@ -1272,16 +1027,8 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
-                    "changedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
+                    "changedAt": { "type": "string", "format": "date-time" },
                     "revokedSessionIds": {
                       "type": "array",
                       "items": {
@@ -1324,9 +1071,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1334,16 +1079,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1354,19 +1094,11 @@
     },
     "/api/v1/config": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Configuration",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           },
           "401": {
             "description": "Unauthorized",
@@ -1389,9 +1121,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1399,16 +1129,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1419,19 +1144,11 @@
     },
     "/api/v1/config/policy": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "System policy",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           },
           "401": {
             "description": "Unauthorized",
@@ -1454,9 +1171,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1464,16 +1179,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1482,27 +1192,15 @@
         }
       },
       "put": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {}
-            }
-          }
+          "content": { "application/json": { "schema": {} } }
         },
         "responses": {
           "200": {
             "description": "Updated configuration",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           },
           "401": {
             "description": "Unauthorized",
@@ -1525,9 +1223,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1535,16 +1231,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1571,9 +1262,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1581,16 +1270,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1617,9 +1301,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1627,16 +1309,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1647,11 +1324,7 @@
     },
     "/api/v1/config/gateway-paused": {
       "put": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1659,20 +1332,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
-                  "paused": {
-                    "type": "boolean"
-                  }
+                  "schemaVersion": { "type": "number", "enum": [1] },
+                  "paused": { "type": "boolean" }
                 },
-                "required": [
-                  "schemaVersion",
-                  "paused"
-                ],
+                "required": ["schemaVersion", "paused"],
                 "additionalProperties": false
               }
             }
@@ -1681,11 +1344,7 @@
         "responses": {
           "200": {
             "description": "Updated configuration",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           },
           "401": {
             "description": "Unauthorized",
@@ -1708,9 +1367,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1718,16 +1375,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1754,9 +1406,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1764,16 +1414,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1800,9 +1445,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -1810,16 +1453,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -1830,11 +1468,7 @@
     },
     "/api/v1/tokens/execution": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Execution tokens",
@@ -1843,23 +1477,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "tokens": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "schemaVersion": {
-                            "type": "number",
-                            "enum": [
-                              1
-                            ]
-                          },
+                          "schemaVersion": { "type": "number", "enum": [1] },
                           "id": {
                             "type": "string",
                             "minLength": 1,
@@ -1878,12 +1502,7 @@
                                 "type": "array",
                                 "items": {
                                   "type": "string",
-                                  "enum": [
-                                    "http",
-                                    "websocket",
-                                    "tcp",
-                                    "tls"
-                                  ]
+                                  "enum": ["http", "websocket", "tcp", "tls"]
                                 },
                                 "minItems": 1,
                                 "maxItems": 4
@@ -1907,11 +1526,7 @@
                                 "maxItems": 256
                               }
                             },
-                            "required": [
-                              "transports",
-                              "origins",
-                              "ports"
-                            ],
+                            "required": ["transports", "origins", "ports"],
                             "additionalProperties": false
                           },
                           "quota": {
@@ -1978,10 +1593,7 @@
                       "maxItems": 10000
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "tokens"
-                  ],
+                  "required": ["schemaVersion", "tokens"],
                   "additionalProperties": false
                 }
               }
@@ -2008,9 +1620,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -2018,16 +1628,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -2036,11 +1641,7 @@
         }
       },
       "post": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -2048,12 +1649,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "enum": [
-                      1
-                    ]
-                  },
+                  "schemaVersion": { "type": "number", "enum": [1] },
                   "name": {
                     "type": "string",
                     "minLength": 1,
@@ -2066,12 +1662,7 @@
                         "type": "array",
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "http",
-                            "websocket",
-                            "tcp",
-                            "tls"
-                          ]
+                          "enum": ["http", "websocket", "tcp", "tls"]
                         },
                         "minItems": 1,
                         "maxItems": 4
@@ -2095,11 +1686,7 @@
                         "maxItems": 256
                       }
                     },
-                    "required": [
-                      "transports",
-                      "origins",
-                      "ports"
-                    ],
+                    "required": ["transports", "origins", "ports"],
                     "additionalProperties": false
                   },
                   "quota": {
@@ -2140,17 +1727,9 @@
                     ],
                     "additionalProperties": false
                   },
-                  "expiresAt": {
-                    "type": "string",
-                    "format": "date-time"
-                  }
+                  "expiresAt": { "type": "string", "format": "date-time" }
                 },
-                "required": [
-                  "schemaVersion",
-                  "name",
-                  "scope",
-                  "quota"
-                ],
+                "required": ["schemaVersion", "name", "scope", "quota"],
                 "additionalProperties": false
               }
             }
@@ -2164,21 +1743,11 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "credential": {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
                         "id": {
                           "type": "string",
                           "minLength": 1,
@@ -2197,12 +1766,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "enum": [
-                                  "http",
-                                  "websocket",
-                                  "tcp",
-                                  "tls"
-                                ]
+                                "enum": ["http", "websocket", "tcp", "tls"]
                               },
                               "minItems": 1,
                               "maxItems": 4
@@ -2226,11 +1790,7 @@
                               "maxItems": 256
                             }
                           },
-                          "required": [
-                            "transports",
-                            "origins",
-                            "ports"
-                          ],
+                          "required": ["transports", "origins", "ports"],
                           "additionalProperties": false
                         },
                         "quota": {
@@ -2279,10 +1839,7 @@
                           "type": "string",
                           "format": "date-time"
                         },
-                        "revokedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
+                        "revokedAt": { "type": "string", "format": "date-time" }
                       },
                       "required": [
                         "schemaVersion",
@@ -2300,11 +1857,7 @@
                       "maxLength": 4096
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "credential",
-                    "token"
-                  ],
+                  "required": ["schemaVersion", "credential", "token"],
                   "additionalProperties": false
                 }
               }
@@ -2331,9 +1884,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -2341,16 +1892,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -2361,11 +1907,7 @@
     },
     "/api/v1/tokens/execution/{tokenId}": {
       "delete": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "parameters": [
           {
             "schema": {
@@ -2387,28 +1929,16 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "id": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
                       "pattern": "^[A-Za-z0-9._:-]+$"
                     },
-                    "revokedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
+                    "revokedAt": { "type": "string", "format": "date-time" }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "id",
-                    "revokedAt"
-                  ],
+                  "required": ["schemaVersion", "id", "revokedAt"],
                   "additionalProperties": false
                 }
               }
@@ -2435,9 +1965,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -2445,16 +1973,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -2481,9 +2004,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -2491,16 +2012,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -2511,18 +2027,10 @@
     },
     "/api/v1/audit": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "parameters": [
           {
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1024
-            },
+            "schema": { "type": "string", "minLength": 1, "maxLength": 1024 },
             "required": false,
             "name": "cursor",
             "in": "query"
@@ -2547,12 +2055,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "events": {
                       "type": "array",
                       "items": {
@@ -2562,9 +2065,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "eventId": {
                                 "type": "string",
@@ -2608,12 +2109,7 @@
                               },
                               "severity": {
                                 "type": "string",
-                                "enum": [
-                                  "info",
-                                  "warning",
-                                  "error",
-                                  "critical"
-                                ]
+                                "enum": ["info", "warning", "error", "critical"]
                               },
                               "actor": {
                                 "type": "object",
@@ -2643,9 +2139,7 @@
                                     "maxLength": 256
                                   }
                                 },
-                                "required": [
-                                  "type"
-                                ],
+                                "required": ["type"],
                                 "additionalProperties": false
                               },
                               "correlation": {
@@ -2685,12 +2179,7 @@
                                 "properties": {
                                   "transport": {
                                     "type": "string",
-                                    "enum": [
-                                      "http",
-                                      "websocket",
-                                      "tcp",
-                                      "tls"
-                                    ]
+                                    "enum": ["http", "websocket", "tcp", "tls"]
                                   },
                                   "method": {
                                     "type": "string",
@@ -2710,14 +2199,8 @@
                                     "items": {
                                       "type": "array",
                                       "prefixItems": [
-                                        {
-                                          "type": "string",
-                                          "maxLength": 1024
-                                        },
-                                        {
-                                          "type": "string",
-                                          "maxLength": 4096
-                                        }
+                                        { "type": "string", "maxLength": 1024 },
+                                        { "type": "string", "maxLength": 4096 }
                                       ]
                                     },
                                     "maxItems": 256
@@ -2737,10 +2220,7 @@
                                           "maxLength": 2048
                                         }
                                       },
-                                      "required": [
-                                        "name",
-                                        "value"
-                                      ],
+                                      "required": ["name", "value"],
                                       "additionalProperties": false
                                     },
                                     "maxItems": 256
@@ -2750,9 +2230,7 @@
                                     "maxLength": 1024
                                   }
                                 },
-                                "required": [
-                                  "transport"
-                                ],
+                                "required": ["transport"],
                                 "additionalProperties": false
                               },
                               "decision": {
@@ -2760,10 +2238,7 @@
                                 "properties": {
                                   "decision": {
                                     "type": "string",
-                                    "enum": [
-                                      "allow",
-                                      "deny"
-                                    ]
+                                    "enum": ["allow", "deny"]
                                   },
                                   "source": {
                                     "type": "string",
@@ -2787,11 +2262,7 @@
                                     "maxItems": 64
                                   }
                                 },
-                                "required": [
-                                  "decision",
-                                  "source",
-                                  "warnings"
-                                ],
+                                "required": ["decision", "source", "warnings"],
                                 "additionalProperties": false
                               },
                               "result": {
@@ -2815,14 +2286,9 @@
                                     "type": "string",
                                     "maxLength": 128
                                   },
-                                  "code": {
-                                    "type": "string",
-                                    "maxLength": 128
-                                  }
+                                  "code": { "type": "string", "maxLength": 128 }
                                 },
-                                "required": [
-                                  "source"
-                                ],
+                                "required": ["source"],
                                 "additionalProperties": false
                               },
                               "change": {
@@ -2854,9 +2320,7 @@
                                     "maxItems": 256
                                   }
                                 },
-                                "required": [
-                                  "changedFields"
-                                ],
+                                "required": ["changedFields"],
                                 "additionalProperties": false
                               },
                               "metrics": {
@@ -2925,9 +2389,7 @@
                                 "additionalProperties": false
                               }
                             },
-                            "required": [
-                              "integrity"
-                            ],
+                            "required": ["integrity"],
                             "additionalProperties": false
                           }
                         ]
@@ -2940,10 +2402,7 @@
                       "maxLength": 1024
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "events"
-                  ],
+                  "required": ["schemaVersion", "events"],
                   "additionalProperties": false
                 }
               }
@@ -2970,9 +2429,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -2980,16 +2437,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -3016,9 +2468,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -3026,16 +2476,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -3054,12 +2499,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "features": {
                       "type": "array",
                       "items": {
@@ -3069,9 +2509,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "feature": {
                                 "type": "string",
@@ -3088,9 +2526,7 @@
                               },
                               "state": {
                                 "type": "string",
-                                "enum": [
-                                  "supported"
-                                ]
+                                "enum": ["supported"]
                               },
                               "detail": {
                                 "type": "string",
@@ -3098,11 +2534,7 @@
                                 "maxLength": 1024
                               }
                             },
-                            "required": [
-                              "schemaVersion",
-                              "feature",
-                              "state"
-                            ],
+                            "required": ["schemaVersion", "feature", "state"],
                             "additionalProperties": false
                           },
                           {
@@ -3110,9 +2542,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "feature": {
                                 "type": "string",
@@ -3129,9 +2559,7 @@
                               },
                               "state": {
                                 "type": "string",
-                                "enum": [
-                                  "degraded"
-                                ]
+                                "enum": ["degraded"]
                               },
                               "reason": {
                                 "type": "string",
@@ -3152,9 +2580,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "feature": {
                                 "type": "string",
@@ -3171,9 +2597,7 @@
                               },
                               "state": {
                                 "type": "string",
-                                "enum": [
-                                  "unsupported"
-                                ]
+                                "enum": ["unsupported"]
                               },
                               "reason": {
                                 "type": "string",
@@ -3194,10 +2618,7 @@
                       "maxItems": 64
                     }
                   },
-                  "required": [
-                    "schemaVersion",
-                    "features"
-                  ],
+                  "required": ["schemaVersion", "features"],
                   "additionalProperties": false
                 }
               }
@@ -3224,9 +2645,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -3234,16 +2653,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -3284,12 +2698,7 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
                         "feature": {
                           "type": "string",
                           "enum": [
@@ -3303,34 +2712,20 @@
                             "webhooks"
                           ]
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "supported"
-                          ]
-                        },
+                        "state": { "type": "string", "enum": ["supported"] },
                         "detail": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 1024
                         }
                       },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "state"
-                      ],
+                      "required": ["schemaVersion", "feature", "state"],
                       "additionalProperties": false
                     },
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
                         "feature": {
                           "type": "string",
                           "enum": [
@@ -3344,12 +2739,7 @@
                             "webhooks"
                           ]
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "degraded"
-                          ]
-                        },
+                        "state": { "type": "string", "enum": ["degraded"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -3367,12 +2757,7 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
                         "feature": {
                           "type": "string",
                           "enum": [
@@ -3386,12 +2771,7 @@
                             "webhooks"
                           ]
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "unsupported"
-                          ]
-                        },
+                        "state": { "type": "string", "enum": ["unsupported"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -3432,9 +2812,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -3442,16 +2820,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -3462,11 +2835,7 @@
     },
     "/api/v1/alerts": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Alert state",
@@ -3477,18 +2846,8 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "alerts"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["alerts"] },
                         "alerts": {
                           "type": "array",
                           "items": {
@@ -3496,9 +2855,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "alertId": {
                                 "type": "string",
@@ -3518,11 +2875,7 @@
                               },
                               "severity": {
                                 "type": "string",
-                                "enum": [
-                                  "warning",
-                                  "error",
-                                  "critical"
-                                ]
+                                "enum": ["warning", "error", "critical"]
                               },
                               "type": {
                                 "type": "string",
@@ -3546,9 +2899,7 @@
                               },
                               "counters": {
                                 "type": "object",
-                                "additionalProperties": {
-                                  "type": "number"
-                                }
+                                "additionalProperties": { "type": "number" }
                               }
                             },
                             "required": [
@@ -3569,12 +2920,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "supported"
-                          ]
-                        }
+                        "state": { "type": "string", "enum": ["supported"] }
                       },
                       "required": [
                         "schemaVersion",
@@ -3587,18 +2933,8 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "alerts"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["alerts"] },
                         "alerts": {
                           "type": "array",
                           "items": {
@@ -3606,9 +2942,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "alertId": {
                                 "type": "string",
@@ -3628,11 +2962,7 @@
                               },
                               "severity": {
                                 "type": "string",
-                                "enum": [
-                                  "warning",
-                                  "error",
-                                  "critical"
-                                ]
+                                "enum": ["warning", "error", "critical"]
                               },
                               "type": {
                                 "type": "string",
@@ -3656,9 +2986,7 @@
                               },
                               "counters": {
                                 "type": "object",
-                                "additionalProperties": {
-                                  "type": "number"
-                                }
+                                "additionalProperties": { "type": "number" }
                               }
                             },
                             "required": [
@@ -3679,12 +3007,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "degraded"
-                          ]
-                        },
+                        "state": { "type": "string", "enum": ["degraded"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -3703,24 +3026,9 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "alerts"
-                          ]
-                        },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "unsupported"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["alerts"] },
+                        "state": { "type": "string", "enum": ["unsupported"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -3761,9 +3069,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -3771,16 +3077,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -3791,11 +3092,7 @@
     },
     "/api/v1/backups": {
       "get": {
-        "security": [
-          {
-            "adminBearer": []
-          }
-        ],
+        "security": [{ "adminBearer": [] }],
         "responses": {
           "200": {
             "description": "Backup state",
@@ -3806,18 +3103,8 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "backups"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["backups"] },
                         "backups": {
                           "type": "array",
                           "items": {
@@ -3825,9 +3112,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "backupId": {
                                 "type": "string",
@@ -3841,23 +3126,13 @@
                               },
                               "kind": {
                                 "type": "string",
-                                "enum": [
-                                  "manual",
-                                  "scheduled"
-                                ]
+                                "enum": ["manual", "scheduled"]
                               },
                               "state": {
                                 "type": "string",
-                                "enum": [
-                                  "pending",
-                                  "complete",
-                                  "failed"
-                                ]
+                                "enum": ["pending", "complete", "failed"]
                               },
-                              "sizeBytes": {
-                                "type": "integer",
-                                "minimum": 0
-                              },
+                              "sizeBytes": { "type": "integer", "minimum": 0 },
                               "sha256": {
                                 "type": "string",
                                 "pattern": "^[a-f0-9]{64}$"
@@ -3883,12 +3158,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "supported"
-                          ]
-                        }
+                        "state": { "type": "string", "enum": ["supported"] }
                       },
                       "required": [
                         "schemaVersion",
@@ -3901,18 +3171,8 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "backups"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["backups"] },
                         "backups": {
                           "type": "array",
                           "items": {
@@ -3920,9 +3180,7 @@
                             "properties": {
                               "schemaVersion": {
                                 "type": "number",
-                                "enum": [
-                                  1
-                                ]
+                                "enum": [1]
                               },
                               "backupId": {
                                 "type": "string",
@@ -3936,23 +3194,13 @@
                               },
                               "kind": {
                                 "type": "string",
-                                "enum": [
-                                  "manual",
-                                  "scheduled"
-                                ]
+                                "enum": ["manual", "scheduled"]
                               },
                               "state": {
                                 "type": "string",
-                                "enum": [
-                                  "pending",
-                                  "complete",
-                                  "failed"
-                                ]
+                                "enum": ["pending", "complete", "failed"]
                               },
-                              "sizeBytes": {
-                                "type": "integer",
-                                "minimum": 0
-                              },
+                              "sizeBytes": { "type": "integer", "minimum": 0 },
                               "sha256": {
                                 "type": "string",
                                 "pattern": "^[a-f0-9]{64}$"
@@ -3978,12 +3226,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "degraded"
-                          ]
-                        },
+                        "state": { "type": "string", "enum": ["degraded"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -4002,24 +3245,9 @@
                     {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": {
-                          "type": "number",
-                          "enum": [
-                            1
-                          ]
-                        },
-                        "feature": {
-                          "type": "string",
-                          "enum": [
-                            "backups"
-                          ]
-                        },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "unsupported"
-                          ]
-                        },
+                        "schemaVersion": { "type": "number", "enum": [1] },
+                        "feature": { "type": "string", "enum": ["backups"] },
+                        "state": { "type": "string", "enum": ["unsupported"] },
                         "reason": {
                           "type": "string",
                           "minLength": 1,
@@ -4060,9 +3288,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -4070,16 +3296,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -4090,11 +3311,7 @@
     },
     "/api/v1/reports/{reportId}": {
       "get": {
-        "security": [
-          {
-            "executionBearer": []
-          }
-        ],
+        "security": [{ "executionBearer": [] }],
         "parameters": [
           {
             "schema": {
@@ -4116,12 +3333,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
-                    },
+                    "schemaVersion": { "type": "number", "enum": [1] },
                     "reportId": {
                       "type": "string",
                       "minLength": 1,
@@ -4147,25 +3359,15 @@
                     },
                     "source": {
                       "type": "string",
-                      "enum": [
-                        "target",
-                        "relay",
-                        "vendor",
-                        "unknown"
-                      ]
+                      "enum": ["target", "relay", "vendor", "unknown"]
                     },
                     "status": {
                       "type": "integer",
                       "minimum": 100,
                       "maximum": 599
                     },
-                    "responseBytes": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "bodyComplete": {
-                      "type": "boolean"
-                    },
+                    "responseBytes": { "type": "integer", "minimum": 0 },
+                    "bodyComplete": { "type": "boolean" },
                     "bodySha256": {
                       "type": "string",
                       "pattern": "^[a-f0-9]{64}$"
@@ -4202,11 +3404,7 @@
                         },
                         "origin": {
                           "type": "string",
-                          "enum": [
-                            "one-fetch",
-                            "adapter",
-                            "vendor"
-                          ]
+                          "enum": ["one-fetch", "adapter", "vendor"]
                         },
                         "stage": {
                           "type": "string",
@@ -4234,25 +3432,15 @@
                           "minLength": 1,
                           "maxLength": 2048
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "details": {
                           "type": "object",
                           "additionalProperties": {
                             "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              },
-                              {
-                                "type": "null"
-                              }
+                              { "type": "string" },
+                              { "type": "number" },
+                              { "type": "boolean" },
+                              { "type": "null" }
                             ]
                           }
                         }
@@ -4301,26 +3489,12 @@
                               },
                               "source": {
                                 "type": "string",
-                                "enum": [
-                                  "gateway",
-                                  "target",
-                                  "vendor"
-                                ]
+                                "enum": ["gateway", "target", "vendor"]
                               },
-                              "durationMs": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "detail": {
-                                "type": "string",
-                                "maxLength": 512
-                              }
+                              "durationMs": { "type": "number", "minimum": 0 },
+                              "detail": { "type": "string", "maxLength": 512 }
                             },
-                            "required": [
-                              "name",
-                              "state",
-                              "source"
-                            ],
+                            "required": ["name", "state", "source"],
                             "additionalProperties": false
                           },
                           "maxItems": 64
@@ -4335,40 +3509,25 @@
                                 "minLength": 1,
                                 "maxLength": 128
                               },
-                              "durationMs": {
-                                "type": "number",
-                                "minimum": 0
-                              },
+                              "durationMs": { "type": "number", "minimum": 0 },
                               "description": {
                                 "type": "string",
                                 "maxLength": 512
                               }
                             },
-                            "required": [
-                              "name"
-                            ],
+                            "required": ["name"],
                             "additionalProperties": false
                           },
                           "maxItems": 128
                         }
                       },
-                      "required": [
-                        "phases",
-                        "serverTiming"
-                      ],
+                      "required": ["phases", "serverTiming"],
                       "additionalProperties": false
                     },
-                    "finishedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
+                    "finishedAt": { "type": "string", "format": "date-time" },
                     "auditState": {
                       "type": "string",
-                      "enum": [
-                        "recorded",
-                        "degraded",
-                        "unknown"
-                      ]
+                      "enum": ["recorded", "degraded", "unknown"]
                     }
                   },
                   "required": [
@@ -4409,9 +3568,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -4419,16 +3576,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -4455,9 +3607,7 @@
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "retryable": {
-                          "type": "boolean"
-                        },
+                        "retryable": { "type": "boolean" },
                         "correlationId": {
                           "type": "string",
                           "minLength": 1,
@@ -4465,16 +3615,11 @@
                           "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "error"
-                  ],
+                  "required": ["error"],
                   "additionalProperties": false
                 }
               }
@@ -4488,11 +3633,7 @@
         "responses": {
           "200": {
             "description": "This OpenAPI 3.1 document",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+            "content": { "application/json": { "schema": {} } }
           }
         }
       }
@@ -4500,23 +3641,12 @@
   },
   "webhooks": {},
   "servers": [
-    {
-      "url": ".",
-      "description": "The configured Control service base URL"
-    }
+    { "url": ".", "description": "The configured Control service base URL" }
   ],
   "tags": [
-    {
-      "name": "public"
-    },
-    {
-      "name": "auth"
-    },
-    {
-      "name": "configuration"
-    },
-    {
-      "name": "operations"
-    }
+    { "name": "public" },
+    { "name": "auth" },
+    { "name": "configuration" },
+    { "name": "operations" }
   ]
 }

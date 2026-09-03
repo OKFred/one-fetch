@@ -1,15 +1,11 @@
 import console from "node:console";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-import {
-  corepackPnpm,
-  join,
-  readJson,
-  repositoryRoot,
-  writeJson,
-} from "./lib.mjs";
+import { format } from "prettier";
+
+import { corepackPnpm, join, readJson, repositoryRoot } from "./lib.mjs";
 
 const argumentsSet = new Set(process.argv.slice(2));
 if ([...argumentsSet].some((argument) => argument !== "--check")) {
@@ -63,7 +59,9 @@ document.tags = [
 ];
 
 const outputPath = join(repositoryRoot, "docs", "api", "control.openapi.json");
-const generated = `${JSON.stringify(document, null, 2)}\n`;
+const generated = await format(JSON.stringify(document), {
+  filepath: outputPath,
+});
 if (argumentsSet.has("--check")) {
   const committed = await readFile(outputPath, "utf8");
   if (committed !== generated) {
@@ -73,6 +71,6 @@ if (argumentsSet.has("--check")) {
   }
   console.log("Control OpenAPI is current");
 } else {
-  await writeJson(outputPath, document);
+  await writeFile(outputPath, generated, "utf8");
   console.log(`Generated ${outputPath}`);
 }
