@@ -119,6 +119,7 @@ describe("Control API schemas", () => {
 describe("Control API route contract", () => {
   it("keeps management routes under the Control origin", () => {
     expect(CONTROL_ROUTES_V1.auditEvents).toBe("/api/v1/audit");
+    expect(CONTROL_ROUTES_V1.openapi).toBe("/api/v1/openapi.json");
     expect(CONTROL_ROUTES_V1.executionToken("token-1")).toBe(
       "/api/v1/tokens/execution/token-1",
     );

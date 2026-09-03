@@ -12,6 +12,7 @@ function resourcePath(base: ControlApiV1Path, id: string): ControlApiV1Path {
 export const CONTROL_ROUTES_V1 = Object.freeze({
   health: "/api/v1/health",
   capabilities: "/api/v1/capabilities",
+  openapi: "/api/v1/openapi.json",
   bootstrap: "/api/v1/bootstrap",
   login: "/api/v1/auth/login",
   refresh: "/api/v1/auth/refresh",
