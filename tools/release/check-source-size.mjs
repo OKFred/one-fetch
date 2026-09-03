@@ -22,6 +22,7 @@ const ignoredDirectories = new Set([
   "coverage",
   "generated",
   ".wrangler",
+  ".one-fetch-bundle",
 ]);
 const hardLimit = 1_000;
 const preferredLimit = 500;
