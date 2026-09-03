@@ -5,6 +5,7 @@ import {
   type AuditEventV1,
   type UnsignedAuditEventV1,
 } from "@one-fetch/protocol";
+import { redactAuditEvent } from "@one-fetch/core";
 
 import { randomId, sha256Hex, stableJson } from "./crypto.js";
 import type { DatabaseClient } from "./database.js";
@@ -97,13 +98,15 @@ export class AuditLedger {
 
   prepare(input: AuditInput): PreparedAuditEvent {
     const timestamp = new Date().toISOString();
-    const unsigned = removeForbiddenFields({
-      ...input,
-      eventId: input.eventId ?? randomId("audit"),
-      occurredAt: input.occurredAt ?? timestamp,
-      recordedAt: timestamp,
-      schemaVersion: 1,
-    }) as UnsignedAuditEventV1;
+    const unsigned = redactAuditEvent(
+      removeForbiddenFields({
+        ...input,
+        eventId: input.eventId ?? randomId("audit"),
+        occurredAt: input.occurredAt ?? timestamp,
+        recordedAt: timestamp,
+        schemaVersion: 1,
+      }) as UnsignedAuditEventV1,
+    );
     const canonical = stableJson(unsigned);
     const payloadHash = sha256Hex(canonical);
     const signature = sign(

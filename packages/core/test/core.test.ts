@@ -69,7 +69,7 @@ describe("core utilities", () => {
       request: {
         transport: "http",
         method: "GET",
-        path: "/users/secret",
+        path: "/users/token/not-for-the-log/public",
         query: [["access_token", "not-for-the-log"]],
         headers: [
           { name: "Authorization", value: "Bearer never" },
@@ -82,6 +82,7 @@ describe("core utilities", () => {
       { name: "X-Api-Key", value: "[REDACTED]" },
     ]);
     expect(redacted.request?.query).toEqual([["access_token", "[REDACTED]"]]);
+    expect(redacted.request?.path).toBe("/users/token/[REDACTED]/public");
 
     const keys = await generateAuditSigningKeyPair();
     const signed = await signAuditEvent(

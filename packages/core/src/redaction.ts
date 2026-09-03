@@ -79,11 +79,29 @@ function redactHeaders(
 
 function redactPath(path: string, config: AuditRedactionConfigV1): string {
   const segments = clean(path, 8_192).split("/");
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = decodePathSegment(segments[index] ?? "");
+    const previous = decodePathSegment(segments[index - 1] ?? "");
+    if (
+      looksLikeSecret(segment) ||
+      (previous.length > 0 && isSensitiveName(previous, config))
+    ) {
+      segments[index] = config.replacement;
+    }
+  }
   for (const index of config.pathSegmentIndexes) {
     const actual = path.startsWith("/") ? index + 1 : index;
     if (actual < segments.length) segments[actual] = config.replacement;
   }
   return segments.join("/");
+}
+
+function decodePathSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export function redactAuditEvent(
