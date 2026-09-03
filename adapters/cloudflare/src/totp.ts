@@ -42,7 +42,10 @@ export function createTotpSecret(): string {
   return encodeBase32(bytes);
 }
 
-async function generateTotp(secret: string, counter: number): Promise<string> {
+export async function generateTotp(
+  secret: string,
+  counter: number,
+): Promise<string> {
   const counterBytes = new Uint8Array(8);
   const view = new DataView(counterBytes.buffer);
   view.setUint32(4, counter, false);

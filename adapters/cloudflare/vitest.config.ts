@@ -39,6 +39,7 @@ export default defineConfig({
     }),
   ],
   test: {
+    fileParallelism: false,
     setupFiles: ["./test/setup.ts"],
     include: ["test/**/*.test.ts"],
   },

@@ -2,11 +2,16 @@ import { DurableObject } from "cloudflare:workers";
 
 import { AuthRepository } from "../auth-repository";
 import type {
+  AuthSessionSummary,
   BootstrapInput,
   ExecutionTokenCreateInput,
   ExecutionTokenCreated,
+  ExecutionTokenSummary,
   LoginInput,
   LoginResult,
+  PasswordChangeResult,
+  TotpEnableResult,
+  TotpPreparation,
   TokenPair,
 } from "../auth-types";
 import type { AccessPrincipal, ExecutionPrincipal } from "../types";
@@ -32,7 +37,7 @@ export class AuthDurableObject extends DurableObject<CloudflareControlEnv> {
   async bootstrap(
     input: BootstrapInput,
   ): Promise<
-    | { ok: true; value: { adminId: string; username: string } }
+    | { ok: true; value: TokenPair }
     | { ok: false; code: "already_initialized" | "invalid_bootstrap_token" }
   > {
     try {
@@ -61,15 +66,18 @@ export class AuthDurableObject extends DurableObject<CloudflareControlEnv> {
     return this.repository().verifyAccess(accessToken);
   }
 
-  async logout(adminId: string, sessionId: string): Promise<void> {
-    await this.repository().logout(adminId, sessionId);
+  async logout(adminId: string, sessionId: string): Promise<string | null> {
+    return this.repository().logout(adminId, sessionId);
   }
 
-  async listSessions(adminId: string): Promise<Record<string, unknown>[]> {
+  async listSessions(adminId: string): Promise<AuthSessionSummary[]> {
     return this.repository().listSessions(adminId);
   }
 
-  async revokeSession(adminId: string, sessionId: string): Promise<boolean> {
+  async revokeSession(
+    adminId: string,
+    sessionId: string,
+  ): Promise<string | null> {
     return this.repository().revokeSession(adminId, sessionId);
   }
 
@@ -79,16 +87,14 @@ export class AuthDurableObject extends DurableObject<CloudflareControlEnv> {
     return this.repository().createExecutionToken(input);
   }
 
-  async listExecutionTokens(
-    adminId: string,
-  ): Promise<Record<string, unknown>[]> {
+  async listExecutionTokens(adminId: string): Promise<ExecutionTokenSummary[]> {
     return this.repository().listExecutionTokens(adminId);
   }
 
   async revokeExecutionToken(
     adminId: string,
     tokenId: string,
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     return this.repository().revokeExecutionToken(adminId, tokenId);
   }
 
@@ -101,21 +107,26 @@ export class AuthDurableObject extends DurableObject<CloudflareControlEnv> {
   async prepareTotp(
     adminId: string,
     username: string,
-  ): Promise<{ secret: string; uri: string; recoveryCodes: string[] }> {
+  ): Promise<TotpPreparation> {
     return this.repository().prepareTotp(adminId, username);
   }
 
-  async enableTotp(adminId: string, code: string): Promise<boolean> {
+  async enableTotp(
+    adminId: string,
+    code: string,
+  ): Promise<TotpEnableResult | null> {
     return this.repository().enableTotp(adminId, code);
   }
 
   async changePassword(
     adminId: string,
+    currentSessionId: string,
     currentPassword: string,
     nextPassword: string,
-  ): Promise<boolean> {
+  ): Promise<PasswordChangeResult | null> {
     return this.repository().changePassword(
       adminId,
+      currentSessionId,
       currentPassword,
       nextPassword,
     );

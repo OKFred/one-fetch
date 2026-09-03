@@ -1,33 +1,110 @@
-import { exports as workerExports } from "cloudflare:workers";
 import { env, SELF } from "cloudflare:test";
 import {
+  AlertsResponseV1Schema,
+  AuditPageV1Schema,
+  BackupsResponseV1Schema,
+  BootstrapStatusV1Schema,
+  ControlFeatureStatusListV1Schema,
   CreatedExecutionTokenV1Schema,
-  ExecutionReportV1Schema,
-  SessionTokenPairV1Schema,
+  ExecutionTokenListV1Schema,
+  ExecutionTokenRevokeResponseV1Schema,
+  OneFetchCapabilitiesV1Schema,
+  RuntimeConfigurationV1Schema,
 } from "@one-fetch/protocol";
 import { describe, expect, it } from "vitest";
 
-const bootstrapBody = {
-  schemaVersion: 1,
-  bootstrapSecret: "test-bootstrap-token-with-enough-entropy",
-  username: "admin",
-  password: "correct horse battery staple",
-};
+import { controlApp } from "../src/control-routes";
+import {
+  authorizedRequest,
+  bootstrapAdmin,
+  bootstrapBody,
+  expectControlError,
+  jsonRequest,
+} from "./control-fixtures";
 
-describe("Cloudflare Control Worker", () => {
-  it("initializes with an empty fail-closed allowlist", async () => {
-    const response = await SELF.fetch(
+describe("Cloudflare canonical Control API", () => {
+  it("publishes fail-closed capabilities, bootstrap status, and honest features", async () => {
+    const capabilitiesResponse = await SELF.fetch(
       "https://control.example/api/v1/capabilities",
     );
-    expect(response.status).toBe(200);
-    const body = await response.json<{
-      policyMode: string;
-      limits: { timeoutMs: number };
-      transports: Record<string, { state: string }>;
+    expect(capabilitiesResponse.status).toBe(200);
+    const capabilities = OneFetchCapabilitiesV1Schema.parse(
+      await capabilitiesResponse.json(),
+    );
+    expect(capabilities.policyMode).toBe("allowlist");
+    expect(capabilities.limits.timeoutMs).toBe(60_000);
+    expect(capabilities.transports.http.state).toBe("stable");
+
+    const bootstrap = BootstrapStatusV1Schema.parse(
+      await (
+        await SELF.fetch("https://control.example/api/v1/bootstrap")
+      ).json(),
+    );
+    expect(bootstrap).toMatchObject({ initialized: false });
+    expect(bootstrap.instanceId).toBe(capabilities.instanceId);
+
+    const features = ControlFeatureStatusListV1Schema.parse(
+      await (
+        await SELF.fetch("https://control.example/api/v1/features")
+      ).json(),
+    );
+    expect(featureState(features, "totp")).toBe("supported");
+    expect(featureState(features, "alerts")).toBe("degraded");
+    expect(featureState(features, "backups")).toBe("unsupported");
+
+    expect(
+      controlApp.getOpenAPI31Document({
+        info: { title: "one-fetch Control API", version: "0.1.0" },
+        openapi: "3.1.0",
+      }),
+    ).toMatchObject({ openapi: "3.1.0" });
+    const openapi = await (
+      await SELF.fetch("https://control.example/api/v1/openapi.json")
+    ).json<{
+      openapi: string;
+      paths: Record<string, { get?: { security?: unknown[] } }>;
+      components: { securitySchemes: Record<string, unknown> };
     }>();
-    expect(body.policyMode).toBe("allowlist");
-    expect(body.limits.timeoutMs).toBe(60_000);
-    expect(body.transports.http?.state).toBe("stable");
+    expect(openapi).toMatchObject({ openapi: "3.1.0" });
+    expect(openapi.paths).toHaveProperty("/api/v1/config/gateway-paused");
+    expect(openapi.paths).toHaveProperty("/api/v1/auth/sessions/{sessionId}");
+    expect(openapi.paths).toHaveProperty("/api/v1/tokens/execution/{tokenId}");
+    expect(openapi.paths).toHaveProperty("/api/v1/features/{feature}");
+    expect(openapi.paths).toHaveProperty("/api/v1/reports/{reportId}");
+    expect(openapi.components.securitySchemes).toHaveProperty("adminBearer");
+    expect(openapi.components.securitySchemes).toHaveProperty(
+      "executionBearer",
+    );
+    expect(openapi.paths["/api/v1/reports/{reportId}"]?.get?.security).toEqual([
+      { executionBearer: [] },
+    ]);
+    expect(Object.keys(openapi.paths).sort()).toEqual(
+      [
+        "/api/v1/alerts",
+        "/api/v1/audit",
+        "/api/v1/auth/login",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/password",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/sessions",
+        "/api/v1/auth/sessions/{sessionId}",
+        "/api/v1/auth/totp/enable",
+        "/api/v1/auth/totp/prepare",
+        "/api/v1/backups",
+        "/api/v1/bootstrap",
+        "/api/v1/capabilities",
+        "/api/v1/config",
+        "/api/v1/config/gateway-paused",
+        "/api/v1/config/policy",
+        "/api/v1/features",
+        "/api/v1/features/{feature}",
+        "/api/v1/health",
+        "/api/v1/openapi.json",
+        "/api/v1/reports/{reportId}",
+        "/api/v1/tokens/execution",
+        "/api/v1/tokens/execution/{tokenId}",
+      ].sort(),
+    );
 
     const row = await env.DB.prepare(
       "SELECT config_json FROM instance_state WHERE singleton = 1",
@@ -38,32 +115,25 @@ describe("Cloudflare Control Worker", () => {
     expect(config.systemPolicy.rules).toEqual([]);
   });
 
-  it("bootstraps one admin, logs in, and creates a scoped execution token", async () => {
-    const bootstrap = await jsonRequest("/api/v1/bootstrap", bootstrapBody);
-    expect(bootstrap.status).toBe(201);
-    const duplicate = await jsonRequest("/api/v1/bootstrap", bootstrapBody);
-    expect(duplicate.status).toBe(409);
+  it("returns canonical auth errors and token lifecycle records", async () => {
+    const pair = await bootstrapAdmin();
+    await expectControlError(
+      await jsonRequest("/api/v1/bootstrap", bootstrapBody),
+      409,
+      "already_initialized",
+    );
+    await expectControlError(
+      await SELF.fetch("https://control.example/api/v1/config"),
+      401,
+      "unauthorized",
+    );
 
-    const login = await jsonRequest("/api/v1/auth/login", {
-      schemaVersion: 1,
-      username: bootstrapBody.username,
-      password: bootstrapBody.password,
-      rememberDevice: false,
-    });
-    expect(login.status).toBe(200);
-    const pair = SessionTokenPairV1Schema.parse(await login.json());
-    expect(pair.accessToken).toBeTruthy();
-    expect(pair.refreshToken).toBeTruthy();
-
-    const created = await SELF.fetch(
-      "https://control.example/api/v1/tokens/execution",
+    const createdResponse = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/tokens/execution",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${pair.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+        body: {
           schemaVersion: 1,
           name: "test-token",
           scope: {
@@ -78,133 +148,159 @@ describe("Cloudflare Control Worker", () => {
             concurrentTunnels: 0,
             bytesPerDay: 1_048_576,
           },
-        }),
+        },
       },
     );
-    expect(created.status).toBe(201);
-    const token = CreatedExecutionTokenV1Schema.parse(await created.json());
-    expect(token.token.length).toBeGreaterThan(32);
-    const persisted = await env.DB.prepare(
+    const created = CreatedExecutionTokenV1Schema.parse(
+      await createdResponse.json(),
+    );
+    const stored = await env.DB.prepare(
       "SELECT token_hash FROM execution_tokens WHERE id = ?",
     )
-      .bind(token.credential.id)
+      .bind(created.credential.id)
       .first<{ token_hash: string }>();
-    expect(persisted?.token_hash).not.toBe(token.token);
+    expect(stored?.token_hash).not.toBe(created.token);
 
-    const audit = await env.DB.prepare(
-      "SELECT action FROM audit_events ORDER BY occurred_at",
-    ).all<{ action: string }>();
-    expect(audit.results.map(({ action }) => action)).toContain(
-      "account.bootstrap",
+    const listed = ExecutionTokenListV1Schema.parse(
+      await (
+        await authorizedRequest(pair.accessToken, "/api/v1/tokens/execution")
+      ).json(),
     );
-    expect(audit.results.map(({ action }) => action)).toContain("auth.login");
+    expect(listed.tokens).toHaveLength(1);
+    expect(listed.tokens[0]?.id).toBe(created.credential.id);
+
+    const revoked = ExecutionTokenRevokeResponseV1Schema.parse(
+      await (
+        await authorizedRequest(
+          pair.accessToken,
+          `/api/v1/tokens/execution/${created.credential.id}`,
+          { method: "DELETE" },
+        )
+      ).json(),
+    );
+    expect(revoked.id).toBe(created.credential.id);
   });
 
-  it("uses ETags to reject stale configuration writes", async () => {
-    await jsonRequest("/api/v1/bootstrap", bootstrapBody);
-    const login = await jsonRequest("/api/v1/auth/login", {
-      schemaVersion: 1,
-      username: bootstrapBody.username,
-      password: bootstrapBody.password,
-      rememberDevice: false,
-    });
-    const { accessToken } = await login.json<{ accessToken: string }>();
-    const current = await SELF.fetch("https://control.example/api/v1/config", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const etag = current.headers.get("etag")!;
-    const payload = await current.json<{ config: unknown }>();
-    const first = await SELF.fetch("https://control.example/api/v1/config", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "If-Match": etag,
-      },
-      body: JSON.stringify({ config: payload.config }),
-    });
-    expect(first.status).toBe(200);
-    const stale = await SELF.fetch("https://control.example/api/v1/config", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "If-Match": etag,
-      },
-      body: JSON.stringify({ config: payload.config }),
-    });
-    expect(stale.status).toBe(412);
-  });
+  it("updates policy and pause state with strong ETag preconditions", async () => {
+    const pair = await bootstrapAdmin();
+    const currentResponse = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/config",
+    );
+    const current = RuntimeConfigurationV1Schema.parse(
+      await currentResponse.json(),
+    );
+    const etag = currentResponse.headers.get("etag")!;
 
-  it("returns a schema-validated report only to its execution token", async () => {
-    const { pair, credential } = await createCredential("report-token");
-    const reportId = crypto.randomUUID();
-    await workerExports.ControlService.releaseExecutionJson(
-      JSON.stringify({
-        tokenId: credential.credential.id,
-        requestId: "report-request-1",
-        reportId,
-        outcome: "target",
-        status: 204,
-        requestBytes: 0,
-        responseBytes: 0,
-        durationMs: 12,
-        timing: {
-          phases: [
-            {
-              name: "total",
-              state: "measured",
-              source: "gateway",
-              durationMs: 12,
-            },
-          ],
-          serverTiming: [],
-        },
-        bodyComplete: true,
+    await expectControlError(
+      await authorizedRequest(pair.accessToken, "/api/v1/config/policy", {
+        method: "PUT",
+        body: { schemaVersion: 1, policy: current.policy },
       }),
+      428,
+      "precondition_required",
     );
-    const allowed = await SELF.fetch(
-      `https://control.example/api/v1/reports/${reportId}`,
-      {
-        headers: { Authorization: `Bearer ${credential.token}` },
-      },
-    );
-    expect(allowed.status).toBe(200);
-    expect(ExecutionReportV1Schema.parse(await allowed.json())).toMatchObject({
-      outcome: "completed",
-      source: "target",
-      status: 204,
-    });
-    const denied = await SELF.fetch(
-      `https://control.example/api/v1/reports/${reportId}`,
-      {
-        headers: { Authorization: `Bearer ${pair.accessToken}` },
-      },
-    );
-    expect(denied.status).toBe(404);
-  });
-});
 
-async function createCredential(name: string) {
-  await jsonRequest("/api/v1/bootstrap", bootstrapBody);
-  const login = await jsonRequest("/api/v1/auth/login", {
-    schemaVersion: 1,
-    username: bootstrapBody.username,
-    password: bootstrapBody.password,
-    rememberDevice: false,
-  });
-  const pair = SessionTokenPairV1Schema.parse(await login.json());
-  const created = await SELF.fetch(
-    "https://control.example/api/v1/tokens/execution",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${pair.accessToken}`,
-        "Content-Type": "application/json",
+    const updatedResponse = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/config/policy",
+      {
+        method: "PUT",
+        headers: { "If-Match": etag },
+        body: {
+          schemaVersion: 1,
+          policy: { ...current.policy, revision: current.policy.revision + 1 },
+        },
       },
-      body: JSON.stringify({
+    );
+    const updated = RuntimeConfigurationV1Schema.parse(
+      await updatedResponse.json(),
+    );
+    expect(updated.revision).toBe(current.revision + 1);
+    expect(updated.version).not.toBe(current.version);
+
+    await expectControlError(
+      await authorizedRequest(pair.accessToken, "/api/v1/config/policy", {
+        method: "PUT",
+        headers: { "If-Match": etag },
+        body: { schemaVersion: 1, policy: updated.policy },
+      }),
+      412,
+      "config_conflict",
+    );
+
+    const pausedResponse = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/config/gateway-paused",
+      {
+        method: "PUT",
+        headers: { "If-Match": updatedResponse.headers.get("etag")! },
+        body: { schemaVersion: 1, paused: true },
+      },
+    );
+    expect(
+      RuntimeConfigurationV1Schema.parse(await pausedResponse.json())
+        .gatewayPaused,
+    ).toBe(true);
+
+    const alerts = AlertsResponseV1Schema.parse(
+      await (
+        await authorizedRequest(pair.accessToken, "/api/v1/alerts")
+      ).json(),
+    );
+    expect(alerts.state).toBe("degraded");
+    if (alerts.state !== "unsupported") {
+      expect(alerts.alerts.some(({ type }) => type === "gateway_paused")).toBe(
+        true,
+      );
+    }
+    const backups = BackupsResponseV1Schema.parse(
+      await (
+        await authorizedRequest(pair.accessToken, "/api/v1/backups")
+      ).json(),
+    );
+    expect(backups.state).toBe("unsupported");
+  });
+
+  it("commits only one success audit for concurrent configuration CAS", async () => {
+    const pair = await bootstrapAdmin();
+    const currentResponse = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/config",
+    );
+    const current = RuntimeConfigurationV1Schema.parse(
+      await currentResponse.json(),
+    );
+    const etag = currentResponse.headers.get("etag")!;
+    const responses = await Promise.all(
+      [1, 2].map((increment) =>
+        authorizedRequest(pair.accessToken, "/api/v1/config/policy", {
+          method: "PUT",
+          headers: { "If-Match": etag },
+          body: {
+            schemaVersion: 1,
+            policy: {
+              ...current.policy,
+              revision: current.policy.revision + increment,
+            },
+          },
+        }),
+      ),
+    );
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 412]);
+    const audit = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM audit_events WHERE action = 'config.policy.update' AND outcome = 'success'",
+    ).first<{ count: number }>();
+    expect(audit?.count).toBe(1);
+  });
+
+  it("paginates canonical audit records", async () => {
+    const pair = await bootstrapAdmin();
+    await authorizedRequest(pair.accessToken, "/api/v1/tokens/execution", {
+      method: "POST",
+      body: {
         schemaVersion: 1,
-        name,
+        name: "audit-token",
         scope: { transports: ["http"], origins: [], ports: [] },
         quota: {
           requestsPerMinute: 60,
@@ -213,19 +309,31 @@ async function createCredential(name: string) {
           concurrentTunnels: 0,
           bytesPerDay: 1_048_576,
         },
-      }),
-    },
-  );
-  return {
-    pair,
-    credential: CreatedExecutionTokenV1Schema.parse(await created.json()),
-  };
-}
-
-function jsonRequest(path: string, body: unknown): Promise<Response> {
-  return SELF.fetch(`https://control.example${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+      },
+    });
+    const first = AuditPageV1Schema.parse(
+      await (
+        await authorizedRequest(pair.accessToken, "/api/v1/audit?limit=1")
+      ).json(),
+    );
+    expect(first.events).toHaveLength(1);
+    expect(first.nextCursor).toBeTruthy();
+    const second = AuditPageV1Schema.parse(
+      await (
+        await authorizedRequest(
+          pair.accessToken,
+          `/api/v1/audit?limit=1&cursor=${encodeURIComponent(first.nextCursor!)}`,
+        )
+      ).json(),
+    );
+    expect(second.events).toHaveLength(1);
+    expect(second.events[0]?.eventId).not.toBe(first.events[0]?.eventId);
   });
+});
+
+function featureState(
+  status: ReturnType<typeof ControlFeatureStatusListV1Schema.parse>,
+  feature: string,
+): string | undefined {
+  return status.features.find((entry) => entry.feature === feature)?.state;
 }

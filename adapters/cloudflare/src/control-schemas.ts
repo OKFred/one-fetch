@@ -1,27 +1,31 @@
-import { z } from "zod";
 import {
   BootstrapRequestV1Schema,
+  ChangePasswordRequestV1Schema,
   CreateExecutionTokenRequestV1Schema,
   LoginRequestV1Schema,
   RefreshRequestV1Schema,
+  SetGatewayPausedRequestV1Schema,
+  TotpEnableRequestV1Schema,
+  UpdatePolicyRequestV1Schema,
 } from "@one-fetch/protocol";
 
-export const bootstrapSchema = BootstrapRequestV1Schema;
-export const loginSchema = LoginRequestV1Schema;
+import { ADMIN_USERNAME_PATTERN } from "./auth-types";
+
+export const bootstrapSchema = BootstrapRequestV1Schema.refine(
+  ({ username }) => ADMIN_USERNAME_PATTERN.test(username),
+  { message: "Invalid administrator username", path: ["username"] },
+);
+export const loginSchema = LoginRequestV1Schema.refine(
+  ({ username }) => ADMIN_USERNAME_PATTERN.test(username),
+  { message: "Invalid administrator username", path: ["username"] },
+);
 export const refreshSchema = RefreshRequestV1Schema;
-export const totpCodeSchema = z
-  .object({ code: z.string().regex(/^\d{6}$/u) })
-  .strict();
-export const passwordChangeSchema = z
-  .object({
-    currentPassword: z.string().min(1).max(1_024),
-    nextPassword: z.string().min(12).max(1_024),
-  })
-  .strict();
+export const totpEnableSchema = TotpEnableRequestV1Schema;
+export const passwordChangeSchema = ChangePasswordRequestV1Schema;
 
 export const executionTokenSchema = CreateExecutionTokenRequestV1Schema;
-
-export const configUpdateSchema = z.object({ config: z.unknown() }).strict();
+export const policyUpdateSchema = UpdatePolicyRequestV1Schema;
+export const gatewayPausedSchema = SetGatewayPausedRequestV1Schema;
 
 export async function readBoundedJson(
   request: Request,

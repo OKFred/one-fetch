@@ -8,4 +8,20 @@ const testEnv = env as unknown as CloudflareControlEnv & {
 
 beforeEach(async () => {
   await applyD1Migrations(testEnv.DB, testEnv.TEST_MIGRATIONS);
+  await testEnv.DB.batch(
+    [
+      "execution_reports",
+      "execution_tokens",
+      "access_tokens",
+      "refresh_token_history",
+      "auth_sessions",
+      "recovery_codes",
+      "auth_login_state",
+      "auth_unknown_login_state",
+      "webhook_outbox",
+      "audit_events",
+      "admins",
+      "instance_state",
+    ].map((table) => testEnv.DB.prepare(`DELETE FROM ${table}`)),
+  );
 });
