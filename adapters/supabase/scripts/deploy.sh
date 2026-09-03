@@ -21,8 +21,12 @@ fi
 
 adapter_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$adapter_root"
+pnpm run predeploy
+build_id="$(node scripts/build-id.mjs --project-ref "$project_ref" --env-file "$env_file")"
 pnpm exec supabase link --project-ref "$project_ref"
 pnpm exec supabase db push --include-all
-pnpm exec supabase secrets set --env-file "$env_file"
-pnpm exec supabase functions deploy one-fetch-control --no-verify-jwt
-pnpm exec supabase functions deploy one-fetch-gateway --no-verify-jwt
+pnpm exec supabase secrets set --project-ref "$project_ref" --env-file "$env_file"
+pnpm exec supabase functions deploy one-fetch-control --project-ref "$project_ref" --no-verify-jwt
+pnpm exec supabase functions deploy one-fetch-gateway --project-ref "$project_ref" --no-verify-jwt
+pnpm exec supabase secrets set --project-ref "$project_ref" "ONE_FETCH_BUILD_VERSION=$build_id"
+node scripts/verify-deployment.mjs --project-ref "$project_ref" --env-file "$env_file" --build-id "$build_id"
