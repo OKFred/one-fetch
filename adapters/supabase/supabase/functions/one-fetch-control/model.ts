@@ -1,10 +1,13 @@
 import {
   BootstrapRequestV1Schema,
+  ControlFeatureStatusListV1Schema,
   CreateExecutionTokenRequestV1Schema,
+  IsoDateTimeSchema,
   LoginRequestV1Schema,
   ONE_FETCH_LIMITS_V1,
   PolicySetV1Schema,
   RefreshRequestV1Schema,
+  RuntimeConfigurationV1Schema,
 } from "@one-fetch/protocol";
 import { z } from "zod";
 
@@ -32,52 +35,160 @@ export const ConfigSchema = z
   })
   .strict();
 
-export const ConfigurationResponseSchema = z
+const StoredConfigFields = {
+  instanceId: z.string().uuid(),
+  gatewayPaused: z.boolean(),
+  revision: z.number().int().nonnegative(),
+  version: z.string().min(1).max(256),
+  config: ConfigSchema,
+  updatedAt: IsoDateTimeSchema,
+  auditDegraded: z.boolean(),
+};
+
+export const InitializedStoredConfigSchema = z
   .object({
-    controlGatewayPairId: z.string().min(1).max(128),
-    policy: PolicySetV1Schema,
-    updatedAt: z.iso.datetime({ offset: true }),
-    version: z.string().min(1).max(256),
+    initialized: z.literal(true),
+    ...StoredConfigFields,
   })
   .strict();
 
-export interface StoredConfig {
-  instanceId?: string;
-  initialized: boolean;
-  gatewayPaused?: boolean;
-  revision?: number;
-  version?: string;
-  config?: z.infer<typeof ConfigSchema>;
-  updatedAt?: string;
+const UninitializedStoredConfigSchema = z
+  .object({
+    initialized: z.literal(false),
+    auditDegraded: z.boolean(),
+    instanceId: StoredConfigFields.instanceId.optional(),
+    gatewayPaused: StoredConfigFields.gatewayPaused.optional(),
+    revision: StoredConfigFields.revision.optional(),
+    version: StoredConfigFields.version.optional(),
+    config: StoredConfigFields.config.optional(),
+    updatedAt: StoredConfigFields.updatedAt.optional(),
+  })
+  .strict();
+
+export const StoredConfigSchema = z.discriminatedUnion("initialized", [
+  InitializedStoredConfigSchema,
+  UninitializedStoredConfigSchema,
+]);
+export type StoredConfig = z.infer<typeof StoredConfigSchema>;
+export type InitializedStoredConfig = z.infer<
+  typeof InitializedStoredConfigSchema
+>;
+
+const InstanceStateFields = {
+  instanceId: z.string().uuid(),
+  gatewayPaused: z.boolean(),
+  configRevision: z.number().int().nonnegative(),
+  configVersion: z.string().min(1).max(256),
+  updatedAt: IsoDateTimeSchema,
+  auditDegraded: z.boolean(),
+};
+
+export const InstanceStateSchema = z.discriminatedUnion("initialized", [
+  z
+    .object({ initialized: z.literal(true), ...InstanceStateFields })
+    .strict(),
+  z
+    .object({
+      initialized: z.literal(false),
+      auditDegraded: z.boolean(),
+      instanceId: InstanceStateFields.instanceId.optional(),
+      gatewayPaused: InstanceStateFields.gatewayPaused.optional(),
+      configRevision: InstanceStateFields.configRevision.optional(),
+      configVersion: InstanceStateFields.configVersion.optional(),
+      updatedAt: InstanceStateFields.updatedAt.optional(),
+    })
+    .strict(),
+]);
+export type InstanceState = z.infer<typeof InstanceStateSchema>;
+
+export const LoginRecordSchema = z
+  .object({
+    adminId: z.string().uuid(),
+    passwordHash: z.string().min(1).max(512),
+    failedLoginCount: z.number().int().nonnegative(),
+    lockedUntil: IsoDateTimeSchema.nullable(),
+    totpConfigured: z.boolean(),
+  })
+  .strict()
+  .nullable();
+export type LoginRecord = z.infer<typeof LoginRecordSchema>;
+
+export class InstanceMismatchError extends Error {
+  constructor() {
+    super("Stored instance ID does not match the configured instance ID");
+    this.name = "InstanceMismatchError";
+  }
 }
 
-export interface InstanceState {
-  instanceId?: string;
-  initialized: boolean;
-  gatewayPaused?: boolean;
-  configRevision?: number;
-  configVersion?: string;
-  updatedAt?: string;
-  config?: { policy?: { mode?: "allowlist" | "blocklist" } };
-}
-
-export interface LoginRecord {
-  adminId: string;
-  passwordHash: string;
-  failedLoginCount: number;
-  lockedUntil?: string;
-  totpConfigured: boolean;
+export function assertMatchingInstance(
+  stored: { instanceId?: string | undefined },
+  expectedInstanceId: string,
+): void {
+  if (
+    stored.instanceId !== undefined &&
+    stored.instanceId !== expectedInstanceId
+  ) {
+    throw new InstanceMismatchError();
+  }
 }
 
 export function configurationResponse(
-  stored: StoredConfig,
+  stored: InitializedStoredConfig,
   pairId: string,
-): z.infer<typeof ConfigurationResponseSchema> {
-  return ConfigurationResponseSchema.parse({
+): z.infer<typeof RuntimeConfigurationV1Schema> {
+  return RuntimeConfigurationV1Schema.parse({
+    schemaVersion: 1,
+    instanceId: stored.instanceId,
     controlGatewayPairId: pairId,
-    policy: stored.config?.policy,
+    revision: stored.revision,
+    policy: stored.config.policy,
+    gatewayPaused: stored.config.gatewayPaused,
     updatedAt: stored.updatedAt,
     version: stored.version,
+  });
+}
+
+export function featureStatuses() {
+  return ControlFeatureStatusListV1Schema.parse({
+    schemaVersion: 1,
+    features: [
+      {
+        schemaVersion: 1,
+        feature: "alerts",
+        state: "unsupported",
+        reason:
+          "Signed Webhook alerts are not available in the Supabase Preview",
+      },
+      {
+        schemaVersion: 1,
+        feature: "backups",
+        state: "unsupported",
+        reason:
+          "Managed backup orchestration is not available in the Supabase Preview",
+      },
+      {
+        schemaVersion: 1,
+        feature: "audit-export",
+        state: "unsupported",
+        reason:
+          "Signed JSONL audit export is not available in the Supabase Preview",
+      },
+      { schemaVersion: 1, feature: "gateway-pause", state: "supported" },
+      { schemaVersion: 1, feature: "sessions", state: "supported" },
+      {
+        schemaVersion: 1,
+        feature: "totp",
+        state: "unsupported",
+        reason: "TOTP enrollment is not available in the Supabase Preview",
+      },
+      { schemaVersion: 1, feature: "password-change", state: "supported" },
+      {
+        schemaVersion: 1,
+        feature: "webhooks",
+        state: "unsupported",
+        reason: "Webhook delivery is not available in the Supabase Preview",
+      },
+    ],
   });
 }
 

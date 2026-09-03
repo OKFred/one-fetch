@@ -3,6 +3,8 @@ import { createDatabase, type Database } from "../_shared/database.ts";
 import { getEnvironment, type SupabaseEnvironment } from "../_shared/env.ts";
 import { normalizeControlRequest, requestPath } from "../_shared/http.ts";
 import { createControlApp } from "./app.ts";
+import { controlError } from "./helpers.ts";
+import { CONTROL_BASE_URL_HEADER, deriveControlBaseUrl } from "./openapi.ts";
 
 export function createControlHandler(
   environment: SupabaseEnvironment = getEnvironment(),
@@ -11,21 +13,36 @@ export function createControlHandler(
   const app = createControlApp(environment, database);
   return async (request: Request): Promise<Response> => {
     const path = requestPath(request, "one-fetch-control");
-    const isClientReadable =
-      path === "/api/v1/capabilities" ||
+    const isClientReadable = path === "/api/v1/capabilities" ||
       path === "/api/v1/health" ||
+      path === "/api/v1/openapi.json" ||
+      path === "/api/v1/features" ||
+      path.startsWith("/api/v1/features/") ||
       path.startsWith("/api/v1/reports/");
     const allowedOrigins = isClientReadable
       ? [
-          ...new Set([
-            ...environment.allowedAdminOrigins,
-            ...environment.allowedClientOrigins,
-          ]),
-        ]
+        ...new Set([
+          ...environment.allowedAdminOrigins,
+          ...environment.allowedClientOrigins,
+        ]),
+      ]
       : environment.allowedAdminOrigins;
+    const origin = request.headers.get("origin");
+    if (origin && !allowedOrigins.includes(origin)) {
+      return controlError(
+        "origin_not_allowed",
+        "Request origin is not allowed",
+        403,
+      );
+    }
     const preflightResponse = preflight(request, allowedOrigins);
     if (preflightResponse) return preflightResponse;
-    const response = await app.fetch(normalizeControlRequest(request));
+    const normalizedRequest = normalizeControlRequest(request);
+    normalizedRequest.headers.set(
+      CONTROL_BASE_URL_HEADER,
+      deriveControlBaseUrl(request),
+    );
+    const response = await app.fetch(normalizedRequest);
     const headers = new Headers(response.headers);
     headers.set("cache-control", "no-store");
     headers.set("x-content-type-options", "nosniff");
