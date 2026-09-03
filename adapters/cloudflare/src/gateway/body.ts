@@ -212,12 +212,12 @@ async function readNext(
   if (signal === undefined) return reader.read();
   if (signal.aborted) {
     await reader.cancel(signal.reason).catch(() => undefined);
-    throw signal.reason;
+    throw abortReason(signal.reason);
   }
   return new Promise((resolve, reject) => {
     const aborted = (): void => {
       void reader.cancel(signal.reason).catch(() => undefined);
-      reject(signal.reason);
+      reject(abortReason(signal.reason));
     };
     signal.addEventListener("abort", aborted, { once: true });
     void reader
@@ -227,6 +227,12 @@ async function readNext(
         signal.removeEventListener("abort", aborted);
       });
   });
+}
+
+function abortReason(reason: unknown): Error {
+  return reason instanceof Error
+    ? reason
+    : new DOMException("Request aborted", "AbortError");
 }
 
 function concatenate(chunks: Uint8Array[], size: number): Uint8Array {

@@ -5,7 +5,7 @@ import { buildAuditEvent } from "../src/audit";
 describe("Cloudflare audit redaction", () => {
   it("redacts credentials in structured request fields before signing", async () => {
     const event = await buildAuditEvent({
-      signingKey: process.env.AUDIT_SIGNING_KEY!,
+      signingKey: process.env.AUDIT_SIGNING_KEY,
       event: {
         occurredAt: "2026-09-04T00:00:00.000Z",
         category: "execution",
