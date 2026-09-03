@@ -13,6 +13,10 @@ export interface TunnelTransferResult {
   reason: string;
 }
 
+export type TunnelByteGate = (bytes: number) => Promise<void>;
+
+const allowAllBytes: TunnelByteGate = () => Promise.resolve();
+
 export const connectSocketTarget = async (
   metadata: OneFetchRequestMetaV1,
   target: ApprovedTunnelTarget,
@@ -63,6 +67,7 @@ export const connectSocketTarget = async (
 export const bridgeSocketTunnel = (
   client: WebSocket,
   target: Socket | TLSSocket,
+  chargeBytes: TunnelByteGate = allowAllBytes,
 ): Promise<TunnelTransferResult> =>
   new Promise((resolve) => {
     let bytesUp = 0;
@@ -84,7 +89,17 @@ export const bridgeSocketTunnel = (
       }
       const bytes = tunnelDataToBuffer(data);
       bytesUp += bytes.byteLength;
-      if (!target.write(bytes)) client.pause();
+      client.pause();
+      void chargeBytes(bytes.byteLength)
+        .then(() => {
+          if (settled) return;
+          if (target.write(bytes)) client.resume();
+        })
+        .catch(() => {
+          client.close(1008, "Quota exceeded");
+          target.destroy();
+          finish("quota-exceeded");
+        });
     };
     client.on("message", onClientMessage);
     client.once("close", () => {
@@ -99,14 +114,23 @@ export const bridgeSocketTunnel = (
     target.on("data", (chunk: Buffer) => {
       bytesDown += chunk.byteLength;
       target.pause();
-      client.send(chunk, { binary: true }, (error) => {
-        if (error) {
-          target.destroy(error);
-          finish("client-error");
-        } else {
-          target.resume();
-        }
-      });
+      void chargeBytes(chunk.byteLength)
+        .then(() => {
+          if (settled) return;
+          client.send(chunk, { binary: true }, (error) => {
+            if (error) {
+              target.destroy(error);
+              finish("client-error");
+            } else {
+              target.resume();
+            }
+          });
+        })
+        .catch(() => {
+          client.close(1008, "Quota exceeded");
+          target.destroy();
+          finish("quota-exceeded");
+        });
     });
     target.once("end", () => {
       client.close(1000, "Target closed");

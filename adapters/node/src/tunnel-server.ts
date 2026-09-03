@@ -14,6 +14,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import { GatewayFailure, failure } from "./gateway-error.js";
 import type { GatewayDependencies } from "./gateway.js";
 import { validateTargetHeaders } from "./headers.js";
+import type { QuotaLease } from "./quota.js";
 import { auditTunnelAccepted, auditTunnelClosed } from "./tunnel-audit.js";
 import { tunnelDataToText } from "./tunnel-data.js";
 import { approveTunnelTarget } from "./tunnel-policy.js";
@@ -170,6 +171,7 @@ const handleTunnel = async (
   let metadata: OneFetchRequestMetaV1 | undefined;
   let token = "";
   let context: TunnelResponseContext | undefined;
+  let quotaLease: QuotaLease | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const abort = new AbortController();
   try {
@@ -200,6 +202,7 @@ const handleTunnel = async (
         503,
         true,
       );
+    quotaLease = await dependencies.quota.acquire(credential, "tunnel");
     timeout = setTimeout(
       () => abort.abort(new Error("Tunnel setup timeout")),
       metadata.fetchOptions.timeoutMs,
@@ -273,7 +276,11 @@ const handleTunnel = async (
       await new Promise<void>((resolve, reject) =>
         socket.send(payload, (error) => (error ? reject(error) : resolve())),
       );
-      transfer = bridgeWebSockets(socket, upstream.socket);
+      transfer = bridgeWebSockets(
+        socket,
+        upstream.socket,
+        quotaLease.chargeBytes,
+      );
     } else {
       const upstream = await connectSocketTarget(
         metadata,
@@ -298,7 +305,7 @@ const handleTunnel = async (
       await new Promise<void>((resolve, reject) =>
         socket.send(payload, (error) => (error ? reject(error) : resolve())),
       );
-      transfer = bridgeSocketTunnel(socket, upstream);
+      transfer = bridgeSocketTunnel(socket, upstream, quotaLease.chargeBytes);
     }
     if (timeout) clearTimeout(timeout);
     timeout = undefined;
@@ -326,6 +333,7 @@ const handleTunnel = async (
     }
   } finally {
     if (timeout) clearTimeout(timeout);
+    await quotaLease?.release();
   }
 };
 

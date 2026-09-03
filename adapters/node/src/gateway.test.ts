@@ -366,4 +366,61 @@ describe("Node transparent Gateway", () => {
       expect(classified.error.code).toBe("forbidden");
     }
   });
+
+  it("returns a signed quota error before opening an upstream connection", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+    const administratorId = await services.auth.authenticateAdmin(
+      session.accessToken,
+    );
+    const request = testExecutionTokenRequest(
+      ["http"],
+      ["https://example.com"],
+    );
+    request.quota.concurrentHttp = 0;
+    const issued = await services.auth.createExecutionToken(
+      administratorId!,
+      request,
+    );
+    const gateway = createGatewayServer(services);
+    const gatewayPort = await listen(gateway);
+    cleanups.push(() => closeServer(gateway));
+    const metadata: OneFetchRequestMetaV1 = {
+      body: { sizeBytes: 0 },
+      fetchOptions: { redirect: "follow", timeoutMs: 60_000 },
+      hop: 0,
+      nonce: "33333333333333333333333333333333",
+      protocolVersion: 1,
+      requestId: "gateway-quota",
+      targetHeaders: [],
+      targetOrigin: "https://example.com",
+      transport: "http",
+    };
+    const result = await fetch(`http://127.0.0.1:${gatewayPort}/blocked`, {
+      headers: {
+        [ONE_FETCH_REQUEST_HEADER]: encodeRequestMetadata(metadata),
+        [ONE_FETCH_TOKEN_HEADER]: issued.token,
+      },
+    });
+
+    expect(result.status).toBe(429);
+    const classified = await classifyOneFetchResponse(
+      result.headers.get(ONE_FETCH_RESPONSE_HEADER),
+      {
+        nonce: metadata.nonce,
+        requestId: metadata.requestId,
+        token: issued.token,
+      },
+    );
+    expect(classified.source).toBe("relay");
+    if (classified.source === "relay") {
+      expect(classified.error.code).toBe("quota_exceeded");
+    }
+  });
 });

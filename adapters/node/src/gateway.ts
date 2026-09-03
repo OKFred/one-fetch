@@ -39,6 +39,7 @@ import {
 } from "./gateway-response.js";
 import { auditAccepted, streamTarget } from "./gateway-stream.js";
 import { setCookieValues, validateTargetHeaders } from "./headers.js";
+import type { QuotaCoordinator, QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
 import {
   executeUpstream,
@@ -52,6 +53,7 @@ export interface GatewayDependencies {
   auth: AuthenticationService;
   config: NodeAdapterConfig;
   configuration: ConfigurationStore;
+  quota: QuotaCoordinator;
   reports: ExecutionReportStore;
 }
 
@@ -294,6 +296,7 @@ const handleGatewayRequest = async (
   const token = singleHeader(request, ONE_FETCH_TOKEN_HEADER) ?? "";
   let configuration: StoredConfiguration | undefined;
   let responseContext: ResponseContext | undefined;
+  let quotaLease: QuotaLease | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const abort = new AbortController();
   request.once("aborted", () =>
@@ -337,6 +340,11 @@ const handleGatewayRequest = async (
       ONE_FETCH_LIMITS_V1.inspectableBodyBytes,
     );
     validateRequest(request, metadata, body, configuration, dependencies);
+    quotaLease = await dependencies.quota.acquire(
+      credential,
+      "http",
+      body.sizeBytes,
+    );
     timeout = setTimeout(
       () => abort.abort(new Error("Request timeout")),
       metadata.fetchOptions.timeoutMs,
@@ -429,6 +437,7 @@ const handleGatewayRequest = async (
       responseContext,
       credential,
       startedAt,
+      quotaLease,
     );
   } catch (error) {
     const gatewayError =
@@ -474,6 +483,7 @@ const handleGatewayRequest = async (
     }
   } finally {
     if (timeout) clearTimeout(timeout);
+    await quotaLease?.release();
     await body?.cleanup().catch(() => undefined);
   }
 };

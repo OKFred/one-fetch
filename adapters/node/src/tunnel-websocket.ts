@@ -6,7 +6,7 @@ import WebSocket from "ws";
 import { fromRawHeaders, setCookieValues } from "./headers.js";
 import { tunnelDataToBuffer } from "./tunnel-data.js";
 import type { ApprovedTunnelTarget } from "./tunnel-policy.js";
-import type { TunnelTransferResult } from "./tunnel-socket.js";
+import type { TunnelByteGate, TunnelTransferResult } from "./tunnel-socket.js";
 
 export interface WebSocketHandshake {
   headers: HeaderEntryV1[];
@@ -130,9 +130,12 @@ export const connectWebSocketTarget = (
 const dataLength = (data: WebSocket.RawData): number =>
   tunnelDataToBuffer(data).byteLength;
 
+const allowAllBytes: TunnelByteGate = () => Promise.resolve();
+
 export const bridgeWebSockets = (
   client: WebSocket,
   target: WebSocket,
+  chargeBytes: TunnelByteGate = allowAllBytes,
 ): Promise<TunnelTransferResult> =>
   new Promise((resolve) => {
     let bytesUp = 0;
@@ -144,20 +147,40 @@ export const bridgeWebSockets = (
       resolve({ bytesDown, bytesUp, reason });
     };
     client.on("message", (data, binary) => {
-      bytesUp += dataLength(data);
+      const bytes = dataLength(data);
+      bytesUp += bytes;
       client.pause();
-      target.send(data, { binary }, (error) => {
-        client.resume();
-        if (error) finish("target-error");
-      });
+      void chargeBytes(bytes)
+        .then(() => {
+          if (settled) return;
+          target.send(data, { binary }, (error) => {
+            client.resume();
+            if (error) finish("target-error");
+          });
+        })
+        .catch(() => {
+          client.close(1008, "Quota exceeded");
+          target.terminate();
+          finish("quota-exceeded");
+        });
     });
     target.on("message", (data, binary) => {
-      bytesDown += dataLength(data);
+      const bytes = dataLength(data);
+      bytesDown += bytes;
       target.pause();
-      client.send(data, { binary }, (error) => {
-        target.resume();
-        if (error) finish("client-error");
-      });
+      void chargeBytes(bytes)
+        .then(() => {
+          if (settled) return;
+          client.send(data, { binary }, (error) => {
+            target.resume();
+            if (error) finish("client-error");
+          });
+        })
+        .catch(() => {
+          client.close(1008, "Quota exceeded");
+          target.terminate();
+          finish("quota-exceeded");
+        });
     });
     client.once("close", (code, reason) => {
       target.close(code, reason);

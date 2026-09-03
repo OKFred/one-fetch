@@ -8,6 +8,7 @@ import { createControlApp } from "./control.js";
 import { DatabaseClient } from "./database.js";
 import { ExecutionReportStore } from "./execution-reports.js";
 import { createGatewayServer } from "./gateway.js";
+import { QuotaCoordinator } from "./quota.js";
 import { assertSupportedRuntime } from "./runtime-probe.js";
 
 export interface OneFetchNodeServer {
@@ -37,6 +38,7 @@ export const startOneFetchNode = async (
     suppliedConfig.instancePepper,
   );
   const reports = new ExecutionReportStore(database);
+  const quota = new QuotaCoordinator(database);
   const bootstrapToken = await auth.ensureBootstrap();
 
   const control = serve({
@@ -56,6 +58,7 @@ export const startOneFetchNode = async (
     auth,
     config: suppliedConfig,
     configuration,
+    quota,
     reports,
   });
   await new Promise<void>((resolve, reject) => {

@@ -13,6 +13,7 @@ import type { StoredConfiguration } from "./configuration.js";
 import { failure } from "./gateway-error.js";
 import type { ResponseContext } from "./gateway-response.js";
 import type { GatewayDependencies } from "./gateway.js";
+import type { QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
 import type { executeUpstream } from "./upstream.js";
 
@@ -66,6 +67,7 @@ export const streamTarget = async (
   context: ResponseContext,
   credential: ExecutionCredential,
   startedAt: number,
+  quota: QuotaLease,
 ): Promise<void> => {
   const hash = createHash("sha256");
   const downloadStarted = performance.now();
@@ -74,8 +76,10 @@ export const streamTarget = async (
   try {
     for await (const value of upstream.response as AsyncIterable<Uint8Array>) {
       const chunk = Buffer.from(value);
-      bytes += chunk.byteLength;
-      if (bytes > dependencies.config.responseBodyLimitBytes) {
+      if (
+        bytes + chunk.byteLength >
+        dependencies.config.responseBodyLimitBytes
+      ) {
         outcome = "partial";
         throw failure(
           "response_too_large",
@@ -84,6 +88,8 @@ export const streamTarget = async (
           502,
         );
       }
+      await quota.chargeBytes(chunk.byteLength);
+      bytes += chunk.byteLength;
       hash.update(chunk);
       if (!response.write(chunk))
         await new Promise<void>((resolve) => response.once("drain", resolve));
