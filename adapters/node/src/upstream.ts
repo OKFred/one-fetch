@@ -1,16 +1,8 @@
 import { lookup } from "node:dns/promises";
-import {
-  request as httpRequest,
-  type IncomingMessage,
-  type RequestOptions,
-} from "node:http";
+import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { RequestOptions as HttpsRequestOptions } from "node:https";
 import { performance } from "node:perf_hooks";
-
-import { HttpProxyAgent } from "http-proxy-agent";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocksProxyAgent } from "socks-proxy-agent";
 
 import type {
   FetchOptionsV1,
@@ -95,19 +87,6 @@ export const resolveApprovedTarget = async (
 
 const redirectStatus = new Set([301, 302, 303, 307, 308]);
 
-const requestAgent = (
-  target: URL,
-  adapter: FetchOptionsV1["adapter"],
-): RequestOptions["agent"] => {
-  const proxy = typeof adapter?.proxy === "string" ? adapter.proxy : undefined;
-  if (!proxy) return undefined;
-  const proxyUrl = new URL(proxy);
-  if (proxyUrl.protocol.startsWith("socks"))
-    return new SocksProxyAgent(proxyUrl);
-  if (target.protocol === "https:") return new HttpsProxyAgent(proxyUrl);
-  return new HttpProxyAgent(proxyUrl);
-};
-
 const singleRequest = async (
   url: URL,
   method: string,
@@ -127,11 +106,9 @@ const singleRequest = async (
     },
   ];
   const started = performance.now();
-  const agent = requestAgent(url, options.adapter);
   const bodyStream = sendBody ? body.createStream() : undefined;
   const tls = options.adapter ?? {};
   const requestOptions: HttpsRequestOptions = {
-    agent,
     ca: typeof tls.caPem === "string" ? tls.caPem : undefined,
     cert:
       typeof tls.clientCertificatePem === "string"
@@ -150,10 +127,8 @@ const singleRequest = async (
       typeof tls.clientPrivateKeyPem === "string"
         ? tls.clientPrivateKeyPem
         : undefined,
-    lookup: agent
-      ? undefined
-      : (_hostname, _options, callback) =>
-          callback(null, resolution.address, resolution.family),
+    lookup: (_hostname, _options, callback) =>
+      callback(null, resolution.address, resolution.family),
     method,
     path: `${url.pathname}${url.search}`,
     port: url.port || undefined,

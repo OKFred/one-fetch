@@ -45,6 +45,20 @@ const fetchOptions: FetchOptionCapabilityV1[] = [
   { option: "referrerPolicy", fidelity: "translated" },
   { option: "duplex", fidelity: "exact" },
   { option: "decompress", fidelity: "exact" },
+  {
+    option: "adapter.proxy",
+    fidelity: "unsupported",
+    detail:
+      "Preview rejects proxies because proxy-side DNS resolution cannot preserve the approved-IP pin",
+  },
+  { option: "adapter.caPem", fidelity: "exact" },
+  { option: "adapter.clientCertificatePem", fidelity: "exact" },
+  { option: "adapter.clientPrivateKeyPem", fidelity: "exact" },
+  {
+    option: "adapter.rejectUnauthorized",
+    fidelity: "exact",
+    acceptedValues: [true, false],
+  },
 ];
 
 export const createCapabilities = (
