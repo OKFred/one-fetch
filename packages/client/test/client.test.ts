@@ -17,7 +17,39 @@ import {
   buildGatewayUrl,
   classifyTunnelServerHello,
   prepareTunnelHandshake,
+  type GatewayProgress,
 } from "../src/index.js";
+
+async function signedHttpHeader(
+  encodedRequest: string,
+  token: string,
+  status = 200,
+): Promise<string> {
+  const request = decodeRequestMetadata(encodedRequest);
+  return encodeResponseMetadata(
+    await createSignedResponseMetadata(
+      {
+        protocolVersion: 1,
+        requestId: request.requestId,
+        nonce: request.nonce,
+        outcome: "target",
+        target: {
+          kind: "http",
+          status,
+          statusText: status === 200 ? "OK" : "Fixture",
+          headers: [],
+          setCookie: [],
+          bodyComplete: true,
+        },
+        timing: { phases: [], serverTiming: [] },
+        configVersionUsed: "v1",
+        mutations: [],
+        audit: { state: "recorded" },
+      },
+      token,
+    ),
+  );
+}
 
 describe("gateway client", () => {
   it("uses every Gateway path as a target path", () => {
@@ -39,6 +71,7 @@ describe("gateway client", () => {
         const encoded = captured.headers.get(ONE_FETCH_REQUEST_HEADER);
         expect(encoded).not.toBeNull();
         const request = decodeRequestMetadata(encoded!);
+        expect(request.fetchOptions.timeoutMs).toBe(60_000);
         const unsigned: OneFetchUnsignedResponseMetaV1 = {
           protocolVersion: 1,
           requestId: request.requestId,
@@ -108,6 +141,131 @@ describe("gateway client", () => {
       source: "intermediary",
       reason: "missing-metadata",
     });
+  });
+
+  it("tracks streamed response bytes and completes only after download", async () => {
+    const token = "of_test_token_that_is_long_enough";
+    const progress: GatewayProgress[] = [];
+    const client = new OneFetchGatewayClient({
+      gatewayUrl: "https://gateway.example",
+      token,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        const responseMetadata = await signedHttpHeader(
+          request.headers.get(ONE_FETCH_REQUEST_HEADER)!,
+          token,
+        );
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("he"));
+            controller.enqueue(new TextEncoder().encode("llo"));
+            controller.close();
+          },
+        });
+        return new Response(body, {
+          headers: {
+            "Content-Length": "5",
+            [ONE_FETCH_RESPONSE_HEADER]: responseMetadata,
+          },
+        });
+      },
+    });
+
+    const result = await client.executeHttp({
+      targetUrl: "https://target.example/stream",
+      method: "GET",
+      onProgress: (event) => progress.push(event),
+    });
+    expect(await result.response.text()).toBe("hello");
+    expect(
+      progress
+        .filter(({ phase }) => phase === "downloading")
+        .map(({ loadedBytes, totalBytes }) => [loadedBytes, totalBytes]),
+    ).toEqual([
+      [0, 5],
+      [2, 5],
+      [5, 5],
+    ]);
+    expect(progress.at(-1)).toMatchObject({
+      phase: "complete",
+      loadedBytes: 5,
+      totalBytes: 5,
+    });
+  });
+
+  it("keeps timeout cancellation active while the response body streams", async () => {
+    const token = "of_test_token_that_is_long_enough";
+    const progress: GatewayProgress[] = [];
+    const client = new OneFetchGatewayClient({
+      gatewayUrl: "https://gateway.example",
+      token,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            pull: () => new Promise<void>(() => undefined),
+          }),
+          {
+            headers: {
+              [ONE_FETCH_RESPONSE_HEADER]: await signedHttpHeader(
+                request.headers.get(ONE_FETCH_REQUEST_HEADER)!,
+                token,
+              ),
+            },
+          },
+        );
+      },
+    });
+    const result = await client.executeHttp({
+      targetUrl: "https://target.example/slow",
+      method: "GET",
+      fetchOptions: { timeoutMs: 20 },
+      onProgress: (event) => progress.push(event),
+    });
+
+    await expect(result.response.text()).rejects.toMatchObject({
+      name: "TimeoutError",
+    });
+    expect(progress.some(({ phase }) => phase === "cancelling")).toBe(true);
+    expect(progress.some(({ phase }) => phase === "complete")).toBe(false);
+  });
+
+  it("aborts an active download through the caller signal", async () => {
+    const token = "of_test_token_that_is_long_enough";
+    const controller = new AbortController();
+    const progress: GatewayProgress[] = [];
+    const client = new OneFetchGatewayClient({
+      gatewayUrl: "https://gateway.example",
+      token,
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            pull: () => new Promise<void>(() => undefined),
+          }),
+          {
+            headers: {
+              [ONE_FETCH_RESPONSE_HEADER]: await signedHttpHeader(
+                request.headers.get(ONE_FETCH_REQUEST_HEADER)!,
+                token,
+              ),
+            },
+          },
+        );
+      },
+    });
+    const result = await client.executeHttp({
+      targetUrl: "https://target.example/slow",
+      method: "GET",
+      signal: controller.signal,
+      onProgress: (event) => progress.push(event),
+    });
+
+    controller.abort(new DOMException("Stopped", "AbortError"));
+    await expect(result.response.text()).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(progress.some(({ phase }) => phase === "cancelling")).toBe(true);
   });
 
   it("signals URL userinfo and translates it into the target Authorization list", async () => {
