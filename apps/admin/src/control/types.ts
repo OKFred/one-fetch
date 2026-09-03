@@ -62,6 +62,7 @@ export interface UnsupportedFeature {
 
 export type ControlPage =
   | "overview"
+  | "security"
   | "policy"
   | "tokens"
   | "audit"

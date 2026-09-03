@@ -309,11 +309,148 @@ legend {
   gap: 9px;
   color: #a7c1b8;
 }
+.security-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 14px;
+}
+.security-sessions,
+.password-panel {
+  grid-column: 1 / -1;
+}
+.session-list {
+  display: grid;
+  margin-top: 18px;
+}
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 0;
+  border-top: 1px solid #1b312a;
+}
+.session-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: #8ca99f;
+  border: 1px solid #2a4038;
+  border-radius: 11px;
+  background: #0a1713;
+}
+.session-icon.current {
+  color: #62e8b2;
+  border-color: #34634f;
+  background: #10271f;
+}
+.session-main {
+  min-width: 0;
+  flex: 1;
+}
+.session-main strong {
+  overflow-wrap: anywhere;
+}
+.session-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+.session-facts dt {
+  color: #6f8d83;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.session-facts dd {
+  margin: 4px 0 0;
+  color: #aec5bd;
+  font-size: 12px;
+}
+.totp-setup {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+.totp-setup > img {
+  width: 220px;
+  max-width: 100%;
+  border: 8px solid #f1fffa;
+  border-radius: 12px;
+}
+.secret-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 8px 8px 8px 11px;
+  border: 1px solid #2a493f;
+  border-radius: 9px;
+  background: #07120f;
+}
+.secret-inline code {
+  min-width: 0;
+  flex: 1;
+  word-break: break-all;
+}
+.recovery-box {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #725e2e;
+  border-radius: 12px;
+  background: #241d0d;
+}
+.recovery-box h4,
+.recovery-box p,
+.recovery-box .button-row {
+  grid-column: 1 / -1;
+}
+.recovery-box h4,
+.recovery-box p {
+  margin: 0 0 6px;
+}
+.recovery-box code {
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.24);
+  text-align: center;
+}
+.password-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.password-form label {
+  display: grid;
+  gap: 7px;
+  color: #a7c1b8;
+  font-size: 13px;
+}
+.password-form .field-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
 
 @media (max-width: 1000px) {
   .policy-head {
     align-items: stretch;
     flex-direction: column;
+  }
+  .security-grid {
+    grid-template-columns: 1fr;
+  }
+  .security-sessions,
+  .password-panel {
+    grid-column: auto;
+  }
+  .password-form {
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 820px) {
@@ -342,5 +479,15 @@ legend {
   .policy-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+  .session-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .session-facts {
+    grid-template-columns: 1fr;
+  }
+  .session-row > button {
+    margin-left: 52px;
   }
 }

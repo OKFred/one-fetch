@@ -5,6 +5,7 @@ import {
   BellRing,
   BookOpenCheck,
   KeyRound,
+  LockKeyhole,
   ServerCog,
   ShieldCheck,
 } from "@lucide/vue";
@@ -21,6 +22,12 @@ const { t } = useI18n();
 
 const items = computed(() => [
   { id: "overview" as const, path: "/", label: t("overview"), icon: Activity },
+  {
+    id: "security" as const,
+    path: "/security",
+    label: t("security"),
+    icon: LockKeyhole,
+  },
   {
     id: "policy" as const,
     path: "/policy",

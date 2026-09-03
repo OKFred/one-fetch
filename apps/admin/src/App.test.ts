@@ -9,7 +9,15 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import App from "./App.vue";
 
-const names = ["overview", "policy", "tokens", "audit", "alerts", "backup"];
+const names = [
+  "overview",
+  "security",
+  "policy",
+  "tokens",
+  "audit",
+  "alerts",
+  "backup",
+];
 const routes: RouteRecordRaw[] = names.map((name, index) => ({
   path: index === 0 ? "/" : `/${name}`,
   name,
