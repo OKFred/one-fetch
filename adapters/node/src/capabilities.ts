@@ -17,19 +17,19 @@ const fetchOptions: FetchOptionCapabilityV1[] = [
   },
   {
     option: "credentials",
-    fidelity: "translated",
+    fidelity: "unsupported",
     detail:
-      "Explicit Cookie and Authorization headers are forwarded; no ambient browser jar exists",
+      "Preview does not translate Fetch credential modes; explicit target headers remain separate",
   },
   {
     option: "integrity",
-    fidelity: "translated",
-    detail: "Verified while streaming the target body",
+    fidelity: "unsupported",
+    detail: "Preview does not verify Fetch subresource integrity metadata",
   },
   {
     option: "keepalive",
-    fidelity: "translated",
-    detail: "Mapped to the Node connection pool",
+    fidelity: "unsupported",
+    detail: "Preview does not map Fetch keepalive semantics",
   },
   {
     option: "mode",
@@ -39,12 +39,24 @@ const fetchOptions: FetchOptionCapabilityV1[] = [
   { option: "priority", fidelity: "unsupported" },
   {
     option: "referrer",
-    fidelity: "translated",
-    detail: "Mapped to the Referer header",
+    fidelity: "unsupported",
+    detail: "Preview does not translate the Fetch referrer option",
   },
-  { option: "referrerPolicy", fidelity: "translated" },
-  { option: "duplex", fidelity: "exact" },
-  { option: "decompress", fidelity: "exact" },
+  {
+    option: "referrerPolicy",
+    fidelity: "unsupported",
+    detail: "Preview does not implement Fetch referrer policy evaluation",
+  },
+  {
+    option: "duplex",
+    fidelity: "unsupported",
+    detail: "Preview does not expose Fetch duplex semantics",
+  },
+  {
+    option: "decompress",
+    fidelity: "unsupported",
+    detail: "Preview does not implement configurable response decompression",
+  },
   {
     option: "adapter.proxy",
     fidelity: "unsupported",
