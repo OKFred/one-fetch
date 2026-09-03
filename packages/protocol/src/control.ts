@@ -35,6 +35,7 @@ export const ControlErrorV1Schema = z
           .regex(/^[a-z0-9_]+$/u),
         message: z.string().min(1).max(1_024),
         retryable: z.boolean().optional(),
+        correlationId: IdentifierSchema.optional(),
       })
       .strict(),
   })
