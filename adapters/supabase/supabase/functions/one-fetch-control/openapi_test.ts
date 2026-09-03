@@ -1,6 +1,6 @@
 import type { Database } from "../_shared/database.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
-import { createControlHandler } from "./handler.ts";
+import { createControlTestHandler as createControlHandler } from "./test-support.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

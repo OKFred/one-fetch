@@ -14,6 +14,10 @@ import { applyCors, preflight } from "../_shared/cors.ts";
 import { createDatabase, DatabaseError } from "../_shared/database.ts";
 import { getEnvironment } from "../_shared/env.ts";
 import { json } from "../_shared/http.ts";
+import {
+  createMigrationCompatibilityGuard,
+  MigrationCompatibilityError,
+} from "../_shared/migration-compatibility.ts";
 import { assertNoOuterProtocolHeaders } from "../_shared/upstream.ts";
 import { executeHttp } from "./executor.ts";
 import {
@@ -29,6 +33,7 @@ export function createGatewayHandler(
   environment = getEnvironment(),
   database = createDatabase(environment),
 ) {
+  const assertCompatible = createMigrationCompatibilityGuard(database);
   return async (request: Request): Promise<Response> => {
     const preflightResponse = preflight(
       request,
@@ -93,6 +98,25 @@ export function createGatewayHandler(
       requestMethod: request.method,
       targetPathAndQuery: pathAndQuery(request),
     };
+    try {
+      await assertCompatible();
+    } catch (error) {
+      return applyCors(
+        request,
+        await signedError(
+          { ...unsignedBase, principal: unknownPrincipal },
+          problem(
+            "storage_unavailable",
+            "storage",
+            error instanceof MigrationCompatibilityError
+              ? "Gateway storage schema is incompatible"
+              : "Migration compatibility storage is unavailable",
+            true,
+          ),
+        ),
+        environment.allowedClientOrigins,
+      );
+    }
     let principal: ExecutionPrincipal | undefined;
     try {
       principal = await authenticateExecution(token, database, environment);

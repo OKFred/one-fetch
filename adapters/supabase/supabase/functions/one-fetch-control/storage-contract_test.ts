@@ -5,11 +5,11 @@ import {
   type Database,
   DatabaseError,
 } from "../_shared/database.ts";
-import { createControlHandler } from "./handler.ts";
 import { defaultConfig } from "./model.ts";
 import {
   controlMigrationHistory,
   controlTestEnvironment,
+  createControlTestHandler as createControlHandler,
 } from "./test-support.ts";
 
 function assert(condition: unknown, message: string): asserts condition {

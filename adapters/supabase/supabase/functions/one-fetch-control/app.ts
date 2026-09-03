@@ -10,6 +10,10 @@ import {
   InvalidJsonBodyError,
   JsonBodyTooLargeError,
 } from "../_shared/http.ts";
+import {
+  createMigrationCompatibilityGuard,
+  MigrationCompatibilityError,
+} from "../_shared/migration-compatibility.ts";
 import { registerAuthRoutes } from "./auth-routes.ts";
 import { registerConfigurationRoutes } from "./configuration-routes.ts";
 import { controlError } from "./helpers.ts";
@@ -23,6 +27,12 @@ export function createControlApp(
   database = createDatabase(environment),
 ) {
   const app = new Hono();
+  const assertCompatible = createMigrationCompatibilityGuard(database);
+
+  app.use("*", async (_context, next) => {
+    await assertCompatible();
+    await next();
+  });
 
   registerPublicRoutes(app, environment, database);
   registerAuthRoutes(app, environment, database);
@@ -52,6 +62,13 @@ export function createControlApp(
       return controlError(
         "instance_mismatch",
         "Storage belongs to a different one-fetch instance",
+        503,
+      );
+    }
+    if (error instanceof MigrationCompatibilityError) {
+      return controlError(
+        "schema_incompatible",
+        "Storage schema is incompatible",
         503,
       );
     }

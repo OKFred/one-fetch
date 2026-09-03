@@ -8,9 +8,7 @@ import { z } from "zod";
 import { buildSupabaseCapabilities } from "../_shared/capabilities.ts";
 import { type Database, parseStorageResult } from "../_shared/database.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
-import { SUPABASE_MIGRATION_HISTORY } from "../_shared/migration-manifest.generated.ts";
 import { createSupabaseOpenApi } from "./openapi.ts";
-import { controlError } from "./helpers.ts";
 import {
   assertMatchingInstance,
   InstanceStateSchema,
@@ -52,21 +50,6 @@ export function registerPublicRoutes(
       RuntimeStateSchema,
       await database.rpc<unknown>("of_get_control_runtime_state"),
     );
-    const expected = SUPABASE_MIGRATION_HISTORY;
-    if (
-      state.migrations.length !== expected.length ||
-      expected.some(
-        (migration, index) =>
-          state.migrations[index]?.version !== migration.version ||
-          state.migrations[index]?.checksum !== migration.checksum,
-      )
-    ) {
-      return controlError(
-        "schema_incompatible",
-        "Storage schema is incompatible",
-        503,
-      );
-    }
     assertMatchingInstance(state, environment.instanceId);
     return context.json(
       HealthResponseV1Schema.parse({

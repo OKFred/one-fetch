@@ -9,7 +9,7 @@ import {
 import { bytesToBase64Url } from "../_shared/crypto.ts";
 import type { Database } from "../_shared/database.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
-import { createGatewayHandler } from "./handler.ts";
+import { createGatewayTestHandler as createGatewayHandler } from "./test-support.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

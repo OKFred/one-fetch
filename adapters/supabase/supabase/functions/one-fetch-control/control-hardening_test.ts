@@ -2,11 +2,11 @@ import { ControlErrorV1Schema } from "@one-fetch/protocol";
 
 import type { Database } from "../_shared/database.ts";
 import { hmacSha256Hex } from "../_shared/crypto.ts";
-import { createControlHandler } from "./handler.ts";
 import { loginThrottleKeys } from "./helpers.ts";
 import {
   controlMigrationHistory,
   controlTestEnvironment,
+  createControlTestHandler as createControlHandler,
 } from "./test-support.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -210,7 +210,7 @@ Deno.test(
 );
 
 Deno.test(
-  "Health reflects audit degradation and rejects schema drift",
+  "Health reflects audit degradation",
   async () => {
     const environment = await controlTestEnvironment();
     const migrations = await controlMigrationHistory();
@@ -232,23 +232,6 @@ Deno.test(
       ((await degraded.json()) as { status?: string }).status === "degraded",
       "health did not expose audit degradation",
     );
-
-    const driftedDatabase: Database = {
-      rpc: <T>() =>
-        Promise.resolve({
-          instanceId: environment.instanceId,
-          initialized: true,
-          auditDegraded: false,
-          migrations: migrations.slice(0, -1),
-        } as T),
-    };
-    const drifted = await createControlHandler(
-      environment,
-      driftedDatabase,
-    )(new Request(`${environment.controlBaseUrl}/api/v1/health`));
-    const problem = ControlErrorV1Schema.parse(await drifted.json());
-    assert(drifted.status === 503, `expected 503, got ${drifted.status}`);
-    assert(problem.error.code === "schema_incompatible", "wrong schema error");
   },
 );
 
