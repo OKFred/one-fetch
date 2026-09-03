@@ -15,7 +15,7 @@ Supabase can add or rewrite transport headers, merge ordinary duplicate headers,
 
 WebSocket and outbound TCP/TLS are reported as `unsupported` in the Preview adapter. They must not be advertised as enabled until their shared tunnel protocol and a deployment runtime probe pass. Edge Function wall-clock/runtime limits still apply to WebSocket sessions even after a future capability is enabled.
 
-Canonical Control paths are `/api/v1/config`, `/api/v1/config/policy`, `/api/v1/tokens/execution`, `/api/v1/audit`, `/api/v1/alerts`, `/api/v1/backups`, and `/api/v1/reports/:reportId`. Alerts and backups return an explicit Preview `unsupported` response; they never return synthetic data. Capabilities, health, and report lookup permit configured client origins; all other Control routes permit only configured admin origins. Report lookup uses `Authorization: Bearer <execution-token>` and binds the report to that token in Postgres.
+Canonical Control paths include `GET|POST /api/v1/bootstrap`, `/api/v1/auth/*`, `/api/v1/config/*`, `/api/v1/tokens/execution`, `/api/v1/audit`, `/api/v1/features`, `/api/v1/alerts`, `/api/v1/backups`, and `/api/v1/reports/:reportId`. Session listing/revocation, logout, password changes, policy updates, and Gateway pause are implemented; password changes revoke every other session in the same audited database transaction. TOTP, alerts, backups, audit export, and Webhooks remain explicitly `unsupported`; alerts and backups return their versioned feature-status envelopes instead of synthetic records. Capabilities, health, feature status, and report lookup permit configured client origins; all other Control routes permit only configured admin origins. Report lookup uses `Authorization: Bearer <execution-token>` and binds the report to that token in Postgres.
 
 The default policy is an empty allowlist, so a new instance cannot contact any target until the administrator publishes at least one allow rule. The recommended global blacklist is an optional template, not an unconditional hard-coded policy. Direct recursion to the instance's own Control/Gateway origins is always rejected.
 
@@ -41,7 +41,7 @@ pnpm --filter @one-fetch/adapter-supabase db:lint
 pnpm --filter @one-fetch/adapter-supabase test:integration
 ```
 
-Each function has its own `deno.json` and `deno.lock`. The configs pin npm dependencies and map shared one-fetch packages to repository sources; `--frozen` prevents an unexpected dependency update. The Supabase bundler packages the resulting local module graph during deployment.
+Each function has its own `deno.json` and `deno.lock`. Runtime imports map shared packages to built JavaScript, so Supabase never depends on development-only sloppy `.js` to `.ts` resolution. Adapter-local types are inferred from the same runtime Zod schemas, keeping those imports in lockstep with the deployed values. The build also validates the canonical Control OpenAPI 3.1 document and embeds a generated, bundle-local snapshot; the deployed function never reads outside its bundle. `GET /api/v1/openapi.json` overlays that canonical snapshot with the complete request-derived Edge Function base URL and the Supabase Preview's permanent `501` TOTP responses. It does not change the cross-adapter canonical document.
 
 ## Safe deployment
 
@@ -63,11 +63,12 @@ Deployment scripts are dry-run by default and require `--apply`/`-Apply`:
 ./scripts/deploy.ps1 -ProjectRef abcdefghijklmnopqrst -EnvFile C:\secure\one-fetch.env -Apply
 ```
 
-They link the explicit project, push migrations, set secrets, and deploy Control before Gateway. They do not create a project, publish a Release, or modify xPanel.
+Before any remote mutation, the scripts verify canonical and embedded OpenAPI freshness, run both Deno typechecks and test suites, run deployment-script tests, and produce clean temporary Deno bundles for both functions. Deployment rejects a dirty Git tree: the scripts inject `ONE_FETCH_BUILD_VERSION` as `package-version+supabase.g<12-character-commit>`, then verify Control health/capabilities and issue a metadata-free Gateway request that cannot reach an upstream target. The final checks require the expected instance pair/build and the Gateway's application-level `invalid_metadata` rejection. The scripts link the explicit project, push migrations, set secrets, and deploy Control before Gateway. They do not create a project, publish a Release, or modify xPanel.
 
 ## Operational boundaries
 
 - Application audit records never contain bodies, authorization, cookies, tokens, passwords, TOTP material, or private keys. Path/query and ordinary headers are redacted before signing.
 - Supabase platform logs may still observe the outer Gateway path/query before application redaction. Operators must configure platform retention accordingly and disclose this to users.
+- Authentication source throttles use the first `X-Forwarded-For` value supplied by the managed Supabase edge. A self-hosted proxy chain must overwrite client-supplied forwarding headers and preserve that same client-first contract; otherwise the adapter's source-rate-limit boundary is not supported.
 - Data forwarding continues if only the audit append fails and the response is marked degraded. Authentication, configuration, policy, or quota storage failures fail closed.
 - Execution reports expire after ten minutes. Burst and instance-wide aggregate quotas, scheduled cleanup, daily Merkle sealing, Webhook outbox delivery, TOTP enrollment/recovery, backup/restore, and tunnel enablement are subsequent Preview milestones and must not be represented as complete by this adapter yet.

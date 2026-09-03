@@ -121,6 +121,9 @@ importers:
 
   adapters/supabase:
     dependencies:
+      '@one-fetch/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@one-fetch/core':
         specifier: workspace:*
         version: link:../../packages/core

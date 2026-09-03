@@ -6,6 +6,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
+      "@one-fetch/client": ["../../packages/client/src/index.ts"],
+      "@one-fetch/conformance": ["../../packages/conformance/src/index.ts"],
       "@one-fetch/core": ["../../packages/core/src/index.ts"],
       "@one-fetch/protocol": ["../../packages/protocol/src/index.ts"]
     }

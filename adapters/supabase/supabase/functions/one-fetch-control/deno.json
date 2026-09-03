@@ -7,11 +7,12 @@
     "verbatimModuleSyntax": true
   },
   "imports": {
-    "@one-fetch/core": "../../../../../packages/core/src/index.ts",
-    "@one-fetch/protocol": "../../../../../packages/protocol/src/index.ts",
+    "@one-fetch/client": "../../../../../packages/client/dist/index.js",
+    "@one-fetch/conformance": "../../../../../packages/conformance/dist/index.js",
+    "@one-fetch/core": "../../../../../packages/core/dist/index.js",
+    "@one-fetch/protocol": "../../../../../packages/protocol/dist/index.js",
     "bcryptjs": "npm:bcryptjs@3.0.3",
     "hono": "npm:hono@4.13.5",
     "zod": "npm:zod@4.5.4"
-  },
-  "unstable": ["sloppy-imports"]
+  }
 }
