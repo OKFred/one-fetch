@@ -1,4 +1,6 @@
 import {
+  AuditPolicyDecisionV1Schema,
+  HeaderEntryV1Schema,
   OneFetchTimingV1Schema,
   RequestIdSchema,
   Sha256HexSchema,
@@ -46,6 +48,22 @@ export const completionInputSchema = z
     bodyComplete: z.boolean(),
     bodySha256: Sha256HexSchema.optional(),
     errorCode: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+
+export const executionDecisionInputSchema = z
+  .object({
+    tokenId: z.string().min(1).max(128),
+    requestId: RequestIdSchema,
+    transport: TransportV1Schema,
+    targetUrl: z.url().max(8_192),
+    method: z.string().min(1).max(32),
+    requestBytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    configVersion: z.string().min(1).max(256),
+    headers: z.array(HeaderEntryV1Schema).max(256),
+    contentType: z.string().max(1_024).optional(),
+    code: z.string().min(1).max(128).optional(),
+    decision: AuditPolicyDecisionV1Schema,
   })
   .strict();
 

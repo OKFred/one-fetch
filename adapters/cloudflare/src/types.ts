@@ -1,4 +1,9 @@
-import type { OneFetchTimingV1, PolicySetV1 } from "@one-fetch/protocol";
+import type {
+  HeaderEntryV1,
+  OneFetchTimingV1,
+  PolicySetV1,
+} from "@one-fetch/protocol";
+import type { PolicyDecision } from "@one-fetch/core";
 
 export type Transport = "http" | "websocket" | "tcp" | "tls";
 
@@ -63,6 +68,20 @@ export interface AuthorizationResult {
   configVersion?: string;
   auditState: "recorded" | "degraded";
   auditEventId?: string;
+}
+
+export interface ExecutionDecisionInput {
+  tokenId: string;
+  requestId: string;
+  transport: Transport;
+  targetUrl: string;
+  method: string;
+  requestBytes: number;
+  configVersion: string;
+  headers: HeaderEntryV1[];
+  contentType?: string;
+  code?: string;
+  decision: PolicyDecision;
 }
 
 export interface CompletionInput {

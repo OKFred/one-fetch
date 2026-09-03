@@ -1,22 +1,14 @@
-import { classifyFetchOptions } from "@one-fetch/core";
 import {
   decodeTunnelClientHello,
   ONE_FETCH_WEBSOCKET_PROTOCOL,
   type OneFetchRequestMetaV1,
 } from "@one-fetch/protocol";
 
-import { CLOUDFLARE_FETCH_CAPABILITIES } from "../storage";
-import type {
-  AuthorizationInput,
-  AuthorizationResult,
-  CompletionInput,
-} from "../types";
+import type { AuthorizationResult, ExecutionDecisionInput } from "../types";
 import {
-  authorizeExecution,
-  completeExecution,
-  releaseDeniedExecution,
-  renewExecution,
-} from "./control-client";
+  DEFAULT_TUNNEL_DEPENDENCIES,
+  type TunnelDependencies,
+} from "./tunnel-dependencies";
 import { asGatewayProblem, problem } from "./errors";
 import {
   buildUpstreamHeaders,
@@ -27,52 +19,21 @@ import { evaluatePolicies, validateFetchOptions } from "./policy";
 import { initialTiming, parseServerTiming } from "./timing";
 import { sendTunnelErrorHello, sendTunnelTargetHello } from "./tunnel-response";
 import {
-  bridgeWebSockets,
-  openTargetWebSocket,
-  safeClose,
-  type WebSocketBridgeResult,
-} from "./websocket";
+  fetchOptionMutations,
+  finalizeTunnelBridge,
+  mapAuthorizationCode,
+  recordTunnelDecisionSafely,
+  tunnelCompletion,
+} from "./tunnel-support";
+import { bridgeWebSockets, safeClose } from "./websocket";
 
-export interface TunnelDependencies {
-  authorize(
-    control: CloudflareGatewayEnv["CONTROL"],
-    input: AuthorizationInput,
-  ): Promise<AuthorizationResult>;
-  complete(
-    control: CloudflareGatewayEnv["CONTROL"],
-    input: CompletionInput,
-  ): Promise<void>;
-  releaseDenied(
-    control: CloudflareGatewayEnv["CONTROL"],
-    tokenId: string,
-    requestId: string,
-    code: string,
-  ): Promise<void>;
-  renew(
-    control: CloudflareGatewayEnv["CONTROL"],
-    tokenId: string,
-    requestId: string,
-  ): Promise<boolean>;
-  openWebSocket(
-    target: URL,
-    headers: Headers,
-    signal: AbortSignal,
-  ): Promise<Response>;
-}
-
-const DEFAULT_DEPENDENCIES: TunnelDependencies = {
-  authorize: authorizeExecution,
-  complete: completeExecution,
-  releaseDenied: releaseDeniedExecution,
-  renew: renewExecution,
-  openWebSocket: openTargetWebSocket,
-};
+export type { TunnelDependencies } from "./tunnel-dependencies";
 
 export function handleGatewayTunnel(
   request: Request,
   env: CloudflareGatewayEnv,
   ctx: ExecutionContext,
-  dependencies: TunnelDependencies = DEFAULT_DEPENDENCIES,
+  dependencies: TunnelDependencies = DEFAULT_TUNNEL_DEPENDENCIES,
 ): Response {
   if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
     return Response.json(
@@ -173,6 +134,7 @@ async function initializeWebSocketTunnel(
   let reportId: string | undefined;
   let abortReason: "timeout" | "cancelled" | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let leaseFinalized = false;
 
   try {
     const hello = decodeTunnelClientHello(rawHello);
@@ -244,7 +206,7 @@ async function initializeWebSocketTunnel(
         500,
       );
     }
-    const authorized = {
+    const authorizedBase = {
       ...authorization,
       allowed: true as const,
       tokenId: authorization.tokenId,
@@ -255,7 +217,7 @@ async function initializeWebSocketTunnel(
     const policyStartedAt = performance.now();
     const decision = evaluatePolicies({
       meta,
-      config: authorized.config,
+      config: authorizedBase.config,
       method: "GET",
       target,
       gatewayPathAndQuery: pathAndQuery,
@@ -268,20 +230,31 @@ async function initializeWebSocketTunnel(
       crossOrigin: false,
     });
     const policyMs = performance.now() - policyStartedAt;
+    const decisionInput: ExecutionDecisionInput = {
+      tokenId: authorizedBase.tokenId,
+      requestId: meta.requestId,
+      transport: "websocket",
+      targetUrl: target.toString(),
+      method: "GET",
+      requestBytes: 0,
+      configVersion: authorizedBase.configVersion,
+      headers: meta.targetHeaders.slice(0, 256),
+      decision,
+    };
     if (decision.decision === "deny") {
-      await dependencies.releaseDenied(
+      const code =
+        decision.source === "user-rule"
+          ? "user_rule_denied"
+          : "target_not_allowed";
+      const auditState = await recordTunnelDecisionSafely(
+        dependencies,
         env.CONTROL,
-        authorized.tokenId,
-        meta.requestId,
-        decision.source === "user-rule"
-          ? "user_rule_denied"
-          : "target_not_allowed",
+        { ...decisionInput, code },
       );
-      authorization = undefined;
+      authorization = { ...authorizedBase, auditState };
+      leaseFinalized = true;
       throw problem(
-        decision.source === "user-rule"
-          ? "user_rule_denied"
-          : "target_not_allowed",
+        code,
         "policy",
         "System or user policy denied the tunnel",
         403,
@@ -289,6 +262,15 @@ async function initializeWebSocketTunnel(
         { ruleId: decision.ruleId ?? null },
       );
     }
+    const authorized = {
+      ...authorizedBase,
+      auditState: await recordTunnelDecisionSafely(
+        dependencies,
+        env.CONTROL,
+        decisionInput,
+      ),
+    };
+    authorization = authorized;
 
     const built = buildUpstreamHeaders(
       meta.targetHeaders,
@@ -362,7 +344,7 @@ async function initializeWebSocketTunnel(
       });
       await dependencies.complete(
         env.CONTROL,
-        completion(
+        tunnelCompletion(
           authorized.tokenId,
           meta.requestId,
           reportId,
@@ -415,7 +397,7 @@ async function initializeWebSocketTunnel(
     bridgeWebSockets(clientSocket, response.webSocket, (result) => {
       clearInterval(renewalTimer);
       ctx.waitUntil(
-        finalizeBridge(
+        finalizeTunnelBridge(
           result,
           dependencies,
           env.CONTROL,
@@ -445,10 +427,16 @@ async function initializeWebSocketTunnel(
         "The client cancelled the tunnel",
         499,
       );
-    if (authorization?.allowed && authorization.tokenId && meta && reportId) {
+    if (
+      authorization?.allowed &&
+      authorization.tokenId &&
+      meta &&
+      reportId &&
+      !leaseFinalized
+    ) {
       await dependencies.complete(
         env.CONTROL,
-        completion(
+        tunnelCompletion(
           authorization.tokenId,
           meta.requestId,
           reportId,
@@ -479,94 +467,4 @@ async function initializeWebSocketTunnel(
     );
     return false;
   }
-}
-
-function fetchOptionMutations(meta: OneFetchRequestMetaV1) {
-  return classifyFetchOptions(meta.fetchOptions, CLOUDFLARE_FETCH_CAPABILITIES)
-    .assessments.filter(
-      ({ fidelity }) =>
-        fidelity === "translated" || fidelity === "vendor-mutated",
-    )
-    .map(({ option, fidelity, detail }) => ({
-      side: "request" as const,
-      actor:
-        fidelity === "vendor-mutated"
-          ? ("vendor" as const)
-          : ("adapter" as const),
-      operation:
-        fidelity === "vendor-mutated"
-          ? ("possibly-mutated" as const)
-          : ("overwritten" as const),
-      name: option,
-      detail: detail ?? `Fetch option ${option} is ${fidelity}.`,
-    }));
-}
-
-function completion(
-  tokenId: string,
-  requestId: string,
-  reportId: string,
-  startedAt: number,
-  responseBytes: number,
-  outcome: CompletionInput["outcome"],
-  status?: number,
-  errorCode?: string,
-  timing?: CompletionInput["timing"],
-): CompletionInput {
-  const durationMs = performance.now() - startedAt;
-  return {
-    tokenId,
-    requestId,
-    reportId,
-    outcome,
-    requestBytes: 0,
-    responseBytes,
-    durationMs,
-    timing: timing ?? {
-      phases: [
-        { name: "total", state: "measured", source: "gateway", durationMs },
-      ],
-      serverTiming: [],
-    },
-    bodyComplete: outcome === "target",
-    ...(status === undefined ? {} : { status }),
-    ...(errorCode ? { errorCode } : {}),
-  };
-}
-
-async function finalizeBridge(
-  result: WebSocketBridgeResult,
-  dependencies: TunnelDependencies,
-  control: CloudflareGatewayEnv["CONTROL"],
-  tokenId: string,
-  requestId: string,
-  reportId: string,
-  startedAt: number,
-): Promise<void> {
-  await dependencies.complete(
-    control,
-    completion(
-      tokenId,
-      requestId,
-      reportId,
-      startedAt,
-      result.bytesDown,
-      result.failed ? "partial" : "target",
-      101,
-      result.failed ? (result.reason ?? "upstream_network") : undefined,
-    ),
-  );
-}
-
-function mapAuthorizationCode(
-  value: string | undefined,
-): "unauthorized" | "forbidden" | "quota_exceeded" {
-  if (value === "unauthorized") return "unauthorized";
-  if (
-    value === "quota_exceeded" ||
-    value === "rate_limited" ||
-    value === "concurrency_limited"
-  )
-    return "quota_exceeded";
-  return "forbidden";
 }

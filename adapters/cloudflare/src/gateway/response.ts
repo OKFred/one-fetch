@@ -15,6 +15,7 @@ import {
   outerResponseHeaders,
   targetHeaderEntries,
 } from "./headers";
+import { metadataExceedsAdapterLimit } from "./metadata";
 
 export interface TargetResponseInput {
   response: Response;
@@ -70,7 +71,7 @@ export async function targetResponse(
   const encoded = encodeResponseMetadata(
     await createSignedResponseMetadata(unsigned, input.token),
   );
-  if (new TextEncoder().encode(encoded).byteLength > input.maxMetadataBytes) {
+  if (metadataExceedsAdapterLimit(encoded, input.maxMetadataBytes)) {
     await input.response.body?.cancel("response_metadata_too_large");
     throw problem(
       "response_metadata_too_large",

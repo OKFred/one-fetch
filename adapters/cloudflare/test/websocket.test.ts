@@ -58,7 +58,7 @@ describe("Cloudflare WebSocket gateway", () => {
         }),
       ),
       complete: completed,
-      releaseDenied: vi.fn(() => Promise.resolve()),
+      recordDecision: vi.fn(() => Promise.resolve("recorded" as const)),
       renew: vi.fn(() => Promise.resolve(true)),
       openWebSocket: opened,
     };

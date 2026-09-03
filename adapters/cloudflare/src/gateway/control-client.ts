@@ -2,6 +2,7 @@ import type {
   AuthorizationInput,
   AuthorizationResult,
   CompletionInput,
+  ExecutionDecisionInput,
   Transport,
 } from "../types";
 import { authorizationResultSchema } from "../service-schemas";
@@ -37,13 +38,11 @@ export async function completeExecution(
   await control.releaseExecutionJson(JSON.stringify(input));
 }
 
-export async function releaseDeniedExecution(
+export async function recordExecutionDecision(
   control: CloudflareGatewayEnv["CONTROL"],
-  tokenId: string,
-  requestId: string,
-  code: string,
-): Promise<void> {
-  await control.releaseDeniedExecutionJson(tokenId, requestId, code);
+  input: ExecutionDecisionInput,
+): Promise<"recorded" | "degraded"> {
+  return control.recordExecutionDecisionJson(JSON.stringify(input));
 }
 
 export async function renewExecution(

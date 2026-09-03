@@ -7,16 +7,17 @@ import {
 } from "@one-fetch/protocol";
 
 import { CLOUDFLARE_FETCH_CAPABILITIES } from "./storage";
-import type { AuthorizationResult } from "./types";
+import type { AuthorizationResult, ExecutionDecisionInput } from "./types";
 import { prepareRequestBody } from "./gateway/body";
 import {
   authorizeExecution,
   checkTarget,
   completeExecution,
-  releaseDeniedExecution,
+  recordExecutionDecision,
 } from "./gateway/control-client";
 import { asGatewayProblem, problem } from "./gateway/errors";
 import { buildUpstreamHeaders } from "./gateway/headers";
+import { metadataExceedsAdapterLimit } from "./gateway/metadata";
 import { evaluatePolicies, validateFetchOptions } from "./gateway/policy";
 import { relayErrorResponse, targetResponse } from "./gateway/response";
 import { initialTiming, parseServerTiming } from "./gateway/timing";
@@ -36,6 +37,32 @@ export async function handleGatewayRequest(
   let authorization: AuthorizationResult | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abortReason: "timeout" | "cancelled" | undefined;
+  let leaseFinalized = false;
+  let accountedRequestBytes = 0;
+  const controller = new AbortController();
+  const armTimeout = (timeoutMs: number): void => {
+    if (timer) clearTimeout(timer);
+    const remainingMs = timeoutMs - (performance.now() - startedAt);
+    if (remainingMs <= 0) {
+      abortReason = "timeout";
+      controller.abort("timeout");
+      return;
+    }
+    timer = setTimeout(() => {
+      abortReason = "timeout";
+      controller.abort("timeout");
+    }, remainingMs);
+  };
+  const cancel = (): void => {
+    abortReason = "cancelled";
+    controller.abort(request.signal.reason);
+  };
+  const cleanupExecutionSignal = (): void => {
+    if (timer) clearTimeout(timer);
+    request.signal.removeEventListener("abort", cancel);
+  };
+  if (request.signal.aborted) cancel();
+  else request.signal.addEventListener("abort", cancel, { once: true });
 
   try {
     if (!rawMetadata)
@@ -46,7 +73,7 @@ export async function handleGatewayRequest(
         400,
       );
     const metadataLimit = parsePositiveInteger(env.MAX_METADATA_BYTES, 49_152);
-    if (new TextEncoder().encode(rawMetadata).byteLength > metadataLimit) {
+    if (metadataExceedsAdapterLimit(rawMetadata, metadataLimit)) {
       throw problem(
         "metadata_too_large",
         "protocol",
@@ -55,6 +82,7 @@ export async function handleGatewayRequest(
       );
     }
     const meta = decodeRequestMetadata(rawMetadata);
+    armTimeout(meta.fetchOptions.timeoutMs);
     requestId = meta.requestId;
     nonce = meta.nonce;
     reportId = crypto.randomUUID();
@@ -97,7 +125,13 @@ export async function handleGatewayRequest(
         "Recursive gateway requests are denied",
         403,
       );
-    const declaredBodySize = bodySize(meta, request);
+    const declaredBodySize = meta.body.sizeBytes;
+    const transportBodySize = contentLength(request);
+    const estimatedBodySize = Math.max(
+      declaredBodySize ?? 0,
+      transportBodySize ?? 0,
+    );
+    accountedRequestBytes = estimatedBodySize;
     const authStartedAt = performance.now();
     authorization = await authorizeExecution(env.CONTROL, {
       token,
@@ -105,7 +139,7 @@ export async function handleGatewayRequest(
       transport: meta.transport,
       targetUrl: target.toString(),
       method: request.method,
-      requestBytes: declaredBodySize ?? 0,
+      requestBytes: estimatedBodySize,
     });
     const authMs = performance.now() - authStartedAt;
     if (!authorization.allowed) {
@@ -140,10 +174,14 @@ export async function handleGatewayRequest(
     const prepared = await prepareRequestBody(
       request.body,
       declaredBodySize,
+      transportBodySize,
+      meta.body.sha256,
       meta.body.contentType ?? findHeader(meta, "content-type"),
       config.bodyInspectionLimitBytes,
       config.maxRequestBytes,
+      controller.signal,
     );
+    accountedRequestBytes = prepared.sizeBytes ?? estimatedBodySize;
     const policyStartedAt = performance.now();
     const decision = evaluatePolicies({
       meta,
@@ -156,21 +194,34 @@ export async function handleGatewayRequest(
       crossOrigin: false,
     });
     const policyMs = performance.now() - policyStartedAt;
+    const contentType =
+      meta.body.contentType ?? findHeader(meta, "content-type");
+    const decisionInput = {
+      tokenId: authorized.tokenId,
+      requestId,
+      transport: meta.transport,
+      targetUrl: target.toString(),
+      method: request.method,
+      requestBytes: prepared.sizeBytes ?? estimatedBodySize,
+      configVersion: authorized.configVersion,
+      headers: meta.targetHeaders.slice(0, 256),
+      ...(contentType === undefined ? {} : { contentType }),
+      decision,
+    };
     if (decision.decision === "deny") {
       await prepared.body?.cancel("policy_denied");
-      await releaseDeniedExecution(
-        env.CONTROL,
-        authorized.tokenId,
-        requestId,
+      const code =
         decision.source === "user-rule"
           ? "user_rule_denied"
-          : "target_not_allowed",
-      );
-      authorization = undefined;
+          : "target_not_allowed";
+      const auditState = await recordDecisionSafely(env.CONTROL, {
+        ...decisionInput,
+        code,
+      });
+      authorization = { ...authorized, auditState };
+      leaseFinalized = true;
       throw problem(
-        decision.source === "user-rule"
-          ? "user_rule_denied"
-          : "target_not_allowed",
+        code,
         "policy",
         "System or user policy denied the request",
         403,
@@ -178,28 +229,21 @@ export async function handleGatewayRequest(
         { ruleId: decision.ruleId ?? null },
       );
     }
+    const auditedAuthorization = {
+      ...authorized,
+      auditState: await recordDecisionSafely(env.CONTROL, decisionInput),
+    };
+    authorization = auditedAuthorization;
 
     const built = buildUpstreamHeaders(
       meta.targetHeaders,
       meta.fetchOptions.referrer,
     );
-    const controller = new AbortController();
-    request.signal.addEventListener(
-      "abort",
-      () => {
-        abortReason = "cancelled";
-        controller.abort(request.signal.reason);
-      },
-      { once: true },
-    );
     const timeoutMs = Math.min(
       meta.fetchOptions.timeoutMs,
       config.requestTimeoutMs,
     );
-    timer = setTimeout(() => {
-      abortReason = "timeout";
-      controller.abort("timeout");
-    }, timeoutMs);
+    armTimeout(timeoutMs);
 
     const upstreamStartedAt = performance.now();
     const upstream = await fetchUpstream({
@@ -252,7 +296,7 @@ export async function handleGatewayRequest(
       requestId,
       nonce,
       reportId,
-      auth: authorized,
+      auth: auditedAuthorization,
       timing,
       mutations,
       maxMetadataBytes: config.maxMetadataBytes,
@@ -263,15 +307,13 @@ export async function handleGatewayRequest(
       complete: async (completion) =>
         completeExecution(env.CONTROL, completion),
       ctx,
-      onFinalize: () => {
-        if (timer) clearTimeout(timer);
-      },
+      onFinalize: cleanupExecutionSignal,
       cancellationReason: () => abortReason,
     });
     appendAdapterServerTiming(response.headers, authMs, policyMs, upstreamMs);
     return response;
   } catch (error) {
-    if (timer) clearTimeout(timer);
+    cleanupExecutionSignal();
     let gatewayProblem = asGatewayProblem(error);
     if (abortReason === "timeout")
       gatewayProblem = problem(
@@ -288,7 +330,12 @@ export async function handleGatewayRequest(
         "The client cancelled the request",
         499,
       );
-    if (authorization?.allowed && authorization.tokenId && reportId) {
+    if (
+      authorization?.allowed &&
+      authorization.tokenId &&
+      reportId &&
+      !leaseFinalized
+    ) {
       const configVersion = authorization.configVersion ?? "unknown";
       ctx.waitUntil(
         completeExecution(env.CONTROL, {
@@ -299,7 +346,7 @@ export async function handleGatewayRequest(
             gatewayProblem.problem.code === "cancelled"
               ? "cancelled"
               : "relay-error",
-          requestBytes: 0,
+          requestBytes: accountedRequestBytes,
           responseBytes: 0,
           durationMs: performance.now() - startedAt,
           timing: {
@@ -332,11 +379,7 @@ export async function handleGatewayRequest(
   }
 }
 
-function bodySize(
-  meta: OneFetchRequestMetaV1,
-  request: Request,
-): number | undefined {
-  if (meta.body.sizeBytes !== undefined) return meta.body.sizeBytes;
+function contentLength(request: Request): number | undefined {
   const value = request.headers.get("content-length");
   if (!value || !/^\d+$/u.test(value)) return undefined;
   const parsed = Number(value);
@@ -379,4 +422,21 @@ function appendAdapterServerTiming(
     "Server-Timing",
     `of_auth;dur=${authMs.toFixed(2)}, of_policy;dur=${policyMs.toFixed(2)}, of_ttfb;dur=${upstreamMs.toFixed(2)}`,
   );
+}
+
+async function recordDecisionSafely(
+  control: CloudflareGatewayEnv["CONTROL"],
+  input: ExecutionDecisionInput,
+): Promise<"recorded" | "degraded"> {
+  try {
+    return await recordExecutionDecision(control, input);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "audit.decision.rpc.failed",
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+    return "degraded";
+  }
 }
