@@ -12,9 +12,13 @@ const pair = {
 };
 
 const config = {
+  schemaVersion: 1,
+  instanceId: "test-instance",
   version: "20300101T000000Z-1-abcd1234",
   updatedAt: "2030-01-01T00:00:00.000Z",
   controlGatewayPairId: "pair-1",
+  revision: 0,
+  gatewayPaused: false,
   policy: { schemaVersion: 1, mode: "allowlist", revision: 0, rules: [] },
 };
 

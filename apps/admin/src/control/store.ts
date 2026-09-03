@@ -83,7 +83,7 @@ export const useControlStore = defineStore("control", () => {
       : (profiles.value[0]?.id ?? null),
   );
   const api = shallowRef<AdminControlApi | null>(null);
-  const capabilities = ref<Awaited<
+  const capabilities = shallowRef<Awaited<
     ReturnType<AdminControlApi["capabilities"]>
   > | null>(null);
   const bootstrap = ref<BootstrapState | null>(null);
