@@ -45,6 +45,7 @@ import {
   resolveApprovedTarget,
   TargetPolicyDeniedError,
 } from "./upstream.js";
+import { attachTunnelServer } from "./tunnel-server.js";
 
 export interface GatewayDependencies {
   audit: AuditLedger;
@@ -290,7 +291,7 @@ const handleGatewayRequest = async (
   const startedAt = performance.now();
   let metadata: OneFetchRequestMetaV1 | undefined;
   let body: BodySpool | undefined;
-  let token = singleHeader(request, ONE_FETCH_TOKEN_HEADER) ?? "";
+  const token = singleHeader(request, ONE_FETCH_TOKEN_HEADER) ?? "";
   let configuration: StoredConfiguration | undefined;
   let responseContext: ResponseContext | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -330,19 +331,22 @@ const handleGatewayRequest = async (
       () => abort.abort(new Error("Request timeout")),
       metadata.fetchOptions.timeoutMs,
     );
-    const targetApprover = async (
+    const resolvedMetadata = metadata;
+    const resolvedBody = body;
+    const resolvedConfiguration = configuration;
+    const targetApprover = (
       url: URL,
       headers: OneFetchRequestMetaV1["targetHeaders"],
       _hops: number,
       resolvedIps: string[],
       method: string,
-    ): Promise<boolean> => {
+    ): boolean => {
       try {
         approve(
           request,
-          metadata!,
-          body!,
-          configuration!,
+          resolvedMetadata,
+          resolvedBody,
+          resolvedConfiguration,
           credential,
           dependencies.config.publicGatewayUrl,
           url,
@@ -356,7 +360,7 @@ const handleGatewayRequest = async (
       }
     };
     const initialResolution = await resolveApprovedTarget(
-      new URL(request.url ?? "/", metadata.targetOrigin!),
+      new URL(request.url ?? "/", metadata.targetOrigin),
       metadata.targetHeaders,
       0,
       request.method ?? "GET",
@@ -466,7 +470,10 @@ const handleGatewayRequest = async (
 
 export const createGatewayServer = (
   dependencies: GatewayDependencies,
-): Server =>
-  createServer((request, response) => {
+): Server => {
+  const server = createServer((request, response) => {
     void handleGatewayRequest(request, response, dependencies);
   });
+  attachTunnelServer(server, dependencies);
+  return server;
+};

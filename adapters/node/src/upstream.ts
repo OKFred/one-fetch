@@ -45,7 +45,7 @@ interface ExecuteUpstreamOptions {
     hops: number,
     resolvedIps: string[],
     method: string,
-  ) => Promise<boolean>;
+  ) => boolean | Promise<boolean>;
   body: BodySpool;
   fetchOptions: FetchOptionsV1;
   headers: HeaderEntryV1[];
