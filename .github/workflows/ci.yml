@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+
+jobs:
+  core:
+    name: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/protocol... --filter @one-fetch/core... --filter @one-fetch/client... typecheck
+      - run: pnpm --filter @one-fetch/protocol --filter @one-fetch/core --filter @one-fetch/client test
+      - run: pnpm --filter @one-fetch/client... build
+      - run: pnpm exec prettier --check packages/protocol packages/core packages/client
+
+  cloudflare:
+    name: cloudflare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/adapter-cloudflare... typecheck
+      - run: pnpm --filter @one-fetch/adapter-cloudflare test
+      - run: pnpm --filter @one-fetch/adapter-cloudflare check:startup
+      - run: pnpm --filter @one-fetch/adapter-cloudflare build
+      - run: pnpm --filter @one-fetch/adapter-cloudflare types:check
+      - run: git diff --exit-code -- adapters/cloudflare/src/generated
+
+  supabase:
+    name: supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/adapter-supabase typecheck
+      - run: pnpm --filter @one-fetch/adapter-supabase test
+      - name: Start local Supabase
+        run: pnpm --filter @one-fetch/adapter-supabase start
+      - name: Database and function integration
+        run: pnpm --filter @one-fetch/adapter-supabase test:integration
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm --filter @one-fetch/adapter-supabase stop
+
+  node:
+    name: node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [24.20.0, "26.x"]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/adapter-node... typecheck
+      - run: pnpm --filter @one-fetch/adapter-node test
+      - run: pnpm --filter @one-fetch/adapter-node build
+
+  admin:
+    name: admin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/admin... typecheck
+      - run: pnpm --filter @one-fetch/admin test
+      - run: pnpm --filter @one-fetch/admin... build
+
+  conformance:
+    name: conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/conformance... typecheck
+      - run: pnpm --filter @one-fetch/conformance test
+      - run: pnpm --filter @one-fetch/conformance... build
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high
+      - run: node tools/release/check-import-boundaries.mjs
+      - run: node tools/release/check-dependency-policy.mjs
+      - run: node tools/release/check-source-size.mjs
+      - run: node --test tools/release/*.test.mjs
+      - run: pnpm exec eslint .
+      - run: pnpm exec prettier --check .
+
+  artifacts:
+    name: artifacts
+    needs: [core, cloudflare, supabase, node, admin, conformance, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - id: metadata
+        shell: bash
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+      - run: node tools/release/verify-release-input.mjs --version "${{ steps.metadata.outputs.version }}" --channel preview
+      - run: node tools/release/build-review-bundle.mjs --version "${{ steps.metadata.outputs.version }}"
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: .
+          format: cyclonedx-json
+          syft-version: v1.51.1
+          output-file: artifacts/release/${{ steps.metadata.outputs.version }}/one-fetch-sbom-${{ steps.metadata.outputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - run: node tools/release/finalize-review-bundle.mjs --version "${{ steps.metadata.outputs.version }}" --channel preview --require-sbom
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: one-fetch-${{ steps.metadata.outputs.version }}-review
+          path: artifacts/release/${{ steps.metadata.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14

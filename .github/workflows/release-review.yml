@@ -1,0 +1,75 @@
+name: Release review bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact workspace version to package
+        required: true
+        default: 0.1.0
+        type: string
+      channel:
+        description: Review channel; neither option creates a Release
+        required: true
+        default: preview
+        type: choice
+        options: [preview, stable]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-review-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: build-attest-review-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Require main for stable review
+        if: inputs.channel == 'stable'
+        shell: bash
+        run: test "$GITHUB_REF" = "refs/heads/main"
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tools/release/verify-release-input.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL"
+      - run: pnpm check
+      - run: node tools/release/build-review-bundle.mjs --version "$RELEASE_VERSION"
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: .
+          format: cyclonedx-json
+          syft-version: v1.51.1
+          output-file: artifacts/release/${{ inputs.version }}/one-fetch-sbom-${{ inputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - run: node tools/release/finalize-review-bundle.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL" --require-sbom
+      - id: attest
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-checksums: artifacts/release/${{ inputs.version }}/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: one-fetch-${{ inputs.version }}-${{ inputs.channel }}-review
+          path: |
+            artifacts/release/${{ inputs.version }}
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 30
