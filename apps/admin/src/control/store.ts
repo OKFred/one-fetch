@@ -8,13 +8,12 @@ import { computed, ref, shallowRef } from "vue";
 import { AdminControlApi, UnsupportedControlFeatureError } from "./api";
 import {
   clearRefreshToken,
-  hasPersistentRefreshToken,
   persistProfiles,
   readActiveProfileId,
   readProfiles,
-  readRefreshToken,
   storeRefreshToken,
 } from "./profile-storage";
+import { refreshSession } from "./refresh-session";
 import type {
   AuditPage,
   BootstrapState,
@@ -150,16 +149,19 @@ export const useControlStore = defineStore("control", () => {
   }
 
   async function restoreSession(): Promise<void> {
-    if (!profile.value || session.value) return;
-    const stored = readRefreshToken(profile.value.id);
-    if (!stored) return;
+    const restoringProfile = profile.value;
+    if (!restoringProfile || session.value) return;
     await run(
       async () => {
-        const pair = await (api.value ?? activateClient()).refresh(
-          stored.token,
-        );
-        const persisted = hasPersistentRefreshToken(profile.value!.id);
-        applySession(pair, persisted);
+        const client = api.value ?? activateClient();
+        const restored = await refreshSession(restoringProfile.id, (token) =>
+          client.refresh(token),
+        ).catch((cause: unknown) => {
+          client.setAccessToken(undefined);
+          throw cause;
+        });
+        if (!restored || profile.value?.id !== restoringProfile.id) return;
+        applySession(restored.pair, restored.persistent);
         await loadConfiguration();
       },
       true,

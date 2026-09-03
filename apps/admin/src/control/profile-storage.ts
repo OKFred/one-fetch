@@ -9,6 +9,10 @@ interface StoredRefreshToken {
   expiresAt: string;
 }
 
+interface LocatedRefreshToken extends StoredRefreshToken {
+  persistent: boolean;
+}
+
 function isInstanceProfile(value: unknown): value is InstanceProfile {
   if (typeof value !== "object" || value === null) return false;
   const profile = value as Record<string, unknown>;
@@ -49,8 +53,13 @@ export function persistProfiles(
   else localStorage.removeItem(ACTIVE_PROFILE_KEY);
 }
 
-export function readRefreshToken(profileId: string): StoredRefreshToken | null {
-  for (const storage of [sessionStorage, localStorage]) {
+export function readRefreshToken(
+  profileId: string,
+): LocatedRefreshToken | null {
+  for (const [storage, persistent] of [
+    [sessionStorage, false],
+    [localStorage, true],
+  ] as const) {
     try {
       const value: unknown = JSON.parse(
         storage.getItem(refreshKey(profileId)) ?? "null",
@@ -64,17 +73,13 @@ export function readRefreshToken(profileId: string): StoredRefreshToken | null {
         typeof value.expiresAt === "string" &&
         new Date(value.expiresAt).getTime() > Date.now()
       ) {
-        return value as StoredRefreshToken;
+        return { ...(value as StoredRefreshToken), persistent };
       }
     } catch {
       // Ignore corrupt browser storage and require a new login.
     }
   }
   return null;
-}
-
-export function hasPersistentRefreshToken(profileId: string): boolean {
-  return localStorage.getItem(refreshKey(profileId)) !== null;
 }
 
 export function storeRefreshToken(
