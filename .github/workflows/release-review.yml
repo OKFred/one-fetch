@@ -16,6 +16,7 @@ on:
         options: [preview, stable]
 
 permissions:
+  actions: read
   contents: read
   id-token: write
   attestations: write
@@ -47,6 +48,13 @@ jobs:
         with:
           node-version: 24.20.0
           cache: pnpm
+      - name: Require successful CI and CodeQL for this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          node tools/release/verify-github-checks.mjs
+          --repository "$GITHUB_REPOSITORY"
+          --sha "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
       - name: Audit locked dependencies with OSV
         uses: google/osv-scanner-action/osv-scanner-action@0c58c542420dfd23fcac08dd9c8ca3cca9c36f1a # v2.5.0
