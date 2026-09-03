@@ -94,8 +94,20 @@ describe("Node transparent Gateway", () => {
           enabled: true,
           id: "allow-fixture",
           match: {
+            methods: ["POST"],
             origins: [
               { caseSensitive: false, operator: "exact", value: targetOrigin },
+            ],
+            path: {
+              representation: "raw",
+              value: { operator: "exact", value: "/v1/items" },
+            },
+            query: [
+              {
+                name: { operator: "exact", value: "tag" },
+                presence: "present",
+                value: { operator: "exact", value: "b" },
+              },
             ],
           },
           name: "Allow local fixture",
@@ -222,5 +234,70 @@ describe("Node transparent Gateway", () => {
       },
     );
     expect(classified.source).toBe("relay");
+  });
+
+  it("evaluates resolved IP rules before opening the target connection", async () => {
+    let connections = 0;
+    const target = createServer((_request, response) => {
+      connections += 1;
+      response.end("unexpected");
+    });
+    const targetPort = await listen(target);
+    cleanups.push(() => closeServer(target));
+    const targetOrigin = `http://localhost:${targetPort}`;
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+    const administratorId = await services.auth.authenticateAdmin(
+      session.accessToken,
+    );
+    const issued = await services.auth.createExecutionToken(
+      administratorId!,
+      ["http"],
+      [targetOrigin],
+    );
+    const current = await services.configuration.get();
+    const update = services.configuration.prepareUpdate(current, {
+      mode: "blocklist",
+      revision: current.policy.revision,
+      rules: [
+        {
+          action: "deny",
+          enabled: true,
+          id: "deny-loopback",
+          match: { resolvedIpCidrs: ["127.0.0.0/8", "::1/128"] },
+          name: "Deny loopback after DNS resolution",
+        },
+      ],
+      schemaVersion: 1,
+    });
+    await services.database.transaction([update.operation]);
+    const gateway = createGatewayServer(services);
+    const gatewayPort = await listen(gateway);
+    cleanups.push(() => closeServer(gateway));
+    const metadata: OneFetchRequestMetaV1 = {
+      body: { sizeBytes: 0 },
+      fetchOptions: { redirect: "follow", timeoutMs: 60_000 },
+      hop: 0,
+      nonce: "11111111111111111111111111111111",
+      protocolVersion: 1,
+      requestId: "resolved-ip-deny",
+      targetHeaders: [],
+      targetOrigin,
+      transport: "http",
+    };
+    const result = await fetch(`http://127.0.0.1:${gatewayPort}/blocked`, {
+      headers: {
+        [ONE_FETCH_REQUEST_HEADER]: encodeRequestMetadata(metadata),
+        [ONE_FETCH_TOKEN_HEADER]: issued.token,
+      },
+    });
+    expect(result.status).toBe(403);
+    expect(connections).toBe(0);
   });
 });

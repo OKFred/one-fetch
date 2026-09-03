@@ -40,7 +40,11 @@ import {
 import { auditAccepted, streamTarget } from "./gateway-stream.js";
 import { setCookieValues, validateTargetHeaders } from "./headers.js";
 import { parseServerTiming } from "./server-timing.js";
-import { executeUpstream } from "./upstream.js";
+import {
+  executeUpstream,
+  resolveApprovedTarget,
+  TargetPolicyDeniedError,
+} from "./upstream.js";
 
 export interface GatewayDependencies {
   audit: AuditLedger;
@@ -102,6 +106,10 @@ const policyContext = (
   body: BodySpool,
   origin = metadata.targetOrigin ?? "",
   headers = metadata.targetHeaders,
+  resolvedIps?: string[],
+  method = request.method ?? "GET",
+  pathAndQuery = request.url ?? "/",
+  relaySelf = false,
 ) => {
   const contentType = requestContentType(metadata);
   return createHttpPolicyContext({
@@ -113,8 +121,10 @@ const policyContext = (
     },
     fetchOptions: metadata.fetchOptions,
     headers,
-    method: request.method ?? "GET",
-    pathAndQuery: request.url ?? "/",
+    method,
+    pathAndQuery,
+    ...(resolvedIps ? { resolvedIps } : {}),
+    relaySelf,
     targetOrigin: origin,
   });
 };
@@ -125,9 +135,20 @@ const approve = (
   body: BodySpool,
   configuration: StoredConfiguration,
   credential: ExecutionCredential,
+  gatewayOrigin: string,
   target: URL,
   headers = metadata.targetHeaders,
+  resolvedIps?: string[],
+  method = request.method ?? "GET",
 ): void => {
+  const relaySelf = target.origin === new URL(gatewayOrigin).origin;
+  if (relaySelf)
+    throw failure(
+      "target_not_allowed",
+      "policy",
+      "Recursive one-fetch target is not allowed",
+      403,
+    );
   if (!credential.scopes.includes("http"))
     throw failure("forbidden", "authorization", "HTTP scope is required", 403);
   if (!allowedByCredential(credential, target.origin)) {
@@ -144,6 +165,10 @@ const approve = (
     body,
     target.origin,
     headers,
+    resolvedIps,
+    method,
+    `${target.pathname}${target.search}`,
+    relaySelf,
   );
   const system = evaluateSystemPolicy(configuration.policy, context);
   if (system.decision === "deny")
@@ -168,7 +193,6 @@ const validateRequest = (
   metadata: OneFetchRequestMetaV1,
   body: BodySpool,
   configuration: StoredConfiguration,
-  credential: ExecutionCredential,
   dependencies: GatewayDependencies,
 ): void => {
   if (metadata.transport !== "http")
@@ -256,14 +280,6 @@ const validateRequest = (
       400,
     );
   }
-  approve(
-    request,
-    metadata,
-    body,
-    configuration,
-    credential,
-    new URL(metadata.targetOrigin),
-  );
 };
 
 const handleGatewayRequest = async (
@@ -277,6 +293,7 @@ const handleGatewayRequest = async (
   let token = singleHeader(request, ONE_FETCH_TOKEN_HEADER) ?? "";
   let configuration: StoredConfiguration | undefined;
   let responseContext: ResponseContext | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   const abort = new AbortController();
   request.once("aborted", () =>
     abort.abort(new Error("Client upload cancelled")),
@@ -308,13 +325,42 @@ const handleGatewayRequest = async (
       dependencies.config.requestBodyLimitBytes,
       ONE_FETCH_LIMITS_V1.inspectableBodyBytes,
     );
-    validateRequest(
-      request,
-      metadata,
-      body,
-      configuration,
-      credential,
-      dependencies,
+    validateRequest(request, metadata, body, configuration, dependencies);
+    timeout = setTimeout(
+      () => abort.abort(new Error("Request timeout")),
+      metadata.fetchOptions.timeoutMs,
+    );
+    const targetApprover = async (
+      url: URL,
+      headers: OneFetchRequestMetaV1["targetHeaders"],
+      _hops: number,
+      resolvedIps: string[],
+      method: string,
+    ): Promise<boolean> => {
+      try {
+        approve(
+          request,
+          metadata!,
+          body!,
+          configuration!,
+          credential,
+          dependencies.config.publicGatewayUrl,
+          url,
+          headers,
+          resolvedIps,
+          method,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const initialResolution = await resolveApprovedTarget(
+      new URL(request.url ?? "/", metadata.targetOrigin!),
+      metadata.targetHeaders,
+      0,
+      request.method ?? "GET",
+      targetApprover,
     );
     const auditState = await auditAccepted(
       dependencies,
@@ -332,35 +378,17 @@ const handleGatewayRequest = async (
       reportId,
       token,
     };
-    const timeout = setTimeout(
-      () => abort.abort(new Error("Request timeout")),
-      metadata.fetchOptions.timeoutMs,
-    );
     const upstream = await executeUpstream({
-      approveRedirect: async (url, headers) => {
-        try {
-          approve(
-            request,
-            metadata!,
-            body!,
-            configuration!,
-            credential,
-            url,
-            headers,
-          );
-          return true;
-        } catch {
-          return false;
-        }
-      },
+      approveTarget: targetApprover,
       body,
       fetchOptions: metadata.fetchOptions,
       headers: metadata.targetHeaders,
+      initialResolution,
       method: request.method ?? "GET",
       pathAndQuery: request.url ?? "/",
       signal: abort.signal,
       targetOrigin: metadata.targetOrigin!,
-    }).finally(() => clearTimeout(timeout));
+    });
     const serverTiming = parseServerTiming(
       upstream.response.headers["server-timing"],
     );
@@ -392,15 +420,22 @@ const handleGatewayRequest = async (
     const gatewayError =
       error instanceof GatewayFailure
         ? error
-        : failure(
-            abort.signal.aborted ? "cancelled" : "upstream_network",
-            abort.signal.aborted ? "cancellation" : "internal",
-            abort.signal.aborted
-              ? "Request was cancelled"
-              : "Gateway request failed",
-            abort.signal.aborted ? 499 : 502,
-            !abort.signal.aborted,
-          );
+        : error instanceof TargetPolicyDeniedError
+          ? failure(
+              "target_not_allowed",
+              "policy",
+              "Resolved target addresses were denied by policy",
+              403,
+            )
+          : failure(
+              abort.signal.aborted ? "cancelled" : "upstream_network",
+              abort.signal.aborted ? "cancellation" : "internal",
+              abort.signal.aborted
+                ? "Request was cancelled"
+                : "Gateway request failed",
+              abort.signal.aborted ? 499 : 502,
+              !abort.signal.aborted,
+            );
     if (!response.headersSent && metadata && token && configuration) {
       responseContext ??= {
         auditState: "unknown",
@@ -424,6 +459,7 @@ const handleGatewayRequest = async (
       response.destroy();
     }
   } finally {
+    if (timeout) clearTimeout(timeout);
     await body?.cleanup().catch(() => undefined);
   }
 };

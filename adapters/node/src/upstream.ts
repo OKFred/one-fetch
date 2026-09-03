@@ -39,10 +39,12 @@ export interface UpstreamResult {
 }
 
 interface ExecuteUpstreamOptions {
-  approveRedirect: (
+  approveTarget: (
     url: URL,
     headers: HeaderEntryV1[],
     hops: number,
+    resolvedIps: string[],
+    method: string,
   ) => Promise<boolean>;
   body: BodySpool;
   fetchOptions: FetchOptionsV1;
@@ -51,7 +53,45 @@ interface ExecuteUpstreamOptions {
   pathAndQuery: string;
   signal: AbortSignal;
   targetOrigin: string;
+  initialResolution: ResolvedTarget;
 }
+
+export interface ResolvedTarget {
+  address: string;
+  dnsDurationMs: number;
+  family: number;
+}
+
+type TargetApprover = ExecuteUpstreamOptions["approveTarget"];
+
+export class TargetPolicyDeniedError extends Error {
+  constructor() {
+    super("No resolved target address was approved by policy");
+    this.name = "TargetPolicyDeniedError";
+  }
+}
+
+export const resolveApprovedTarget = async (
+  url: URL,
+  headers: HeaderEntryV1[],
+  hops: number,
+  method: string,
+  approve: TargetApprover,
+): Promise<ResolvedTarget> => {
+  const dnsStarted = performance.now();
+  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+  const dnsDurationMs = performance.now() - dnsStarted;
+  for (const candidate of addresses) {
+    if (await approve(url, headers, hops, [candidate.address], method)) {
+      return {
+        address: candidate.address,
+        dnsDurationMs,
+        family: candidate.family,
+      };
+    }
+  }
+  throw new TargetPolicyDeniedError();
+};
 
 const redirectStatus = new Set([301, 302, 303, 307, 308]);
 
@@ -74,18 +114,13 @@ const singleRequest = async (
   headers: HeaderEntryV1[],
   body: BodySpool,
   options: FetchOptionsV1,
+  resolution: ResolvedTarget,
   signal: AbortSignal,
   sendBody: boolean,
 ): Promise<{ response: IncomingMessage; timing: TimingPhase[] }> => {
-  const dnsStarted = performance.now();
-  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
-  const dnsDuration = performance.now() - dnsStarted;
-  const selected = addresses[0];
-  if (!selected) throw new Error("Target hostname returned no addresses");
-
   const timing: TimingPhase[] = [
     {
-      durationMs: dnsDuration,
+      durationMs: resolution.dnsDurationMs,
       name: "dns",
       source: "gateway",
       state: "measured",
@@ -118,7 +153,7 @@ const singleRequest = async (
     lookup: agent
       ? undefined
       : (_hostname, _options, callback) =>
-          callback(null, selected.address, selected.family),
+          callback(null, resolution.address, resolution.family),
     method,
     path: `${url.pathname}${url.search}`,
     port: url.port || undefined,
@@ -172,6 +207,7 @@ export const executeUpstream = async (
   let headers = input.headers;
   let redirects = 0;
   let sendBody = input.body.sizeBytes > 0;
+  let resolution = input.initialResolution;
   const timing: TimingPhase[] = [];
 
   while (true) {
@@ -181,6 +217,7 @@ export const executeUpstream = async (
       headers,
       input.body,
       input.fetchOptions,
+      resolution,
       input.signal,
       sendBody,
     );
@@ -229,11 +266,14 @@ export const executeUpstream = async (
       headers = stripBodyHeaders(headers);
       sendBody = false;
     }
-    if (!(await input.approveRedirect(next, headers, redirects))) {
-      result.response.resume();
-      throw new Error("Redirect target was denied by policy");
-    }
     result.response.resume();
+    resolution = await resolveApprovedTarget(
+      next,
+      headers,
+      redirects,
+      method,
+      input.approveTarget,
+    );
     current = next;
   }
 };
