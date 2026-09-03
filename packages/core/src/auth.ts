@@ -6,6 +6,42 @@ import {
   utf8,
 } from "./crypto.js";
 
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+export function encodeBase32(bytes: Uint8Array): string {
+  let accumulator = 0;
+  let bits = 0;
+  let output = "";
+  for (const byte of bytes) {
+    accumulator = (accumulator << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(accumulator >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) output += BASE32_ALPHABET[(accumulator << (5 - bits)) & 31];
+  return output;
+}
+
+export function decodeBase32(value: string): Uint8Array {
+  const normalized = value.toUpperCase().replace(/=+$/u, "");
+  if (!/^[A-Z2-7]+$/u.test(normalized))
+    throw new TypeError("Expected an unpadded Base32 value");
+  let accumulator = 0;
+  let bits = 0;
+  const output: number[] = [];
+  for (const character of normalized) {
+    accumulator = (accumulator << 5) | BASE32_ALPHABET.indexOf(character);
+    bits += 5;
+    if (bits >= 8) {
+      output.push((accumulator >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Uint8Array.from(output);
+}
+
 export function generateOpaqueToken(prefix = "of"): string {
   if (!/^[a-z][a-z0-9_-]{0,15}$/u.test(prefix))
     throw new TypeError("Invalid token prefix");

@@ -163,3 +163,97 @@ export async function deriveHmacKey(
     ["sign", "verify"],
   );
 }
+
+async function deriveEncryptionKey(
+  secret: string | Uint8Array,
+  salt: Uint8Array,
+  context: string,
+): Promise<CryptoKey> {
+  const material = await cryptoApi().subtle.importKey(
+    "raw",
+    typeof secret === "string" ? utf8(secret) : ownedBytes(secret),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return cryptoApi().subtle.deriveKey(
+    {
+      hash: "SHA-256",
+      info: utf8(`one-fetch:${context}`),
+      name: "HKDF",
+      salt: ownedBytes(salt),
+    },
+    material,
+    { length: 256, name: "AES-GCM" },
+    false,
+    ["decrypt", "encrypt"],
+  );
+}
+
+interface SealedSecretV1 {
+  ciphertext: string;
+  iv: string;
+  salt: string;
+  version: 1;
+}
+
+const parseSealedSecret = (value: string): SealedSecretV1 => {
+  const parsed: unknown = JSON.parse(value);
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed) ||
+    Object.keys(parsed).sort().join(",") !== "ciphertext,iv,salt,version"
+  )
+    throw new TypeError("Encrypted secret envelope is invalid");
+  const envelope = parsed as Record<string, unknown>;
+  if (
+    envelope.version !== 1 ||
+    typeof envelope.ciphertext !== "string" ||
+    typeof envelope.iv !== "string" ||
+    typeof envelope.salt !== "string"
+  )
+    throw new TypeError("Encrypted secret envelope is invalid");
+  return envelope as unknown as SealedSecretV1;
+};
+
+export async function sealSecret(
+  value: Uint8Array,
+  secret: string | Uint8Array,
+  context: string,
+): Promise<string> {
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = await deriveEncryptionKey(secret, salt, context);
+  const ciphertext = await cryptoApi().subtle.encrypt(
+    { additionalData: utf8(context), iv, name: "AES-GCM" },
+    key,
+    ownedBytes(value),
+  );
+  return stableStringify({
+    ciphertext: bytesToBase64Url(new Uint8Array(ciphertext)),
+    iv: bytesToBase64Url(iv),
+    salt: bytesToBase64Url(salt),
+    version: 1,
+  } satisfies SealedSecretV1);
+}
+
+export async function openSecret(
+  value: string,
+  secret: string | Uint8Array,
+  context: string,
+): Promise<Uint8Array> {
+  const envelope = parseSealedSecret(value);
+  const salt = base64UrlToBytes(envelope.salt);
+  const iv = base64UrlToBytes(envelope.iv);
+  if (salt.byteLength !== 16 || iv.byteLength !== 12)
+    throw new TypeError("Encrypted secret envelope has invalid parameters");
+  const key = await deriveEncryptionKey(secret, salt, context);
+  return new Uint8Array(
+    await cryptoApi().subtle.decrypt(
+      { additionalData: utf8(context), iv, name: "AES-GCM" },
+      key,
+      base64UrlToBytes(envelope.ciphertext),
+    ),
+  );
+}

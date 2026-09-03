@@ -4,10 +4,14 @@ import type { UnsignedAuditEventV1 } from "@one-fetch/protocol";
 
 import {
   classifyFetchOptions,
+  decodeBase32,
+  encodeBase32,
   generateAuditSigningKeyPair,
   generateTotpCode,
+  openSecret,
   redactAuditEvent,
   signAuditEvent,
+  sealSecret,
   verifyAuditEvent,
 } from "../src/index.js";
 
@@ -33,6 +37,21 @@ describe("core utilities", () => {
     await expect(
       generateTotpCode(secret, { digits: 8, timestampMs: 59_000 }),
     ).resolves.toBe("94287082");
+  });
+
+  it("round-trips Base32 and authenticated encrypted secrets", async () => {
+    const secret = new TextEncoder().encode("12345678901234567890");
+    const encoded = encodeBase32(secret);
+    expect(encoded).toBe("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
+    expect(decodeBase32(encoded)).toEqual(secret);
+
+    const sealed = await sealSecret(secret, "instance-pepper", "totp:admin");
+    await expect(
+      openSecret(sealed, "instance-pepper", "totp:admin"),
+    ).resolves.toEqual(secret);
+    await expect(
+      openSecret(sealed, "wrong-pepper", "totp:admin"),
+    ).rejects.toThrow();
   });
 
   it("removes forbidden audit headers and redacts likely secrets", async () => {
