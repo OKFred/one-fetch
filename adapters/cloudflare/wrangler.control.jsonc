@@ -3,7 +3,6 @@
   "name": "one-fetch-control",
   "main": "src/control.ts",
   "compatibility_date": "2026-09-04",
-  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "vars": {
     "ADAPTER_NAME": "cloudflare",
