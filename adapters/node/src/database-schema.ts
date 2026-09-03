@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 6;
+export const DATABASE_SCHEMA_VERSION = 7;
 
 export const DATABASE_MIGRATIONS = [
   {
@@ -176,6 +176,13 @@ export const DATABASE_MIGRATIONS = [
       ) STRICT;
       CREATE INDEX operational_alerts_state_idx
         ON operational_alerts(state, updated_at);
+    `,
+  },
+  {
+    version: 7,
+    sql: `
+      CREATE UNIQUE INDEX administrators_singleton_idx
+        ON administrators ((1));
     `,
   },
 ] as const;

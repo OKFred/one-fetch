@@ -13,6 +13,13 @@ interface PendingRequest {
   resolve: (value: unknown) => void;
 }
 
+export class DatabaseConditionalWriteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseConditionalWriteError";
+  }
+}
+
 export class DatabaseClient {
   readonly #pending = new Map<number, PendingRequest>();
   readonly #worker: Worker;
@@ -108,7 +115,13 @@ export class DatabaseClient {
     if (!pending) return;
     this.#pending.delete(response.id);
     if (response.ok) pending.resolve(response.result);
-    else pending.reject(new Error(response.error));
+    else {
+      pending.reject(
+        response.code === "conditional_write_failed"
+          ? new DatabaseConditionalWriteError(response.error)
+          : new Error(response.error),
+      );
+    }
   }
 
   #rejectAll(error: Error): void {

@@ -20,6 +20,8 @@ interface WorkerData {
   databasePath: string;
 }
 
+class ConditionalWriteError extends Error {}
+
 const data = workerData as WorkerData;
 if (data.databasePath !== ":memory:")
   mkdirSync(dirname(data.databasePath), { recursive: true });
@@ -82,10 +84,19 @@ const execute = (operation: SqlOperation): SqlResult => {
   const parameters = (operation.parameters ?? []) as SQLInputValue[];
   if (operation.kind === "run") {
     const result = statement.run(...parameters);
-    return {
+    const runResult = {
       changes: Number(result.changes),
       lastInsertRowid: BigInt(result.lastInsertRowid),
     } satisfies RunResult;
+    if (
+      operation.expectedChanges !== undefined &&
+      runResult.changes !== operation.expectedChanges
+    ) {
+      throw new ConditionalWriteError(
+        `Expected ${operation.expectedChanges} changed row(s), received ${runResult.changes}`,
+      );
+    }
+    return runResult;
   }
   if (operation.kind === "get") return statement.get(...parameters);
   return statement.all(...parameters);
@@ -132,6 +143,9 @@ parentPort.on("message", (request: DatabaseRequest) => {
     parentPort?.postMessage({
       id: request.id,
       ok: false,
+      ...(error instanceof ConditionalWriteError
+        ? { code: "conditional_write_failed" as const }
+        : {}),
       error: error instanceof Error ? error.message : "Unknown database error",
     } satisfies DatabaseResponse);
   }

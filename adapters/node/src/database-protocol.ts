@@ -1,10 +1,16 @@
 export type SqlValue = string | number | bigint | null | Uint8Array;
 
-export interface SqlOperation {
-  kind: "run" | "get" | "all";
+interface SqlOperationBase {
   sql: string;
   parameters?: SqlValue[];
 }
+
+export type SqlOperation =
+  | (SqlOperationBase & {
+      expectedChanges?: number;
+      kind: "run";
+    })
+  | (SqlOperationBase & { kind: "get" | "all" });
 
 export type DatabaseRequest =
   | { id: number; kind: "close" }
@@ -29,4 +35,9 @@ export type SqlResult = RunResult | SqlRow | SqlRow[] | undefined;
 
 export type DatabaseResponse =
   | { id: number; ok: true; result?: SqlResult | SqlResult[] }
-  | { id: number; ok: false; error: string };
+  | {
+      id: number;
+      ok: false;
+      code?: "conditional_write_failed";
+      error: string;
+    };
