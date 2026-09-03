@@ -62,7 +62,7 @@ export function registerPublicRoutes(
   });
 
   app.get("/api/v1/openapi.json", (context) =>
-    context.json(createSupabaseOpenApi(context.req.raw)),
+    context.json(createSupabaseOpenApi(environment.controlBaseUrl)),
   );
 
   app.get("/api/v1/capabilities", async (context) => {

@@ -1,9 +1,6 @@
 import { z } from "zod";
 
 import { CONTROL_OPENAPI_JSON } from "../_shared/control-openapi.generated.ts";
-import { requestPath } from "../_shared/http.ts";
-
-export const CONTROL_BASE_URL_HEADER = "x-one-fetch-runtime-control-base";
 
 const OpenApiDocumentSchema = z
   .object({
@@ -23,16 +20,6 @@ type OpenApiOperation = {
 type MutableOpenApiDocument = z.infer<typeof OpenApiDocumentSchema> & {
   servers?: { url: string; description?: string }[];
 };
-
-export function deriveControlBaseUrl(request: Request): string {
-  const url = new URL(request.url);
-  const routePath = requestPath(request, "one-fetch-control");
-  const basePath = url.pathname.endsWith(routePath)
-    ? url.pathname.slice(0, -routePath.length)
-    : "";
-  const normalizedPath = basePath.replace(/\/$/u, "");
-  return `${url.origin}${normalizedPath}`;
-}
 
 function postOperation(
   document: MutableOpenApiDocument,
@@ -89,15 +76,13 @@ function markTotpUnsupported(
   };
 }
 
-export function createSupabaseOpenApi(request: Request): unknown {
+export function createSupabaseOpenApi(controlBaseUrl: string): unknown {
   const document = structuredClone(
     CANONICAL_DOCUMENT,
   ) as MutableOpenApiDocument;
   document.servers = [
     {
-      url:
-        request.headers.get(CONTROL_BASE_URL_HEADER) ??
-        deriveControlBaseUrl(request),
+      url: controlBaseUrl,
       description: "This Supabase Control Edge Function base URL",
     },
   ];

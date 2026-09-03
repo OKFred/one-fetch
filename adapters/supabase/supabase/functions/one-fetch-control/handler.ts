@@ -4,7 +4,6 @@ import { getEnvironment, type SupabaseEnvironment } from "../_shared/env.ts";
 import { normalizeControlRequest, requestPath } from "../_shared/http.ts";
 import { createControlApp } from "./app.ts";
 import { controlError } from "./helpers.ts";
-import { CONTROL_BASE_URL_HEADER, deriveControlBaseUrl } from "./openapi.ts";
 
 export function createControlHandler(
   environment: SupabaseEnvironment = getEnvironment(),
@@ -39,10 +38,6 @@ export function createControlHandler(
     const preflightResponse = preflight(request, allowedOrigins);
     if (preflightResponse) return preflightResponse;
     const normalizedRequest = normalizeControlRequest(request);
-    normalizedRequest.headers.set(
-      CONTROL_BASE_URL_HEADER,
-      deriveControlBaseUrl(request),
-    );
     const response = await app.fetch(normalizedRequest);
     const headers = new Headers(response.headers);
     headers.set("cache-control", "no-store");

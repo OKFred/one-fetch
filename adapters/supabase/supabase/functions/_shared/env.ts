@@ -43,6 +43,27 @@ function required(name: string): string {
   return value;
 }
 
+export function parseFunctionBaseUrl(
+  value: string,
+  functionName: "one-fetch-control" | "one-fetch-gateway",
+): string {
+  const url = new URL(value);
+  const pathname = url.pathname.replace(/\/$/u, "");
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    pathname !== `/functions/v1/${functionName}`
+  ) {
+    throw new TypeError(
+      `Expected a safe ${functionName} HTTP(S) Function base URL`,
+    );
+  }
+  return `${url.origin}${pathname}`;
+}
+
 export interface SupabaseEnvironment {
   instanceId: string;
   bootstrapSecret: string;
@@ -68,6 +89,14 @@ export function getEnvironment(): SupabaseEnvironment {
   if (bootstrapSecret.length < 32 || pepper.length < 32) {
     throw new Error("one-fetch secrets must contain at least 32 characters");
   }
+  const controlBaseUrl = parseFunctionBaseUrl(
+    required("ONE_FETCH_CONTROL_BASE_URL"),
+    "one-fetch-control",
+  );
+  const gatewayBaseUrl = parseFunctionBaseUrl(
+    required("ONE_FETCH_GATEWAY_BASE_URL"),
+    "one-fetch-gateway",
+  );
 
   cached = {
     instanceId,
@@ -77,8 +106,8 @@ export function getEnvironment(): SupabaseEnvironment {
     auditKeyId: required("ONE_FETCH_AUDIT_KEY_ID"),
     supabaseUrl: required("SUPABASE_URL").replace(/\/$/u, ""),
     serviceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
-    controlBaseUrl: required("ONE_FETCH_CONTROL_BASE_URL").replace(/\/$/u, ""),
-    gatewayBaseUrl: required("ONE_FETCH_GATEWAY_BASE_URL").replace(/\/$/u, ""),
+    controlBaseUrl,
+    gatewayBaseUrl,
     allowedAdminOrigins: commaSeparatedOrigins(
       Deno.env.get("ONE_FETCH_ALLOWED_ADMIN_ORIGINS"),
     ),

@@ -73,7 +73,7 @@ reordered, or unknown versions. This is an application compatibility ledger,
 not independent proof of the historical bytes executed by Postgres and not a
 substitute for schema-drift or backup-restore checks.
 
-Each function has its own `deno.json` and `deno.lock`. Runtime imports map shared packages to built JavaScript, so Supabase never depends on development-only sloppy `.js` to `.ts` resolution. Adapter-local types are inferred from the same runtime Zod schemas, keeping those imports in lockstep with the deployed values. The build also validates the canonical Control OpenAPI 3.1 document and embeds a generated, bundle-local snapshot; the deployed function never reads outside its bundle. `GET /api/v1/openapi.json` overlays that canonical snapshot with the complete request-derived Edge Function base URL and the Supabase Preview's permanent `501` TOTP responses. It does not change the cross-adapter canonical document.
+Each function has its own `deno.json` and `deno.lock`. Runtime imports map shared packages to built JavaScript, so Supabase never depends on development-only sloppy `.js` to `.ts` resolution. Adapter-local types are inferred from the same runtime Zod schemas, keeping those imports in lockstep with the deployed values. The build also validates the canonical Control OpenAPI 3.1 document and embeds a generated, bundle-local snapshot; the deployed function never reads outside its bundle. `GET /api/v1/openapi.json` overlays that canonical snapshot with the complete, validated `ONE_FETCH_CONTROL_BASE_URL` and the Supabase Preview's permanent `501` TOTP responses. Request and forwarded headers cannot override this URL. The overlay does not change the cross-adapter canonical document.
 
 ## Safe deployment
 

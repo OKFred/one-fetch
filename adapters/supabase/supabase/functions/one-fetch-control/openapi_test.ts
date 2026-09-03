@@ -1,5 +1,8 @@
 import type { Database } from "../_shared/database.ts";
-import type { SupabaseEnvironment } from "../_shared/env.ts";
+import {
+  parseFunctionBaseUrl,
+  type SupabaseEnvironment,
+} from "../_shared/env.ts";
 import { createControlTestHandler as createControlHandler } from "./test-support.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -33,8 +36,43 @@ type OpenApiDocument = {
   >;
 };
 
+Deno.test("Function base URLs are validated and normalized", () => {
+  assert(
+    parseFunctionBaseUrl(
+      "http://127.0.0.1:54321/functions/v1/one-fetch-control/",
+      "one-fetch-control",
+    ) === "http://127.0.0.1:54321/functions/v1/one-fetch-control",
+    "local Control URL was not normalized",
+  );
+  assert(
+    parseFunctionBaseUrl(
+      "https://project.supabase.co/functions/v1/one-fetch-gateway",
+      "one-fetch-gateway",
+    ) === "https://project.supabase.co/functions/v1/one-fetch-gateway",
+    "hosted Gateway URL changed",
+  );
+});
+
+Deno.test("Function base URLs reject unsafe or mismatched values", () => {
+  for (const value of [
+    "ftp://project.supabase.co/functions/v1/one-fetch-control",
+    "https://user:secret@project.supabase.co/functions/v1/one-fetch-control",
+    "https://project.supabase.co/functions/v1/one-fetch-gateway",
+    "https://project.supabase.co/functions/v1/one-fetch-control?mode=unsafe",
+    "https://project.supabase.co/functions/v1/one-fetch-control#fragment",
+  ]) {
+    let rejected = false;
+    try {
+      parseFunctionBaseUrl(value, "one-fetch-control");
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, `unsafe Function URL was accepted: ${value}`);
+  }
+});
+
 Deno.test(
-  "Supabase OpenAPI derives the complete Edge Function base URL",
+  "Supabase OpenAPI uses the configured complete Edge Function base URL",
   async () => {
     const response = await createControlHandler(
       environment,
@@ -42,14 +80,21 @@ Deno.test(
     )(
       new Request(
         "https://actual.example/functions/v1/one-fetch-control/api/v1/openapi.json?ignored=1",
-        { headers: { "x-one-fetch-runtime-control-base": "https://spoofed" } },
+        {
+          headers: {
+            forwarded: "host=spoofed.example;proto=https",
+            "x-forwarded-host": "spoofed.example",
+            "x-forwarded-proto": "https",
+            "x-one-fetch-runtime-control-base": "https://spoofed.example",
+          },
+        },
       ),
     );
     const document = (await response.json()) as OpenApiDocument;
     assert(response.status === 200, `expected 200, got ${response.status}`);
     assert(
       document.servers?.[0]?.url ===
-        "https://actual.example/functions/v1/one-fetch-control",
+        "https://configured.example/functions/v1/one-fetch-control",
       `unexpected server URL ${document.servers?.[0]?.url}`,
     );
   },
