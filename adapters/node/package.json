@@ -1,0 +1,43 @@
+{
+  "name": "@one-fetch/adapter-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0 <27"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "one-fetch": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "node --input-type=module -e \"import('node:fs').then(({rmSync})=>rmSync('dist',{recursive:true,force:true}))\"",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "test": "tsc -b && vitest run --config vitest.config.ts",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@hono/zod-openapi": "1.6.2",
+    "@one-fetch/core": "workspace:*",
+    "@one-fetch/protocol": "workspace:*",
+    "bcryptjs": "3.0.3",
+    "hono": "4.13.5",
+    "http-proxy-agent": "9.1.0",
+    "https-proxy-agent": "9.1.0",
+    "socks-proxy-agent": "10.1.0",
+    "ws": "8.21.3",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.13",
+    "typescript": "5.9.2",
+    "vitest": "4.1.11"
+  }
+}
