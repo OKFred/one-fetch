@@ -1,38 +1,21 @@
-import {
-  ONE_FETCH_LIMITS_V1,
-  PolicySetV1Schema,
-  type HeaderEntryV1,
-} from "@one-fetch/protocol";
-import {
-  classifyFetchOptions,
-  createHttpPolicyContext,
-  evaluateSystemPolicy,
-  evaluateUserDenyRules,
-} from "@one-fetch/core";
+import { ONE_FETCH_LIMITS_V1 } from "@one-fetch/protocol";
 
-import { SUPABASE_FETCH_OPTIONS } from "../_shared/capabilities.ts";
 import {
   stripSensitiveRedirectHeaders,
-  targetHeaders,
+  stripSensitiveRedirectHeaderEntries,
 } from "../_shared/upstream.ts";
 import {
   milliseconds,
   problem,
   signedError,
   type ActiveConfig,
-  type AuditState,
   type GatewayContext,
 } from "./foundation.ts";
-import { recordExecution } from "./recording.ts";
-import {
-  isRecursiveServiceTarget,
-  pathAndQuery,
-  readRequestBody,
-  targetUrl,
-  tokenAllows,
-} from "./request.ts";
-import { background } from "./stream.ts";
+import { prepareExecution } from "./execution-setup.ts";
+import { finalizeRelayError } from "./recording.ts";
+import { isRecursiveServiceTarget, tokenAllows } from "./request.ts";
 import { createTargetResponse } from "./target-response.ts";
+import { evaluateRequestPolicy } from "./policy.ts";
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
@@ -41,108 +24,40 @@ export async function executeHttp(
   context: GatewayContext,
   config: ActiveConfig,
 ): Promise<Response> {
-  if (context.metadata.transport !== "http" || !context.metadata.targetOrigin) {
-    return signedError(
-      context,
-      problem(
-        "unsupported_request",
-        "protocol",
-        "Supabase HTTP Gateway received a non-HTTP transport",
-      ),
-    );
-  }
-  if (
-    !config.initialized ||
-    !config.config ||
-    config.gatewayPaused ||
-    config.config.gatewayPaused
-  ) {
-    return signedError(
-      context,
-      problem(
-        "forbidden",
-        "authorization",
-        "Gateway is not initialized or is paused",
-      ),
-    );
-  }
-  const body = await readRequestBody(request, context.metadata);
-  if (["GET", "HEAD"].includes(request.method) && body.byteLength > 0) {
-    return signedError(
-      context,
-      problem(
-        "unsupported_request",
-        "protocol",
-        `${request.method} requests cannot contain a body`,
-      ),
-    );
-  }
-  const optionAssessment = classifyFetchOptions(
-    context.metadata.fetchOptions,
-    SUPABASE_FETCH_OPTIONS,
-  );
-  if (!optionAssessment.allowed)
-    return signedError(
-      context,
-      problem(
-        "unsupported_option",
-        "protocol",
-        "One or more Fetch options are unsupported",
-      ),
-    );
-
-  let currentUrl = targetUrl(
-    context.metadata.targetOrigin,
-    pathAndQuery(request),
-  );
-  if (!tokenAllows(context.principal, context.metadata, currentUrl)) {
-    return signedError(
-      context,
-      problem(
-        "forbidden",
-        "authorization",
-        "Execution token scope does not allow this target",
-      ),
-    );
-  }
-
-  let headers: Headers;
-  try {
-    headers = targetHeaders(context.metadata.targetHeaders, context.metadata);
-  } catch {
-    return signedError(
-      context,
-      problem(
-        "unsupported_header",
-        "protocol",
-        "One or more target headers cannot be represented safely",
-      ),
-    );
-  }
-
-  const policy = PolicySetV1Schema.parse(config.config.policy);
+  const setup = await prepareExecution(request, context, config);
+  if (setup instanceof Response) return setup;
+  let currentUrl = setup.currentUrl;
+  const { initialOrigin, abortController, timeout, body, leaseId, headers } =
+    setup;
+  const { auditState } = setup;
+  let { policyHeaders, contentType } = setup;
   let method = request.method;
   let activeBody = body;
   let hops = 0;
-  let leaseId: string | undefined;
-  const abortController = new AbortController();
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    abortController.abort("timeout");
-  }, context.metadata.fetchOptions.timeoutMs);
-  request.signal.addEventListener(
-    "abort",
-    () => abortController.abort("client_cancelled"),
-    { once: true },
-  );
-
-  let auditState: AuditState = "recorded";
-  try {
-    await recordExecution(context, "execution.received", "success");
-  } catch {
-    auditState = "degraded";
-  }
+  const relayError = async (
+    action: string,
+    code: Parameters<typeof problem>[0],
+    stage: Parameters<typeof problem>[1],
+    message: string,
+    target = currentUrl,
+    outcome: "denied" | "failure" | "partial" = "failure",
+    retryable = false,
+  ): Promise<Response> => {
+    clearTimeout(timeout);
+    const error = problem(code, stage, message, retryable);
+    const terminal = await finalizeRelayError(
+      context,
+      leaseId,
+      error,
+      auditState,
+      {
+        action,
+        auditOutcome: outcome,
+        targetUrl: target.href,
+      },
+    );
+    return signedError(context, error, terminal.auditState, terminal.reportId);
+  };
 
   try {
     while (true) {
@@ -152,122 +67,56 @@ export async function executeHttp(
           context.environment.controlBaseUrl,
         ])
       ) {
-        await recordExecution(context, "execution.recursion-denied", "denied", {
-          code: "target_not_allowed",
-        }).catch(() => undefined);
-        clearTimeout(timeout);
-        return signedError(
-          context,
-          problem(
-            "target_not_allowed",
-            "policy",
-            "Recursive one-fetch target denied",
-          ),
-          auditState,
+        return relayError(
+          "execution.recursion-denied",
+          "target_not_allowed",
+          "policy",
+          "Recursive one-fetch target denied",
+          currentUrl,
+          "denied",
         );
       }
-      const pathQuery = `${currentUrl.pathname}${currentUrl.search}`;
-      const headerEntries: HeaderEntryV1[] = Array.from(
-        headers,
-        ([name, value]) => ({ name, value }),
-      );
-      const bodyAvailable =
-        activeBody.byteLength <= config.config.bodyInspectionBytes;
-      const policyContext = createHttpPolicyContext({
+      const policyDenial = evaluateRequestPolicy({
+        context,
+        config: setup.configuration,
+        url: currentUrl,
         method,
-        targetOrigin: currentUrl.origin,
-        pathAndQuery: pathQuery,
-        headers: headerEntries,
-        fetchOptions: context.metadata.fetchOptions,
-        body: {
-          availability: bodyAvailable ? "available" : "too-large",
-          ...(bodyAvailable ? { bytes: activeBody } : {}),
-          sizeBytes: activeBody.byteLength,
-          ...(context.metadata.body.contentType
-            ? { contentType: context.metadata.body.contentType }
-            : {}),
-        },
+        body: activeBody,
+        headers: policyHeaders,
+        ...(contentType ? { contentType } : {}),
+        hops,
+        initialOrigin,
       });
-      const systemDecision = evaluateSystemPolicy(policy, policyContext);
-      if (systemDecision.decision === "deny") {
-        await recordExecution(context, "execution.policy-denied", "denied", {
-          code: "target_not_allowed",
-        }).catch(() => undefined);
-        clearTimeout(timeout);
-        return signedError(
-          context,
-          problem(
-            "target_not_allowed",
-            "policy",
-            "System policy denied the target",
-          ),
-          auditState,
+      if (policyDenial === "system") {
+        return relayError(
+          "execution.policy-denied",
+          "target_not_allowed",
+          "policy",
+          "System policy denied the target",
+          currentUrl,
+          "denied",
         );
       }
-      const userDecision = evaluateUserDenyRules(
-        context.metadata.userDenyRules,
-        policyContext,
-      );
-      if (userDecision.decision === "deny") {
-        await recordExecution(context, "execution.user-rule-denied", "denied", {
-          code: "user_rule_denied",
-        }).catch(() => undefined);
-        clearTimeout(timeout);
-        return signedError(
-          context,
-          problem(
-            "user_rule_denied",
-            "policy",
-            "User deny rule blocked the target",
-          ),
-          auditState,
+      if (policyDenial === "user") {
+        return relayError(
+          "execution.user-rule-denied",
+          "user_rule_denied",
+          "policy",
+          "User deny rule blocked the target",
+          currentUrl,
+          "denied",
         );
       }
       if (!tokenAllows(context.principal, context.metadata, currentUrl)) {
-        clearTimeout(timeout);
-        return signedError(
-          context,
-          problem(
-            "forbidden",
-            "authorization",
-            "Execution token scope does not allow a redirected target",
-          ),
-          auditState,
+        return relayError(
+          "execution.scope-denied",
+          "forbidden",
+          "authorization",
+          "Execution token scope does not allow a redirected target",
+          currentUrl,
+          "denied",
         );
       }
-      if (!leaseId) {
-        const lease = await context.database.rpc<{
-          allowed: boolean;
-          reason?: string;
-          leaseId?: string;
-        }>("of_acquire_execution", {
-          p_token_id: context.principal.tokenId,
-          p_request_id: context.metadata.requestId,
-          p_transport: "http",
-          p_request_bytes: body.byteLength,
-          p_lease_seconds: 1200,
-        });
-        if (!lease.allowed || !lease.leaseId) {
-          clearTimeout(timeout);
-          return signedError(
-            context,
-            problem(
-              "quota_exceeded",
-              "quota",
-              `Quota denied: ${lease.reason ?? "unknown"}`,
-              true,
-            ),
-            auditState,
-          );
-        }
-        leaseId = lease.leaseId;
-        await recordExecution(context, "execution.accepted", "success").catch(
-          () => {
-            auditState = "degraded";
-          },
-        );
-      }
-
       const upstreamStarted = performance.now();
       const upstream = await fetch(currentUrl, {
         method,
@@ -290,7 +139,7 @@ export async function executeHttp(
           upstream,
           leaseId,
           abortController,
-          didTimeOut: () => timedOut,
+          didTimeOut: setup.didTimeOut,
           timeout,
           auditState,
           ttfbMs,
@@ -298,64 +147,43 @@ export async function executeHttp(
       }
 
       if (context.metadata.fetchOptions.redirect === "error") {
-        clearTimeout(timeout);
         await upstream.body?.cancel();
-        background(
-          context.database.rpc("of_release_execution", {
-            p_lease_id: leaseId,
-            p_response_bytes: 0,
-          }),
-        );
-        return signedError(
-          context,
-          problem(
-            "redirect_disallowed",
-            "upstream-headers",
-            "Target returned a redirect",
-          ),
-          auditState,
+        return relayError(
+          "execution.redirect-denied",
+          "redirect_disallowed",
+          "upstream-headers",
+          "Target returned a redirect",
+          currentUrl,
+          "denied",
         );
       }
       if (hops >= ONE_FETCH_LIMITS_V1.redirects) {
-        clearTimeout(timeout);
         await upstream.body?.cancel();
-        background(
-          context.database.rpc("of_release_execution", {
-            p_lease_id: leaseId,
-            p_response_bytes: 0,
-          }),
-        );
-        return signedError(
-          context,
-          problem(
-            "redirect_disallowed",
-            "upstream-headers",
-            "Redirect limit exceeded",
-          ),
-          auditState,
+        return relayError(
+          "execution.redirect-denied",
+          "redirect_disallowed",
+          "upstream-headers",
+          "Redirect limit exceeded",
+          currentUrl,
+          "denied",
         );
       }
       const next = new URL(upstream.headers.get("location")!, currentUrl);
       if (!["http:", "https:"].includes(next.protocol)) {
-        clearTimeout(timeout);
-        background(
-          context.database.rpc("of_release_execution", {
-            p_lease_id: leaseId,
-            p_response_bytes: 0,
-          }),
-        );
-        return signedError(
-          context,
-          problem(
-            "redirect_disallowed",
-            "upstream-headers",
-            "Redirect scheme is unsupported",
-          ),
-          auditState,
+        await upstream.body?.cancel();
+        return relayError(
+          "execution.redirect-denied",
+          "redirect_disallowed",
+          "upstream-headers",
+          "Redirect scheme is unsupported",
+          next,
+          "denied",
         );
       }
-      if (next.origin !== currentUrl.origin)
+      if (next.origin !== currentUrl.origin) {
         stripSensitiveRedirectHeaders(headers);
+        policyHeaders = stripSensitiveRedirectHeaderEntries(policyHeaders);
+      }
       if (
         (upstream.status === 303 && !["GET", "HEAD"].includes(method)) ||
         ((upstream.status === 301 || upstream.status === 302) &&
@@ -370,42 +198,32 @@ export async function executeHttp(
           "content-type",
         ]) {
           headers.delete(name);
+          policyHeaders = policyHeaders.filter(
+            (entry) => entry.name.toLowerCase() !== name,
+          );
         }
+        contentType = undefined;
       }
       await upstream.body?.cancel();
       currentUrl = next;
       hops += 1;
     }
   } catch {
-    clearTimeout(timeout);
-    if (leaseId)
-      background(
-        context.database.rpc("of_release_execution", {
-          p_lease_id: leaseId,
-          p_response_bytes: 0,
-        }),
-      );
     const cancelled = abortController.signal.aborted;
+    const timedOut = setup.didTimeOut();
     const code = timedOut
       ? "timeout"
       : cancelled
         ? "cancelled"
         : "upstream_network";
-    await recordExecution(
-      context,
+    return relayError(
       `execution.${code}`,
+      code,
+      timedOut ? "timeout" : cancelled ? "cancellation" : "connect",
+      `Upstream request failed (${code})`,
+      currentUrl,
       code === "cancelled" ? "partial" : "failure",
-      { code },
-    ).catch(() => undefined);
-    return signedError(
-      context,
-      problem(
-        code,
-        timedOut ? "timeout" : cancelled ? "cancellation" : "connect",
-        `Upstream request failed (${code})`,
-        !cancelled,
-      ),
-      auditState,
+      !cancelled,
     );
   }
 }

@@ -3,15 +3,15 @@ import {
   ONE_FETCH_TOKEN_HEADER,
   ProtocolCodecError,
   decodeRequestMetadata,
-  type OneFetchRequestMetaV1,
 } from "@one-fetch/protocol";
+import type { OneFetchRequestMetaV1 } from "../_shared/protocol-types.ts";
 
 import {
   authenticateExecution,
   type ExecutionPrincipal,
 } from "../_shared/auth.ts";
 import { applyCors, preflight } from "../_shared/cors.ts";
-import { createDatabase } from "../_shared/database.ts";
+import { createDatabase, DatabaseError } from "../_shared/database.ts";
 import { getEnvironment } from "../_shared/env.ts";
 import { json } from "../_shared/http.ts";
 import { assertNoOuterProtocolHeaders } from "../_shared/upstream.ts";
@@ -19,6 +19,7 @@ import { executeHttp } from "./executor.ts";
 import {
   problem,
   signedError,
+  ActiveConfigSchema,
   type ActiveConfig,
   type GatewayContext,
 } from "./foundation.ts";
@@ -69,10 +70,16 @@ export function createGatewayHandler(
       );
     }
     const unknownPrincipal: ExecutionPrincipal = {
-      tokenId: "unknown",
+      tokenId: "00000000-0000-4000-8000-000000000000",
       name: "unknown",
-      scopes: {},
-      quotas: {},
+      scopes: { transports: ["http"], origins: [], ports: [] },
+      quotas: {
+        requestsPerMinute: 1,
+        burst: 1,
+        concurrentHttp: 0,
+        concurrentTunnels: 0,
+        bytesPerDay: 1,
+      },
     };
     const unsignedBase = {
       environment,
@@ -118,7 +125,9 @@ export function createGatewayHandler(
     }
     let config: ActiveConfig;
     try {
-      config = await database.rpc<ActiveConfig>("of_get_active_config");
+      config = ActiveConfigSchema.parse(
+        await database.rpc("of_get_active_config"),
+      );
     } catch {
       return applyCors(
         request,
@@ -129,6 +138,23 @@ export function createGatewayHandler(
             "storage",
             "Configuration storage is unavailable",
             true,
+          ),
+        ),
+        environment.allowedClientOrigins,
+      );
+    }
+    if (
+      config.instanceId !== undefined &&
+      config.instanceId !== environment.instanceId
+    ) {
+      return applyCors(
+        request,
+        await signedError(
+          { ...unsignedBase, principal },
+          problem(
+            "storage_unavailable",
+            "storage",
+            "Control and Gateway instance IDs do not match",
           ),
         ),
         environment.allowedClientOrigins,
@@ -148,17 +174,34 @@ export function createGatewayHandler(
       );
     } catch (error) {
       const code =
-        error instanceof RangeError ? "payload_too_large" : "invalid_metadata";
+        error instanceof DatabaseError
+          ? "storage_unavailable"
+          : error instanceof RangeError
+            ? "payload_too_large"
+            : error instanceof TypeError
+              ? "invalid_metadata"
+              : "internal";
+      const stage =
+        code === "storage_unavailable"
+          ? "storage"
+          : code === "internal"
+            ? "internal"
+            : "upload";
       return applyCors(
         request,
         await signedError(
           base,
           problem(
             code,
-            "upload",
+            stage,
             code === "payload_too_large"
               ? "Request body exceeds 20 MiB"
-              : "Request body metadata mismatch",
+              : code === "storage_unavailable"
+                ? "Gateway storage is unavailable"
+                : code === "internal"
+                  ? "Gateway execution failed"
+                  : "Request body metadata mismatch",
+            code === "storage_unavailable" || code === "internal",
           ),
         ),
         environment.allowedClientOrigins,
