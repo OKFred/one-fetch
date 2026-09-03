@@ -186,3 +186,31 @@ export const DATABASE_MIGRATIONS = [
     `,
   },
 ] as const;
+
+export interface DatabaseMigration {
+  readonly sql: string;
+  readonly version: number;
+}
+
+export const assertMigrationDefinitions = (
+  migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS,
+  schemaVersion = DATABASE_SCHEMA_VERSION,
+): void => {
+  if (schemaVersion < 1 || migrations.length !== schemaVersion) {
+    throw new Error(
+      `Migration definitions do not match schema version ${schemaVersion}`,
+    );
+  }
+
+  for (const [index, migration] of migrations.entries()) {
+    const expectedVersion = index + 1;
+    if (migration.version !== expectedVersion) {
+      throw new Error(
+        `Migration definitions must be unique and contiguous; expected version ${expectedVersion}, received ${migration.version}`,
+      );
+    }
+    if (!migration.sql.trim()) {
+      throw new Error(`Migration ${migration.version} must contain SQL`);
+    }
+  }
+};

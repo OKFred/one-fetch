@@ -41,3 +41,14 @@ export type DatabaseResponse =
       code?: "conditional_write_failed";
       error: string;
     };
+
+export type DatabaseWorkerMessage =
+  | DatabaseResponse
+  | {
+      kind: "startup-ready";
+      schemaVersion: number;
+    }
+  | {
+      error: string;
+      kind: "startup-fatal";
+    };
