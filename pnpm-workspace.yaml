@@ -11,8 +11,9 @@ minimumReleaseAgeExclude:
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
 strictDepBuilds: true
-
-onlyBuiltDependencies:
-  - esbuild
-  - workerd
-
+allowBuilds:
+  deno: true
+  esbuild: true
+  supabase: true
+  vue-demi: true
+  workerd: true
