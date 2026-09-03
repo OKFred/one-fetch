@@ -1,0 +1,392 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "one-fetch Control API",
+    "version": "0.1.0",
+    "description": "Canonical Control API. Adapter capability responses remain authoritative during Preview."
+  },
+  "servers": [{ "url": "https://control.example" }],
+  "tags": [
+    { "name": "public" },
+    { "name": "auth" },
+    { "name": "configuration" },
+    { "name": "operations" }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": ["public"],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Control health",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "tags": ["public"],
+        "operationId": "getCapabilities",
+        "responses": {
+          "200": {
+            "description": "Runtime and configuration capabilities",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/JsonObject" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bootstrap": {
+      "get": {
+        "tags": ["public"],
+        "operationId": "getBootstrapStatus",
+        "responses": {
+          "200": {
+            "description": "Bootstrap status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/JsonObject" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["auth"],
+        "operationId": "bootstrapAdministrator",
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": {
+          "201": { "$ref": "#/components/responses/JsonSuccess" },
+          "409": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "login",
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "429": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "refreshSession",
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "401": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "logout",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "204": { "description": "Session revoked" } }
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "listSessions",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/auth/sessions/{sessionId}": {
+      "delete": {
+        "tags": ["auth"],
+        "operationId": "revokeSession",
+        "security": [{ "adminBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/SessionId" }],
+        "responses": { "204": { "description": "Session revoked" } }
+      }
+    },
+    "/api/v1/auth/totp/prepare": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "prepareTotp",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/auth/totp/enable": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "enableTotp",
+        "security": [{ "adminBearer": [] }],
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/auth/password": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "changePassword",
+        "security": [{ "adminBearer": [] }],
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": {
+          "204": {
+            "description": "Password changed and other sessions revoked"
+          }
+        }
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "tags": ["configuration"],
+        "operationId": "getConfiguration",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/config/policy": {
+      "get": {
+        "tags": ["configuration"],
+        "operationId": "getSystemPolicy",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      },
+      "put": {
+        "tags": ["configuration"],
+        "operationId": "replaceSystemPolicy",
+        "security": [{ "adminBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/IfMatch" }],
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "409": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/tokens/execution": {
+      "get": {
+        "tags": ["configuration"],
+        "operationId": "listExecutionTokens",
+        "security": [{ "adminBearer": [] }],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      },
+      "post": {
+        "tags": ["configuration"],
+        "operationId": "createExecutionToken",
+        "security": [{ "adminBearer": [] }],
+        "requestBody": { "$ref": "#/components/requestBodies/JsonBody" },
+        "responses": { "201": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/tokens/execution/{tokenId}": {
+      "delete": {
+        "tags": ["configuration"],
+        "operationId": "revokeExecutionToken",
+        "security": [{ "adminBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TokenId" }],
+        "responses": { "204": { "description": "Token revoked" } }
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "tags": ["operations"],
+        "operationId": "listAuditEvents",
+        "security": [{ "adminBearer": [] }],
+        "parameters": [
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 500 }
+          }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    },
+    "/api/v1/alerts": {
+      "get": {
+        "tags": ["operations"],
+        "operationId": "listAlerts",
+        "security": [{ "adminBearer": [] }],
+        "x-one-fetch-preview-support": "adapter-dependent",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "501": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/backups": {
+      "get": {
+        "tags": ["operations"],
+        "operationId": "getBackupCapabilities",
+        "security": [{ "adminBearer": [] }],
+        "x-one-fetch-preview-support": "adapter-dependent",
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "501": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/reports/{reportId}": {
+      "get": {
+        "tags": ["operations"],
+        "operationId": "getExecutionReport",
+        "description": "Requires the execution token that owns this report, not an administrator token.",
+        "security": [{ "executionBearer": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ReportId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JsonSuccess" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "404": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": ["public"],
+        "operationId": "getOpenApi",
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque access token"
+      },
+      "executionBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque execution token"
+      }
+    },
+    "parameters": {
+      "SessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Identifier" }
+      },
+      "TokenId": {
+        "name": "tokenId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Identifier" }
+      },
+      "ReportId": {
+        "name": "reportId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Identifier" }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 1 }
+      }
+    },
+    "requestBodies": {
+      "JsonBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/JsonObject" }
+          }
+        }
+      }
+    },
+    "responses": {
+      "JsonSuccess": {
+        "description": "Successful JSON response",
+        "headers": { "Cache-Control": { "schema": { "const": "no-store" } } },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/JsonValue" }
+          }
+        }
+      },
+      "Problem": {
+        "description": "Structured Control error",
+        "headers": { "Cache-Control": { "schema": { "const": "no-store" } } },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Problem" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Identifier": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9._:-]+$"
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "status", "version"],
+        "properties": {
+          "service": { "const": "one-fetch-control" },
+          "status": { "enum": ["ok", "degraded"] },
+          "version": { "type": "string" },
+          "instanceId": { "$ref": "#/components/schemas/Identifier" }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "retryable": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "JsonObject": {
+        "type": "object",
+        "additionalProperties": { "$ref": "#/components/schemas/JsonValue" }
+      },
+      "JsonValue": {
+        "oneOf": [
+          { "type": "null" },
+          { "type": "boolean" },
+          { "type": "number" },
+          { "type": "string" },
+          {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/JsonValue" }
+          },
+          { "$ref": "#/components/schemas/JsonObject" }
+        ]
+      }
+    }
+  }
+}

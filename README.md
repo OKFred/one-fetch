@@ -1,21 +1,93 @@
 # one-fetch
 
-one-fetch is a transparent, self-hosted request relay designed for xPanel. It keeps the target method, path, query, body, repeated headers, and response status distinguishable from relay and vendor failures.
+one-fetch is a transparent, self-hosted request gateway for xPanel. It keeps the
+target method, path, query, binary body, repeated headers, Fetch options, status,
+and response body visible while separating target responses from relay and
+provider failures.
 
-The repository is under active `0.1 Preview` development. It targets Cloudflare Workers, Supabase Edge Functions, and Node.js 24+ with one shared protocol and policy core.
+> **Status:** `0.1 Preview`. Source code and review artifacts are not evidence of
+> a live deployment or a stable release. No one-fetch service is operated by
+> OKFred.
+
+## Why two URLs?
+
+- **Control URL** exposes the versioned `/api/v1/*` administration API.
+- **Gateway URL** reserves no target path. The path and query appended by xPanel
+  are forwarded as the target path and query.
+
+The Gateway receives signed protocol metadata for the target origin, ordered
+headers, Fetch options, policy context, nonce, and request ID. It returns the
+real target status and body. Signed response metadata identifies a target
+response or a one-fetch error; missing or invalid metadata identifies a CDN,
+provider, proxy, or other intermediary response.
 
 ## Safety defaults
 
-- The initial system policy is an empty allowlist: no target is reachable until an administrator opts in.
-- Request and account operations use an application audit ledger. Bodies, credentials, cookies, tokens, certificates, and private keys are never written to audit storage.
-- The gateway owns no business path. Control APIs run on a separate origin.
-- There is no OKFred-operated relay or telemetry backend.
+- A new instance starts with an **empty allowlist**. It cannot contact a target
+  until its administrator adds an explicit allow rule.
+- The recommended global blocklist is an optional template. It is never silently
+  installed or hard-coded as policy. Administrators decide whether to use it.
+- System policy runs before an optional xPanel user blocklist. User rules can
+  only restrict a request further.
+- Bodies, credentials, cookies, tokens, passwords, TOTP data, recovery codes,
+  certificates, and private keys never enter the application audit ledger.
+- Control and Gateway must use separate HTTPS origins in production.
+- Provider-specific headers can be added, removed, normalized, or merged. Each
+  adapter reports known mutations and timing limitations through capabilities.
 
-## Status
+## Workspace
 
-Implementation is in progress. No cloud deployment or stable release is implied by the presence of source code.
+```text
+apps/admin/              Vue administration UI
+adapters/cloudflare/     Control Worker, Gateway Worker, D1 and Durable Objects
+adapters/supabase/       Control/Gateway Edge Functions and PostgreSQL migrations
+adapters/node/           Node Control/Gateway listeners and SQLite storage
+packages/protocol/       Runtime-validated protocol and JSON Schema source
+packages/core/           Runtime-neutral policy, crypto and audit primitives
+packages/client/         Typed Control, Gateway and tunnel clients
+packages/conformance/    Cross-adapter fixtures and black-box assertions
+tools/release/           Reproducible review-artifact and supply-chain checks
+```
+
+The workspace is ESM-only and uses pnpm, strict TypeScript project references,
+native Fetch/Streams, and Zod runtime validation. Gateway code does not use a Web
+framework; Hono is limited to Control APIs.
+
+## Local verification
+
+Requirements are Node.js `>=24.20.0 <27` and Corepack. Production should use
+Node 24 LTS; CI additionally exercises Node 26.
+
+```bash
+corepack enable
+corepack pnpm install --frozen-lockfile
+corepack pnpm check
+```
+
+Adapter-specific checks and environment requirements are in the
+[support matrix](docs/support-matrix.md) and [operations index](docs/operations/README.md).
+
+## Documentation
+
+- [Architecture and wire behavior](docs/architecture.md)
+- [Technology baseline](docs/technology.md)
+- [Security model and policy defaults](docs/security.md)
+- [Privacy statement](docs/privacy.md)
+- [Permissions and network access](docs/permissions.md)
+- [Audit ledger and alerts](docs/audit.md)
+- [Supply-chain controls](docs/supply-chain.md)
+- [Backup and restore](docs/operations/backup-restore.md)
+- [Preview-to-1.0 release process](docs/release.md)
+- [xPanel integration boundary](docs/xpanel-integration.md)
+- [Control OpenAPI 3.1](docs/api/control.openapi.json)
+
+## Distribution
+
+one-fetch packages are not published to npm. A reviewed GitHub Release will
+contain immutable protocol/client archives, JSON Schemas, Control OpenAPI,
+TypeScript declarations, checksums, an SBOM, and GitHub provenance. CI and the
+manual artifact workflow do not deploy an adapter or create a GitHub Release.
 
 ## License
 
-MIT
-
+[MIT](LICENSE) © 2026 OKFred
