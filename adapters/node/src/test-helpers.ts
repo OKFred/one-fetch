@@ -3,12 +3,29 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type {
+  CreateExecutionTokenRequestV1,
+  TransportV1,
+} from "@one-fetch/protocol";
+
 import { AuditLedger } from "./audit.js";
 import { AuthenticationService } from "./auth.js";
 import type { NodeAdapterConfig } from "./config.js";
 import { ConfigurationStore } from "./configuration.js";
 import { DatabaseClient } from "./database.js";
 import { ExecutionReportStore } from "./execution-reports.js";
+import { DEFAULT_EXECUTION_QUOTA } from "./execution-tokens.js";
+
+export const testExecutionTokenRequest = (
+  transports: TransportV1[],
+  origins: string[],
+  ports: number[] = [],
+): CreateExecutionTokenRequestV1 => ({
+  name: "Test execution token",
+  quota: DEFAULT_EXECUTION_QUOTA,
+  schemaVersion: 1,
+  scope: { origins, ports, transports },
+});
 
 export const testConfig = (databasePath: string): NodeAdapterConfig => {
   const { privateKey } = generateKeyPairSync("ed25519");

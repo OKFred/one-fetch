@@ -18,7 +18,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import WebSocket, { WebSocketServer } from "ws";
 
 import { createGatewayServer } from "./gateway.js";
-import { createTestServices } from "./test-helpers.js";
+import {
+  createTestServices,
+  testExecutionTokenRequest,
+} from "./test-helpers.js";
 import { tunnelDataToText } from "./tunnel-data.js";
 
 type ClosableServer = Server | TcpServer;
@@ -104,8 +107,10 @@ const issueToken = async (
   );
   return services.auth.createExecutionToken(
     administratorId!,
-    scopes,
-    allowedTargets,
+    testExecutionTokenRequest(
+      scopes as Array<"http" | "websocket" | "tcp" | "tls">,
+      allowedTargets,
+    ),
   );
 };
 

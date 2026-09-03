@@ -1,12 +1,24 @@
+import type {
+  CreateExecutionTokenRequestV1,
+  CreatedExecutionTokenV1,
+  ExecutionTokenRecordV1,
+  SessionTokenPairV1,
+} from "@one-fetch/protocol";
+
 import type { AuditLedger } from "./audit.js";
 import { randomId, randomToken, sha256Hex, stableJson } from "./crypto.js";
 import type { DatabaseClient } from "./database.js";
 import type { SqlOperation } from "./database-protocol.js";
+import {
+  type ExecutionCredential,
+  ExecutionTokenService,
+} from "./execution-tokens.js";
 import { hashPassword, verifyPassword } from "./password.js";
+
+export type { ExecutionCredential } from "./execution-tokens.js";
 
 const ACCESS_LIFETIME_MS = 15 * 60 * 1_000;
 const REFRESH_LIFETIME_MS = 30 * 24 * 60 * 60 * 1_000;
-const EXECUTION_LIFETIME_MS = 90 * 24 * 60 * 60 * 1_000;
 const BOOTSTRAP_LIFETIME_MS = 30 * 60 * 1_000;
 const MAX_LOGIN_FAILURES = 8;
 const LOCKOUT_MS = 15 * 60 * 1_000;
@@ -30,30 +42,23 @@ interface TokenRow {
   kind: TokenKind;
   origin_policy_json: string;
   revoked_at: string | null;
+  session_id: string | null;
   scopes_json: string;
   used_at: string | null;
 }
 
-export interface IssuedSession {
-  accessExpiresAt: string;
-  accessToken: string;
-  refreshExpiresAt: string;
-  refreshToken: string;
-}
-
-export interface ExecutionCredential {
-  allowedOrigins: string[];
-  expiresAt: string;
-  id: string;
-  scopes: string[];
-}
+export type IssuedSession = SessionTokenPairV1;
 
 export class AuthenticationService {
+  readonly executionTokens: ExecutionTokenService;
+
   constructor(
     private readonly database: DatabaseClient,
     private readonly audit: AuditLedger,
     private readonly pepper: string,
-  ) {}
+  ) {
+    this.executionTokens = new ExecutionTokenService(database, audit);
+  }
 
   async ensureBootstrap(): Promise<string | undefined> {
     const administrator = await this.database.get(
@@ -205,6 +210,7 @@ export class AuthenticationService {
       token.administrator_id,
       token.family_id ?? undefined,
       token.id,
+      token.session_id ?? undefined,
     );
     const now = new Date().toISOString();
     await this.database.transaction([
@@ -243,64 +249,61 @@ export class AuthenticationService {
   async authenticateExecution(
     rawToken: string,
   ): Promise<ExecutionCredential | undefined> {
-    const token = await this.findToken(rawToken);
-    if (
-      !token ||
-      token.kind !== "execution" ||
-      token.revoked_at ||
-      token.expires_at <= new Date().toISOString()
-    ) {
-      return undefined;
-    }
-    return {
-      allowedOrigins:
-        (JSON.parse(token.origin_policy_json) as { allowedOrigins?: string[] })
-          .allowedOrigins ?? [],
-      expiresAt: token.expires_at,
-      id: token.id,
-      scopes: JSON.parse(token.scopes_json) as string[],
-    };
+    return this.executionTokens.authenticate(rawToken);
   }
 
   async createExecutionToken(
     administratorId: string,
-    scopes: string[],
-    allowedOrigins: string[],
-  ): Promise<{ credential: ExecutionCredential; token: string }> {
-    const token = randomToken();
-    const id = randomId("exec");
-    const expiresAt = new Date(
-      Date.now() + EXECUTION_LIFETIME_MS,
-    ).toISOString();
-    const credential = { allowedOrigins, expiresAt, id, scopes };
+    request: CreateExecutionTokenRequestV1,
+  ): Promise<CreatedExecutionTokenV1> {
+    return this.executionTokens.create(administratorId, request);
+  }
+
+  async listExecutionTokens(): Promise<ExecutionTokenRecordV1[]> {
+    return this.executionTokens.list();
+  }
+
+  async revokeExecutionToken(
+    administratorId: string,
+    id: string,
+  ): Promise<{ id: string; revokedAt: string; schemaVersion: 1 }> {
+    return this.executionTokens.revoke(administratorId, id);
+  }
+
+  async logout(rawAccessToken: string): Promise<boolean> {
+    const token = await this.findToken(rawAccessToken);
+    if (
+      !token ||
+      token.kind !== "access" ||
+      !token.administrator_id ||
+      !token.family_id ||
+      token.revoked_at
+    ) {
+      return false;
+    }
+    const revokedAt = new Date().toISOString();
     await this.database.transaction([
-      this.tokenOperation({
-        administratorId,
-        expiresAt,
-        familyId: undefined,
-        id,
-        kind: "execution",
-        originPolicy: { allowedOrigins },
-        parentId: undefined,
-        scopes,
-        token,
-      }),
+      {
+        kind: "run",
+        sql: "UPDATE auth_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL",
+        parameters: [revokedAt, token.family_id],
+      },
       this.audit.prepare({
-        action: "token.execution.create",
-        actor: { actorId: administratorId, type: "admin" },
-        category: "security",
+        action: "auth.logout",
+        actor: { actorId: token.administrator_id, type: "admin" },
+        category: "auth",
         correlation: {},
         outcome: "success",
-        severity: "warning",
+        severity: "info",
       }).operation,
     ]);
-    return { credential, token };
+    return true;
   }
 
   private async findToken(rawToken: string): Promise<TokenRow | undefined> {
     return this.database.get<TokenRow>(
       `SELECT id, administrator_id, kind, digest, family_id, scopes_json,
-       origin_policy_json, expires_at, revoked_at, used_at
+       origin_policy_json, expires_at, revoked_at, session_id, used_at
        FROM auth_tokens WHERE digest = ?`,
       [sha256Hex(rawToken)],
     );
@@ -310,10 +313,12 @@ export class AuthenticationService {
     administratorId: string,
     previousFamilyId?: string,
     parentId?: string,
+    previousSessionId?: string,
   ): { operations: SqlOperation[]; session: IssuedSession } {
     const accessToken = randomToken();
     const refreshToken = randomToken();
     const familyId = previousFamilyId ?? randomId("family");
+    const sessionId = previousSessionId ?? randomId("session");
     const accessExpiresAt = new Date(
       Date.now() + ACCESS_LIFETIME_MS,
     ).toISOString();
@@ -330,6 +335,7 @@ export class AuthenticationService {
           kind: "access",
           originPolicy: {},
           parentId,
+          sessionId,
           scopes: ["admin"],
           token: accessToken,
         }),
@@ -341,11 +347,19 @@ export class AuthenticationService {
           kind: "refresh",
           originPolicy: {},
           parentId,
+          sessionId,
           scopes: ["refresh"],
           token: refreshToken,
         }),
       ],
-      session: { accessExpiresAt, accessToken, refreshExpiresAt, refreshToken },
+      session: {
+        accessExpiresAt,
+        accessToken,
+        refreshExpiresAt,
+        refreshToken,
+        schemaVersion: 1,
+        sessionId,
+      },
     };
   }
 
@@ -357,6 +371,7 @@ export class AuthenticationService {
     kind: TokenKind;
     originPolicy: object;
     parentId: string | undefined;
+    sessionId: string;
     scopes: string[];
     token: string;
   }): SqlOperation {
@@ -364,8 +379,8 @@ export class AuthenticationService {
       kind: "run",
       sql: `INSERT INTO auth_tokens(
         id, administrator_id, kind, digest, family_id, parent_id, scopes_json,
-        origin_policy_json, expires_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        origin_policy_json, expires_at, created_at, session_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       parameters: [
         input.id,
         input.administratorId,
@@ -377,6 +392,7 @@ export class AuthenticationService {
         stableJson(input.originPolicy),
         input.expiresAt,
         new Date().toISOString(),
+        input.sessionId,
       ],
     };
   }

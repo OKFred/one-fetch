@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createTestServices } from "./test-helpers.js";
+import {
+  createTestServices,
+  testExecutionTokenRequest,
+} from "./test-helpers.js";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -40,6 +43,8 @@ describe("Node authentication and audit storage", () => {
 
     const rotated = await services.auth.refresh(first.refreshToken);
     expect(rotated.refreshToken).not.toBe(first.refreshToken);
+    expect(rotated.sessionId).toBe(first.sessionId);
+    expect(rotated.schemaVersion).toBe(1);
     await expect(services.auth.refresh(first.refreshToken)).rejects.toThrow(
       "reuse detected",
     );
@@ -60,12 +65,29 @@ describe("Node authentication and audit storage", () => {
     );
     const issued = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      ["https://example.com"],
+      testExecutionTokenRequest(["http"], ["https://example.com"]),
     );
-    expect(await services.auth.authenticateExecution(issued.token)).toEqual(
+    expect(
+      await services.auth.authenticateExecution(issued.token),
+    ).toMatchObject(issued.credential);
+    expect(await services.auth.listExecutionTokens()).toEqual([
       issued.credential,
+    ]);
+
+    const revoked = await services.auth.revokeExecutionToken(
+      administratorId!,
+      issued.credential.id,
     );
+    expect(revoked).toMatchObject({
+      id: issued.credential.id,
+      schemaVersion: 1,
+    });
+    expect(await services.auth.authenticateExecution(issued.token)).toBe(
+      undefined,
+    );
+    expect(await services.auth.listExecutionTokens()).toEqual([
+      { ...issued.credential, revokedAt: revoked.revokedAt },
+    ]);
 
     await services.database.integrityCheck();
     const audit = await services.audit.list(20);
@@ -73,5 +95,25 @@ describe("Node authentication and audit storage", () => {
     const serialized = JSON.stringify(audit);
     expect(serialized).not.toContain(issued.token);
     expect(serialized).not.toContain("correct horse battery staple");
+  });
+
+  it("logs out the current session without exposing session credentials", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+
+    expect(await services.auth.logout(session.accessToken)).toBe(true);
+    expect(await services.auth.authenticateAdmin(session.accessToken)).toBe(
+      undefined,
+    );
+    await expect(services.auth.refresh(session.refreshToken)).rejects.toThrow();
+    expect(JSON.stringify(await services.audit.list(20))).not.toContain(
+      session.refreshToken,
+    );
   });
 });

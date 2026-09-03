@@ -40,28 +40,6 @@ export const SessionResponseSchema = z
   })
   .strict();
 
-export const CreateExecutionTokenSchema = z
-  .object({
-    allowedOrigins: z.array(z.url()).max(256),
-    scopes: z
-      .array(z.enum(["http", "websocket", "tcp", "tls"]))
-      .min(1)
-      .max(4),
-  })
-  .strict();
-
-export const ExecutionTokenResponseSchema = z
-  .object({
-    credential: z.object({
-      allowedOrigins: z.array(z.string()),
-      expiresAt: z.string(),
-      id: z.string(),
-      scopes: z.array(z.string()),
-    }),
-    token: z.string(),
-  })
-  .strict();
-
 export const PolicyDocumentSchema = z
   .object({
     mode: z.enum(["allowlist", "blocklist"]),

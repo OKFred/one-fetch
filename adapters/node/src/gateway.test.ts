@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 
 import { classifyOneFetchResponse } from "@one-fetch/core";
 import {
@@ -12,7 +12,10 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createGatewayServer } from "./gateway.js";
-import { createTestServices } from "./test-helpers.js";
+import {
+  createTestServices,
+  testExecutionTokenRequest,
+} from "./test-helpers.js";
 
 const closeServer = (server: Server): Promise<void> =>
   new Promise((resolve, reject) =>
@@ -30,6 +33,16 @@ const listen = async (server: Server): Promise<number> => {
   return address.port;
 };
 
+const requestHeader = (
+  request: IncomingMessage,
+  name: string,
+): string | undefined => {
+  const index = request.rawHeaders.findIndex(
+    (entry) => entry.toLowerCase() === name.toLowerCase(),
+  );
+  return index < 0 ? undefined : request.rawHeaders[index + 1];
+};
+
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
@@ -40,29 +53,29 @@ describe("Node transparent Gateway", () => {
     let targetObservation:
       | { body: string; dnt?: string; origin?: string; url?: string }
       | undefined;
-    const target = createServer(async (request, response) => {
-      const chunks: Buffer[] = [];
-      for await (const chunk of request) chunks.push(Buffer.from(chunk));
-      const dnt = Array.isArray(request.headers.dnt)
-        ? request.headers.dnt[0]
-        : request.headers.dnt;
-      const origin = Array.isArray(request.headers.origin)
-        ? request.headers.origin[0]
-        : request.headers.origin;
-      targetObservation = {
-        body: Buffer.concat(chunks).toString("utf8"),
-        ...(dnt ? { dnt } : {}),
-        ...(origin ? { origin } : {}),
-        ...(request.url ? { url: request.url } : {}),
-      };
-      response.statusCode = 201;
-      response.setHeader("Content-Type", "application/json");
-      response.setHeader("Set-Cookie", ["a=1; Path=/", "b=2; Path=/"]);
-      response.setHeader(
-        "Server-Timing",
-        'db;dur=12.5;desc="query", app;dur=3',
-      );
-      response.end('{"accepted":true}');
+    const target = createServer((request, response) => {
+      void (async () => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of request as AsyncIterable<Uint8Array>) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const dnt = requestHeader(request, "dnt");
+        const origin = requestHeader(request, "origin");
+        targetObservation = {
+          body: Buffer.concat(chunks).toString("utf8"),
+          ...(dnt ? { dnt } : {}),
+          ...(origin ? { origin } : {}),
+          ...(request.url ? { url: request.url } : {}),
+        };
+        response.statusCode = 201;
+        response.setHeader("Content-Type", "application/json");
+        response.setHeader("Set-Cookie", ["a=1; Path=/", "b=2; Path=/"]);
+        response.setHeader(
+          "Server-Timing",
+          'db;dur=12.5;desc="query", app;dur=3',
+        );
+        response.end('{"accepted":true}');
+      })();
     });
     const targetPort = await listen(target);
     cleanups.push(() => closeServer(target));
@@ -81,8 +94,7 @@ describe("Node transparent Gateway", () => {
     );
     const issued = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      [targetOrigin],
+      testExecutionTokenRequest(["http"], [targetOrigin]),
     );
     const current = await services.configuration.get();
     const policy: PolicySetV1 = {
@@ -201,8 +213,7 @@ describe("Node transparent Gateway", () => {
     );
     const issued = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      ["https://example.com"],
+      testExecutionTokenRequest(["http"], ["https://example.com"]),
     );
     const gateway = createGatewayServer(services);
     const port = await listen(gateway);
@@ -258,8 +269,7 @@ describe("Node transparent Gateway", () => {
     );
     const issued = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      [targetOrigin],
+      testExecutionTokenRequest(["http"], [targetOrigin]),
     );
     const current = await services.configuration.get();
     const update = services.configuration.prepareUpdate(current, {

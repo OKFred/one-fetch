@@ -1,7 +1,11 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 
-import { PolicySetV1Schema } from "@one-fetch/protocol";
+import {
+  CreateExecutionTokenRequestV1Schema,
+  CreatedExecutionTokenV1Schema,
+  PolicySetV1Schema,
+} from "@one-fetch/protocol";
 
 import type { AuditLedger } from "./audit.js";
 import type { AuthenticationService } from "./auth.js";
@@ -13,10 +17,8 @@ import {
   BootstrapRequestSchema,
   CapabilitiesResponseSchema,
   ConfigurationResponseSchema,
-  CreateExecutionTokenSchema,
   ErrorResponseSchema,
   ExecutionReportSchema,
-  ExecutionTokenResponseSchema,
   HealthResponseSchema,
   LoginRequestSchema,
   PolicyDocumentSchema,
@@ -72,13 +74,17 @@ export const createControlApp = (
         403,
       );
     }
-    return cors({
+    await next();
+  });
+  app.use(
+    "/api/*",
+    cors({
       allowHeaders: ["Authorization", "Content-Type", "If-Match"],
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: false,
       origin: dependencies.config.controlAllowedOrigins,
-    })(context, next);
-  });
+    }),
+  );
 
   app.openapi(
     createRoute({
@@ -299,10 +305,10 @@ export const createControlApp = (
     createRoute({
       method: "post",
       path: "/api/v1/tokens/execution",
-      request: { body: jsonBody(CreateExecutionTokenSchema) },
+      request: { body: jsonBody(CreateExecutionTokenRequestV1Schema) },
       responses: {
         200: jsonResponse(
-          ExecutionTokenResponseSchema,
+          CreatedExecutionTokenV1Schema,
           "One-time execution token",
         ),
         401: jsonResponse(ErrorResponseSchema, "Unauthorized"),
@@ -320,11 +326,7 @@ export const createControlApp = (
       }
       const body = context.req.valid("json");
       return context.json(
-        await dependencies.auth.createExecutionToken(
-          administratorId,
-          [...new Set(body.scopes)],
-          [...new Set(body.allowedOrigins)],
-        ),
+        await dependencies.auth.createExecutionToken(administratorId, body),
         200,
       );
     },

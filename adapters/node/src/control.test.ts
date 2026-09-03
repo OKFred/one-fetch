@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createControlApp } from "./control.js";
-import { createTestServices } from "./test-helpers.js";
+import {
+  createTestServices,
+  testExecutionTokenRequest,
+} from "./test-helpers.js";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -121,13 +124,11 @@ describe("Node Control API", () => {
     );
     const first = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      ["https://example.com"],
+      testExecutionTokenRequest(["http"], ["https://example.com"]),
     );
     const second = await services.auth.createExecutionToken(
       administratorId!,
-      ["http"],
-      ["https://example.net"],
+      testExecutionTokenRequest(["http"], ["https://example.net"]),
     );
     await services.reports.save(
       {
