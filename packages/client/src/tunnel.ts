@@ -12,7 +12,7 @@ import {
   type OneFetchResponseClassification,
 } from "@one-fetch/core";
 
-import { parseServiceOrigin } from "./url.js";
+import { buildServiceUrl } from "./url.js";
 
 export interface PreparedTunnelHandshake {
   url: string;
@@ -31,11 +31,8 @@ export interface PrepareTunnelHandshakeOptions {
 function websocketGatewayUrl(gatewayUrl: string, pathAndQuery: string): string {
   if (!pathAndQuery.startsWith("/"))
     throw new TypeError("Tunnel target path must start with /");
-  const url = parseServiceOrigin(gatewayUrl, "Gateway URL");
+  const url = buildServiceUrl(gatewayUrl, pathAndQuery, "Gateway URL");
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  const targetPath = new URL(pathAndQuery, "https://path.invalid");
-  url.pathname = targetPath.pathname;
-  url.search = targetPath.search;
   return url.href;
 }
 

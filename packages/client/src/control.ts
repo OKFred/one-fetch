@@ -65,7 +65,7 @@ import {
 } from "@one-fetch/protocol";
 import type { z } from "zod";
 
-import { parseServiceOrigin } from "./url.js";
+import { buildServiceUrl, serviceBaseUrl } from "./url.js";
 
 export interface OneFetchControlClientOptions {
   controlUrl: string;
@@ -118,14 +118,13 @@ function withCursor(path: ControlApiV1Path, cursor?: string): ControlApiV1Path {
 
 export class OneFetchControlClient {
   readonly controlOrigin: string;
+  readonly controlBaseUrl: string;
   #accessToken: string | undefined;
   readonly #fetch: typeof globalThis.fetch;
 
   constructor(options: OneFetchControlClientOptions) {
-    this.controlOrigin = parseServiceOrigin(
-      options.controlUrl,
-      "Control URL",
-    ).origin;
+    this.controlBaseUrl = serviceBaseUrl(options.controlUrl, "Control URL");
+    this.controlOrigin = new URL(this.controlBaseUrl).origin;
     this.#accessToken = options.accessToken;
     this.#fetch = options.fetch ?? globalThis.fetch;
   }
@@ -138,7 +137,7 @@ export class OneFetchControlClient {
     path: ControlApiV1Path,
     init: RequestInit = {},
   ): Promise<Response> {
-    const url = new URL(path, this.controlOrigin);
+    const url = buildServiceUrl(this.controlBaseUrl, path, "Control URL");
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
     if (this.#accessToken !== undefined && !headers.has("Authorization"))

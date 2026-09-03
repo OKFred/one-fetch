@@ -18,7 +18,7 @@ import {
   type OneFetchResponseClassification,
 } from "@one-fetch/core";
 
-import { buildGatewayUrl, parseServiceOrigin } from "./url.js";
+import { buildGatewayUrl, serviceBaseUrl } from "./url.js";
 
 export type GatewayProgressPhase =
   | "preparing"
@@ -103,9 +103,8 @@ function composeAbortSignal(
   cleanup: () => void;
 } {
   const controller = new AbortController();
-  let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
   const cleanup = (): void => {
-    if (timer !== undefined) globalThis.clearTimeout(timer);
+    globalThis.clearTimeout(timer);
     parent?.removeEventListener("abort", abortFromParent);
   };
   const cancel = (reason?: unknown): void => {
@@ -117,7 +116,7 @@ function composeAbortSignal(
   const abortFromParent = (): void => cancel(parent?.reason);
   controller.signal.addEventListener("abort", cleanup, { once: true });
   parent?.addEventListener("abort", abortFromParent, { once: true });
-  timer = globalThis.setTimeout(
+  const timer = globalThis.setTimeout(
     () =>
       cancel(
         new DOMException(`Request exceeded ${timeoutMs} ms`, "TimeoutError"),
@@ -212,16 +211,15 @@ function trackResponseBody(
 
 export class OneFetchGatewayClient {
   readonly gatewayOrigin: string;
+  readonly gatewayBaseUrl: string;
   readonly #token: string;
   readonly #fetch: typeof globalThis.fetch;
   readonly #capabilities: FetchOptionCapabilityV1[] | undefined;
   readonly #client: { name: string; version: string } | undefined;
 
   constructor(options: OneFetchGatewayClientOptions) {
-    this.gatewayOrigin = parseServiceOrigin(
-      options.gatewayUrl,
-      "Gateway URL",
-    ).origin;
+    this.gatewayBaseUrl = serviceBaseUrl(options.gatewayUrl, "Gateway URL");
+    this.gatewayOrigin = new URL(this.gatewayBaseUrl).origin;
     if (options.token.length < 16)
       throw new TypeError("Execution token is too short");
     this.#token = options.token;
@@ -246,7 +244,7 @@ export class OneFetchGatewayClient {
     };
     progress("preparing");
     const target = new URL(input.targetUrl);
-    const gatewayUrl = buildGatewayUrl(this.gatewayOrigin, target.href);
+    const gatewayUrl = buildGatewayUrl(this.gatewayBaseUrl, target.href);
     const method = input.method.toUpperCase();
     if ((method === "GET" || method === "HEAD") && input.body != null) {
       throw new TypeError(`${method} requests cannot carry a body`);

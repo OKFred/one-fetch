@@ -59,6 +59,14 @@ describe("gateway client", () => {
         "https://target.example/v1/users?a=1&a=2",
       ).href,
     ).toBe("https://gateway.example/v1/users?a=1&a=2");
+    expect(
+      buildGatewayUrl(
+        "https://project.supabase.co/functions/v1/one-fetch-gateway",
+        "https://target.example/v1/users?a=1&a=2",
+      ).href,
+    ).toBe(
+      "https://project.supabase.co/functions/v1/one-fetch-gateway/v1/users?a=1&a=2",
+    );
   });
 
   it("preserves target metadata and identifies a signed target error response", async () => {
@@ -343,6 +351,17 @@ describe("gateway client", () => {
       url: "wss://gateway.example/socket?room=one&room=two",
       protocols: [ONE_FETCH_WEBSOCKET_PROTOCOL],
     });
+    expect(
+      prepareTunnelHandshake({
+        gatewayUrl:
+          "https://project.supabase.co/functions/v1/one-fetch-gateway",
+        executionToken: "of_test_token_that_is_long_enough",
+        request,
+        targetPathAndQuery: "/socket?room=one",
+      }).url,
+    ).toBe(
+      "wss://project.supabase.co/functions/v1/one-fetch-gateway/socket?room=one",
+    );
     const signed = await createSignedResponseMetadata(
       {
         protocolVersion: 1,

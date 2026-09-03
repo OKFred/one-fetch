@@ -16,6 +16,31 @@ const configuration: RuntimeConfigurationV1 = {
 };
 
 describe("canonical Control client", () => {
+  it("preserves a platform Control base path", async () => {
+    let captured = "";
+    const client = new OneFetchControlClient({
+      controlUrl: "https://project.supabase.co/functions/v1/one-fetch-control/",
+      fetch: (input, init) => {
+        captured = new Request(input, init).url;
+        return Promise.resolve(
+          Response.json({
+            schemaVersion: 1,
+            initialized: false,
+            instanceId: "instance-1",
+          }),
+        );
+      },
+    });
+    await client.getBootstrapStatus();
+    expect(captured).toBe(
+      "https://project.supabase.co/functions/v1/one-fetch-control/api/v1/bootstrap",
+    );
+    expect(client.controlOrigin).toBe("https://project.supabase.co");
+    expect(client.controlBaseUrl).toBe(
+      "https://project.supabase.co/functions/v1/one-fetch-control",
+    );
+  });
+
   it("updates policy through the canonical route with optimistic concurrency", async () => {
     let captured: Request | undefined;
     const client = new OneFetchControlClient({
