@@ -17,17 +17,15 @@ function database(value: unknown): Database {
 Deno.test(
   "Execution authentication rejects malformed database principals",
   async () => {
-    for (
-      const value of [
-        { tokenId: crypto.randomUUID(), name: "bad", scopes: {}, quotas: {} },
-        {
-          tokenId: crypto.randomUUID(),
-          name: "bad",
-          scopes: { transports: ["http"], origins: ["*"], ports: [] },
-          quotas: { requestsPerMinute: -1 },
-        },
-      ]
-    ) {
+    for (const value of [
+      { tokenId: crypto.randomUUID(), name: "bad", scopes: {}, quotas: {} },
+      {
+        tokenId: crypto.randomUUID(),
+        name: "bad",
+        scopes: { transports: ["http"], origins: ["*"], ports: [] },
+        quotas: { requestsPerMinute: -1 },
+      },
+    ]) {
       let rejected = false;
       try {
         await authenticateExecution("ofe_test", database(value), environment);

@@ -291,10 +291,10 @@ export async function prepareExecution(
     const code = timedOut
       ? "timeout"
       : abortController.signal.aborted
-      ? "cancelled"
-      : error instanceof RangeError
-      ? "payload_too_large"
-      : "invalid_metadata";
+        ? "cancelled"
+        : error instanceof RangeError
+          ? "payload_too_large"
+          : "invalid_metadata";
     return rejected(
       context,
       auditState,
@@ -304,13 +304,14 @@ export async function prepareExecution(
       timedOut
         ? "Request upload exceeded its timeout"
         : code === "cancelled"
-        ? "The client cancelled the request upload"
-        : code === "payload_too_large"
-        ? "Request body exceeds 20 MiB"
-        : "Request body metadata or stream is invalid",
+          ? "The client cancelled the request upload"
+          : code === "payload_too_large"
+            ? "Request body exceeds 20 MiB"
+            : "Request body metadata or stream is invalid",
       {
         outcome: code === "cancelled" ? "partial" : "failure",
-        retryable: timedOut ||
+        retryable:
+          timedOut ||
           (!(error instanceof TypeError) && !(error instanceof RangeError)),
         targetUrl: target,
         leaseId: lease.leaseId,

@@ -109,7 +109,8 @@ Deno.test(
       );
       assert(
         response.status === 400,
-        `expected 400, got ${response.status}: ${await response.clone()
+        `expected 400, got ${response.status}: ${await response
+          .clone()
           .text()}`,
       );
       assert(

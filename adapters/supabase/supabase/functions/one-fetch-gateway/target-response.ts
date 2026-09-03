@@ -78,7 +78,8 @@ export async function createTargetResponse({
     return signedError(context, error, terminal.auditState, terminal.reportId);
   }
 
-  const noBody = request.method === "HEAD" ||
+  const noBody =
+    request.method === "HEAD" ||
     [204, 205, 304].includes(upstream.status) ||
     !upstream.body;
   const target = {
@@ -195,34 +196,34 @@ export async function createTargetResponse({
       const outcome = complete
         ? "completed"
         : didTimeOut()
-        ? "timeout"
-        : failure === "response_too_large"
-        ? "relay-error"
-        : abortController.signal.aborted
-        ? "cancelled"
-        : "partial";
+          ? "timeout"
+          : failure === "response_too_large"
+            ? "relay-error"
+            : abortController.signal.aborted
+              ? "cancelled"
+              : "partial";
       const terminalProblem = complete
         ? undefined
         : didTimeOut()
-        ? problem("timeout", "timeout", "Response download timed out", true)
-        : failure === "response_too_large"
-        ? problem(
-          "response_too_large",
-          "upstream-body",
-          "Target response exceeded 20 MiB",
-        )
-        : failure === "cancelled" || abortController.signal.aborted
-        ? problem(
-          "cancelled",
-          "cancellation",
-          "Response download was cancelled",
-        )
-        : problem(
-          "upstream_network",
-          "upstream-body",
-          "Target response stream ended unexpectedly",
-          true,
-        );
+          ? problem("timeout", "timeout", "Response download timed out", true)
+          : failure === "response_too_large"
+            ? problem(
+                "response_too_large",
+                "upstream-body",
+                "Target response exceeded 20 MiB",
+              )
+            : failure === "cancelled" || abortController.signal.aborted
+              ? problem(
+                  "cancelled",
+                  "cancellation",
+                  "Response download was cancelled",
+                )
+              : problem(
+                  "upstream_network",
+                  "upstream-body",
+                  "Target response stream ended unexpectedly",
+                  true,
+                );
       await finalize(context, {
         leaseId,
         reportId,

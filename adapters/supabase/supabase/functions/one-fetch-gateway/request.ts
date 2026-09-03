@@ -120,8 +120,8 @@ export function tokenAllows(
   const port = target.port
     ? Number.parseInt(target.port, 10)
     : target.protocol === "https:"
-    ? 443
-    : 80;
+      ? 443
+      : 80;
   return ports.includes(port);
 }
 

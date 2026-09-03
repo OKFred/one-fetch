@@ -58,9 +58,11 @@ const DatabaseFinalizeResultSchema = z
   .strict();
 
 function retryableFinalizationFailure(error: unknown): boolean {
-  return error instanceof TypeError ||
+  return (
+    error instanceof TypeError ||
     (error instanceof DatabaseError &&
-      ["database_transport", "database_timeout"].includes(error.code ?? ""));
+      ["database_transport", "database_timeout"].includes(error.code ?? ""))
+  );
 }
 
 export async function recordExecution(
@@ -80,20 +82,23 @@ export function executionAuditEvent(
   outcome: "success" | "denied" | "failure" | "partial",
   details: ExecutionDetails = {},
 ): Promise<AuditEventV1> {
-  const url = details.targetUrl ? new URL(details.targetUrl) : targetUrl(
-    context.metadata.targetOrigin ?? "https://invalid.example",
-    context.targetPathAndQuery,
-  );
+  const url = details.targetUrl
+    ? new URL(details.targetUrl)
+    : targetUrl(
+        context.metadata.targetOrigin ?? "https://invalid.example",
+        context.targetPathAndQuery,
+      );
   return createAuditEvent(
     {
       category: "execution",
       action,
       outcome,
-      severity: outcome === "failure"
-        ? "error"
-        : outcome === "denied"
-        ? "warning"
-        : "info",
+      severity:
+        outcome === "failure"
+          ? "error"
+          : outcome === "denied"
+            ? "warning"
+            : "info",
       actor: {
         type: "execution-token",
         actorId: context.principal.tokenId,
@@ -116,8 +121,8 @@ export function executionAuditEvent(
           : {}),
       },
       result: {
-        source: details.source ??
-          (details.status === undefined ? "relay" : "target"),
+        source:
+          details.source ?? (details.status === undefined ? "relay" : "target"),
         ...(details.status === undefined ? {} : { status: details.status }),
         ...(details.code === undefined ? {} : { code: details.code }),
       },
@@ -184,14 +189,16 @@ export async function finalize(
         ...options.timing.phases.filter(
           (phase) => phase.name !== "total" && phase.name !== "download",
         ),
-        ...(options.downloadMs === undefined ? [] : [
-          {
-            name: "download" as const,
-            state: "measured" as const,
-            source: "gateway" as const,
-            durationMs: options.downloadMs,
-          },
-        ]),
+        ...(options.downloadMs === undefined
+          ? []
+          : [
+              {
+                name: "download" as const,
+                state: "measured" as const,
+                source: "gateway" as const,
+                durationMs: options.downloadMs,
+              },
+            ]),
         {
           name: "total",
           state: "measured",
@@ -244,11 +251,12 @@ export function finalizeRelayError(
   return finalize(context, {
     leaseId,
     responseBytes: options.responseBytes ?? 0,
-    outcome: error.code === "timeout"
-      ? "timeout"
-      : error.code === "cancelled"
-      ? "cancelled"
-      : "relay-error",
+    outcome:
+      error.code === "timeout"
+        ? "timeout"
+        : error.code === "cancelled"
+          ? "cancelled"
+          : "relay-error",
     source: "relay",
     timing: { phases: [], serverTiming: [] },
     auditState,

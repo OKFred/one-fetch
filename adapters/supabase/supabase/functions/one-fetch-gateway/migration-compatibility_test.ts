@@ -66,9 +66,10 @@ async function expectStorageFailure(
   database: Database,
   calls: string[],
 ): Promise<void> {
-  const response = await createGatewayHandler(runtime, database)(
-    request(runtime),
-  );
+  const response = await createGatewayHandler(
+    runtime,
+    database,
+  )(request(runtime));
   const metadata = decodeResponseMetadata(
     response.headers.get(ONE_FETCH_RESPONSE_HEADER) ?? "",
   );
@@ -84,55 +85,56 @@ async function expectStorageFailure(
   );
 }
 
-Deno.test("Missing, unknown, and changed migrations block the Gateway", async () => {
-  const runtime = await environment();
-  const compatible = gatewayMigrationHistory();
-  const fixtures: unknown[] = [
-    compatible.slice(0, -1),
-    [
-      ...compatible,
-      { version: "999999999999", checksum: "1".repeat(64) },
-    ],
-    compatible.map((entry, index) =>
-      index === 0 ? { ...entry, checksum: "2".repeat(64) } : entry
-    ),
-  ];
-  for (const fixture of fixtures) {
-    const calls: string[] = [];
-    const database: Database = {
-      rpc: <T>(name: string) => {
-        calls.push(name);
-        return Promise.resolve(fixture as T);
-      },
-    };
-    await expectStorageFailure(runtime, database, calls);
-  }
-});
+Deno.test(
+  "Missing, unknown, and changed migrations block the Gateway",
+  async () => {
+    const runtime = await environment();
+    const compatible = gatewayMigrationHistory();
+    const fixtures: unknown[] = [
+      compatible.slice(0, -1),
+      [...compatible, { version: "999999999999", checksum: "1".repeat(64) }],
+      compatible.map((entry, index) =>
+        index === 0 ? { ...entry, checksum: "2".repeat(64) } : entry,
+      ),
+    ];
+    for (const fixture of fixtures) {
+      const calls: string[] = [];
+      const database: Database = {
+        rpc: <T>(name: string) => {
+          calls.push(name);
+          return Promise.resolve(fixture as T);
+        },
+      };
+      await expectStorageFailure(runtime, database, calls);
+    }
+  },
+);
 
-Deno.test("Migration contract and database failures are signed 503 responses", async () => {
-  const runtime = await environment();
-  for (
-    const result of [
+Deno.test(
+  "Migration contract and database failures are signed 503 responses",
+  async () => {
+    const runtime = await environment();
+    for (const result of [
       { migrations: [] },
       new DatabaseError(
         "migration storage unavailable",
         503,
         "database_transport",
       ),
-    ]
-  ) {
-    const calls: string[] = [];
-    const database: Database = {
-      rpc: <T>(name: string) => {
-        calls.push(name);
-        return result instanceof Error
-          ? Promise.reject(result)
-          : Promise.resolve(result as T);
-      },
-    };
-    await expectStorageFailure(runtime, database, calls);
-  }
-});
+    ]) {
+      const calls: string[] = [];
+      const database: Database = {
+        rpc: <T>(name: string) => {
+          calls.push(name);
+          return result instanceof Error
+            ? Promise.reject(result)
+            : Promise.resolve(result as T);
+        },
+      };
+      await expectStorageFailure(runtime, database, calls);
+    }
+  },
+);
 
 Deno.test("Gateway caches only a successful compatibility check", async () => {
   const runtime = await environment();

@@ -64,9 +64,8 @@ export function createGatewayHandler(
     try {
       metadata = decodeRequestMetadata(encoded);
     } catch (error) {
-      const code = error instanceof ProtocolCodecError
-        ? error.code
-        : "invalid_metadata";
+      const code =
+        error instanceof ProtocolCodecError ? error.code : "invalid_metadata";
       return applyCors(
         request,
         json(
@@ -199,18 +198,20 @@ export function createGatewayHandler(
         environment.allowedClientOrigins,
       );
     } catch (error) {
-      const code = error instanceof DatabaseError
-        ? "storage_unavailable"
-        : error instanceof RangeError
-        ? "payload_too_large"
-        : error instanceof TypeError
-        ? "invalid_metadata"
-        : "internal";
-      const stage = code === "storage_unavailable"
-        ? "storage"
-        : code === "internal"
-        ? "internal"
-        : "upload";
+      const code =
+        error instanceof DatabaseError
+          ? "storage_unavailable"
+          : error instanceof RangeError
+            ? "payload_too_large"
+            : error instanceof TypeError
+              ? "invalid_metadata"
+              : "internal";
+      const stage =
+        code === "storage_unavailable"
+          ? "storage"
+          : code === "internal"
+            ? "internal"
+            : "upload";
       return applyCors(
         request,
         await signedError(
@@ -221,10 +222,10 @@ export function createGatewayHandler(
             code === "payload_too_large"
               ? "Request body exceeds 20 MiB"
               : code === "storage_unavailable"
-              ? "Gateway storage is unavailable"
-              : code === "internal"
-              ? "Gateway execution failed"
-              : "Request body metadata mismatch",
+                ? "Gateway storage is unavailable"
+                : code === "internal"
+                  ? "Gateway execution failed"
+                  : "Request body metadata mismatch",
             code === "storage_unavailable" || code === "internal",
           ),
         ),
