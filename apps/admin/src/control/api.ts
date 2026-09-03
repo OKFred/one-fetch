@@ -5,6 +5,7 @@ import {
   PolicySetV1Schema,
   type CreateExecutionTokenRequestV1,
   type CreatedExecutionTokenV1,
+  type ChangePasswordRequestV1,
   type LoginRequestV1,
   type OneFetchCapabilitiesV1,
   type PolicySetV1,
@@ -102,6 +103,54 @@ export class AdminControlApi {
   async refresh(refreshToken: string): Promise<AdminSessionPair> {
     try {
       return await this.client.refresh({ refreshToken, schemaVersion: 1 });
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.client.logout();
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async listSessions() {
+    try {
+      return (await this.client.listSessions()).sessions;
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async revokeSession(sessionId: string): Promise<void> {
+    try {
+      await this.client.revokeSession(sessionId);
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async prepareTotp() {
+    try {
+      return await this.client.prepareTotp();
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async enableTotp(code: string) {
+    try {
+      return await this.client.enableTotp({ code, schemaVersion: 1 });
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
+  async changePassword(input: ChangePasswordRequestV1) {
+    try {
+      return await this.client.changePassword(input);
     } catch (error) {
       throw normalizeError(error);
     }

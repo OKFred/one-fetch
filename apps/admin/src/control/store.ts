@@ -91,6 +91,13 @@ export const useControlStore = defineStore("control", () => {
   const tokens = ref<Awaited<ReturnType<AdminControlApi["listTokens"]>>>([]);
   const audit = ref<AuditPage>({ events: [] });
   const session = ref<SessionState | null>(null);
+  const securitySessions = shallowRef<
+    Awaited<ReturnType<AdminControlApi["listSessions"]>>
+  >([]);
+  const totpPreparation = shallowRef<Awaited<
+    ReturnType<AdminControlApi["prepareTotp"]>
+  > | null>(null);
+  const recoveryCodes = ref<string[]>([]);
   const busy = ref(false);
   const error = ref("");
   const notice = ref("");
@@ -173,6 +180,9 @@ export const useControlStore = defineStore("control", () => {
     tokens.value = [];
     audit.value = { events: [] };
     session.value = null;
+    securitySessions.value = [];
+    totpPreparation.value = null;
+    recoveryCodes.value = [];
     features.value = {};
     error.value = "";
     notice.value = "";
@@ -291,16 +301,69 @@ export const useControlStore = defineStore("control", () => {
     );
   }
 
-  function logout(): void {
-    if (profile.value) {
-      sessionStorage.removeItem(refreshKey(profile.value.id));
-      localStorage.removeItem(refreshKey(profile.value.id));
+  async function logout(): Promise<void> {
+    try {
+      if (session.value) await requireApi().logout();
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      if (profile.value) {
+        sessionStorage.removeItem(refreshKey(profile.value.id));
+        localStorage.removeItem(refreshKey(profile.value.id));
+      }
+      session.value = null;
+      configuration.value = null;
+      tokens.value = [];
+      audit.value = { events: [] };
+      securitySessions.value = [];
+      totpPreparation.value = null;
+      recoveryCodes.value = [];
+      api.value?.setAccessToken(undefined);
     }
-    session.value = null;
-    configuration.value = null;
-    tokens.value = [];
-    audit.value = { events: [] };
-    api.value?.setAccessToken(undefined);
+  }
+
+  async function loadSecuritySessions(): Promise<boolean> {
+    return runFeature("sessions", async () => {
+      securitySessions.value = await requireApi().listSessions();
+    });
+  }
+
+  async function revokeSecuritySession(sessionId: string): Promise<boolean> {
+    return runFeature("sessions", async () => {
+      await requireApi().revokeSession(sessionId);
+      securitySessions.value = await requireApi().listSessions();
+    });
+  }
+
+  async function prepareTotp(): Promise<boolean> {
+    return runFeature("totp", async () => {
+      recoveryCodes.value = [];
+      totpPreparation.value = await requireApi().prepareTotp();
+    });
+  }
+
+  async function enableTotp(code: string): Promise<boolean> {
+    return runFeature("totp", async () => {
+      const result = await requireApi().enableTotp(code);
+      recoveryCodes.value = result.recoveryCodes;
+      totpPreparation.value = null;
+      notice.value = "Two-factor authentication enabled.";
+    });
+  }
+
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    return runFeature("password-change", async () => {
+      await requireApi().changePassword({
+        currentPassword,
+        newPassword,
+        schemaVersion: 1,
+      });
+      notice.value = "Password changed; other sessions were revoked.";
+      securitySessions.value = await requireApi().listSessions();
+    });
   }
 
   async function loadConfiguration(): Promise<void> {
@@ -462,6 +525,9 @@ export const useControlStore = defineStore("control", () => {
     tokens,
     audit,
     session,
+    securitySessions,
+    totpPreparation,
+    recoveryCodes,
     busy,
     error,
     notice,
@@ -475,6 +541,11 @@ export const useControlStore = defineStore("control", () => {
     refreshPublic,
     login,
     logout,
+    loadSecuritySessions,
+    revokeSecuritySession,
+    prepareTotp,
+    enableTotp,
+    changePassword,
     createAdministrator,
     loadConfiguration,
     savePolicy,
