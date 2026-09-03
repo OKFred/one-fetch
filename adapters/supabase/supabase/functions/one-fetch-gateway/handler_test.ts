@@ -44,7 +44,10 @@ async function environment(): Promise<SupabaseEnvironment> {
   };
 }
 
-function encodedRequest(path = "/v1/users?include=roles") {
+function encodedRequest(
+  path = "/v1/users?include=roles",
+  targetHeaders = [{ name: "Accept", value: "application/json" }],
+) {
   return {
     path,
     encoded: encodeRequestMetadata({
@@ -53,11 +56,30 @@ function encodedRequest(path = "/v1/users?include=roles") {
       nonce: "0123456789abcdef0123456789abcdef",
       transport: "http",
       targetOrigin: "https://api.example",
-      targetHeaders: [{ name: "Accept", value: "application/json" }],
+      targetHeaders,
       fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
       body: { sizeBytes: 0 },
       hop: 0,
     }),
+  };
+}
+
+function executionPrincipal() {
+  return {
+    tokenId: "00000000-0000-4000-8000-000000000002",
+    name: "test",
+    scopes: {
+      transports: ["http"],
+      origins: ["https://api.example"],
+      ports: [],
+    },
+    quotas: {
+      requestsPerMinute: 60,
+      burst: 10,
+      concurrentHttp: 4,
+      concurrentTunnels: 2,
+      bytesPerDay: 1_073_741_824,
+    },
   };
 }
 
@@ -145,15 +167,11 @@ Deno.test(
     const database: Database = {
       rpc: <T>(name: string, parameters: Record<string, unknown> = {}) => {
         if (name === "of_authenticate_execution") {
-          return Promise.resolve({
-            tokenId: "00000000-0000-4000-8000-000000000002",
-            name: "test",
-            scopes: { transports: ["http"] },
-            quotas: {},
-          } as T);
+          return Promise.resolve(executionPrincipal() as T);
         }
         if (name === "of_get_active_config") {
           return Promise.resolve({
+            instanceId: env.instanceId,
             initialized: true,
             version: "config-test",
             config: {
@@ -171,6 +189,21 @@ Deno.test(
         if (name === "of_append_audit") {
           auditEvents.push(parameters.p_event as Record<string, unknown>);
           return Promise.resolve(crypto.randomUUID() as T);
+        }
+        if (name === "of_acquire_execution") {
+          return Promise.resolve({
+            allowed: true,
+            leaseId: "00000000-0000-4000-8000-000000000004",
+          } as T);
+        }
+        if (name === "of_reconcile_execution_request") {
+          return Promise.resolve({ allowed: true } as T);
+        }
+        if (name === "of_finalize_execution") {
+          return Promise.resolve({
+            status: "finalized",
+            auditState: "recorded",
+          } as T);
         }
         throw new Error(`unexpected RPC ${name}`);
       },
@@ -213,15 +246,11 @@ Deno.test(
     const database: Database = {
       rpc: <T>(name: string, parameters: Record<string, unknown> = {}) => {
         if (name === "of_authenticate_execution") {
-          return Promise.resolve({
-            tokenId: "00000000-0000-4000-8000-000000000002",
-            name: "test",
-            scopes: { transports: ["http"], origins: [], ports: [] },
-            quotas: {},
-          } as T);
+          return Promise.resolve(executionPrincipal() as T);
         }
         if (name === "of_get_active_config") {
           return Promise.resolve({
+            instanceId: env.instanceId,
             initialized: true,
             version: "config-test",
             config: {
@@ -242,9 +271,15 @@ Deno.test(
             leaseId: "00000000-0000-4000-8000-000000000004",
           } as T);
         }
-        if (name === "of_put_execution_report") {
+        if (name === "of_reconcile_execution_request") {
+          return Promise.resolve({ allowed: true } as T);
+        }
+        if (name === "of_finalize_execution") {
           finishReport(parameters.p_report as Record<string, unknown>);
-          return Promise.resolve(true as T);
+          return Promise.resolve({
+            status: "finalized",
+            auditState: "recorded",
+          } as T);
         }
         if (name === "of_append_audit") {
           return Promise.resolve(crypto.randomUUID() as T);
@@ -307,8 +342,106 @@ Deno.test(
       assert(report.outcome === "completed", "report did not complete");
       assert(report.status === 503, "report lost the target status");
       assert(report.schemaVersion === 1, "report schema version missing");
+      assert(
+        report.bodySha256 ===
+          "f65b6754cdcae686e8c538b217fe397319d9b2ed5ffa9ecb96409174e2b138b0",
+        "report lost the streamed response digest",
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
+  },
+);
+
+Deno.test(
+  "Policy evaluates every duplicate protocol header before vendor merging",
+  async () => {
+    const env = await environment();
+    const database: Database = {
+      rpc: <T>(name: string) => {
+        if (name === "of_authenticate_execution") {
+          return Promise.resolve(executionPrincipal() as T);
+        }
+        if (name === "of_get_active_config") {
+          return Promise.resolve({
+            instanceId: env.instanceId,
+            initialized: true,
+            version: "config-test",
+            config: {
+              gatewayPaused: false,
+              policy: {
+                schemaVersion: 1,
+                mode: "blocklist",
+                revision: 0,
+                rules: [
+                  {
+                    id: "deny-blocked-header",
+                    name: "Deny a blocked duplicate header value",
+                    enabled: true,
+                    action: "deny",
+                    match: {
+                      headers: [
+                        {
+                          name: {
+                            operator: "exact",
+                            value: "x-one-fetch-test",
+                          },
+                          value: { operator: "exact", value: "blocked" },
+                          presence: "present",
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+              bodyInspectionBytes: 1_048_576,
+            },
+          } as T);
+        }
+        if (name === "of_append_audit") {
+          return Promise.resolve(crypto.randomUUID() as T);
+        }
+        if (name === "of_acquire_execution") {
+          return Promise.resolve({
+            allowed: true,
+            leaseId: "00000000-0000-4000-8000-000000000004",
+          } as T);
+        }
+        if (name === "of_reconcile_execution_request") {
+          return Promise.resolve({ allowed: true } as T);
+        }
+        if (name === "of_finalize_execution") {
+          return Promise.resolve({
+            status: "finalized",
+            auditState: "recorded",
+          } as T);
+        }
+        throw new Error(`policy bypass reached unexpected RPC ${name}`);
+      },
+    };
+    const metadata = encodedRequest("/headers", [
+      { name: "X-One-Fetch-Test", value: "safe" },
+      { name: "X-One-Fetch-Test", value: "blocked" },
+    ]);
+    const response = await createGatewayHandler(
+      env,
+      database,
+    )(
+      new Request(`${env.gatewayBaseUrl}${metadata.path}`, {
+        headers: {
+          [ONE_FETCH_REQUEST_HEADER]: metadata.encoded,
+          [ONE_FETCH_TOKEN_HEADER]: "ofe_test",
+        },
+      }),
+    );
+    const signed = decodeResponseMetadata(
+      response.headers.get(ONE_FETCH_RESPONSE_HEADER) ?? "",
+    );
+    assert(response.status === 403, `expected 403, got ${response.status}`);
+    assert(
+      signed.outcome === "relay-error" &&
+        signed.error?.code === "target_not_allowed",
+      "duplicate blocked value bypassed the system policy",
+    );
   },
 );
