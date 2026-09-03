@@ -5,7 +5,11 @@ import {
   RequestIdSchema,
   Sha256HexSchema,
 } from "./common.js";
-import { OneFetchTimingV1Schema, TransportV1Schema } from "./metadata.js";
+import {
+  OneFetchProblemV1Schema,
+  OneFetchTimingV1Schema,
+  TransportV1Schema,
+} from "./metadata.js";
 
 const IdentifierSchema = z
   .string()
@@ -189,6 +193,7 @@ export const ExecutionReportV1Schema = z
     responseBytes: z.number().int().nonnegative(),
     bodyComplete: z.boolean(),
     bodySha256: Sha256HexSchema.optional(),
+    problem: OneFetchProblemV1Schema.optional(),
     timing: OneFetchTimingV1Schema,
     finishedAt: IsoDateTimeSchema,
     auditState: z.enum(["recorded", "degraded", "unknown"]),

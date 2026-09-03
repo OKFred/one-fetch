@@ -4,6 +4,7 @@ export * from "./crypto.js";
 export * from "./fetch-options.js";
 export * from "./ip.js";
 export * from "./policy.js";
+export * from "./sha256.js";
 export * from "./policy-matchers.js";
 export * from "./policy-types.js";
 export * from "./recommended-policy.js";
