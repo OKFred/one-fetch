@@ -58,6 +58,10 @@ function base64UrlToBytes(value: string): Uint8Array {
   }
 }
 
+export function decodedMetadataByteLength(value: string): number {
+  return base64UrlToBytes(value).byteLength;
+}
+
 function encodeWithSchema<T>(schema: z.ZodType<T>, value: T): string {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {

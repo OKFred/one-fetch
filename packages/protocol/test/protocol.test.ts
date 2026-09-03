@@ -6,6 +6,7 @@ import {
   OneFetchResponseMetaV1Schema,
   ProtocolCodecError,
   createTunnelClientHello,
+  decodedMetadataByteLength,
   decodeTunnelClientHello,
   encodeTunnelClientHello,
   decodeRequestMetadata,
@@ -31,6 +32,25 @@ describe("protocol metadata", () => {
   it("round-trips strict request metadata and preserves repeated headers", () => {
     const encoded = encodeRequestMetadata(request);
     expect(decodeRequestMetadata(encoded)).toEqual(request);
+    expect(decodedMetadataByteLength(encoded)).toBe(
+      new TextEncoder().encode(JSON.stringify(request)).byteLength,
+    );
+  });
+
+  it("measures the decoded metadata budget instead of Base64URL overhead", () => {
+    const encoded = encodeRequestMetadata({
+      ...request,
+      targetHeaders: Array.from({ length: 3 }, (_, index) => ({
+        name: `X-Large-${index}`,
+        value: "x".repeat(13_000),
+      })),
+    });
+    expect(new TextEncoder().encode(encoded).byteLength).toBeGreaterThan(
+      ONE_FETCH_LIMITS_V1.metadataBytes,
+    );
+    expect(decodedMetadataByteLength(encoded)).toBeLessThanOrEqual(
+      ONE_FETCH_LIMITS_V1.metadataBytes,
+    );
   });
 
   it("rejects unknown fields", () => {
