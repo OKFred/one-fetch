@@ -1,0 +1,47 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "one-fetch-control",
+  "main": "src/control.ts",
+  "compatibility_date": "2026-09-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "ADAPTER_NAME": "cloudflare",
+    "ADAPTER_VERSION": "0.1.0",
+    "ADMIN_ALLOWED_ORIGINS": "http://localhost:5173",
+    "DEFAULT_ACCESS_TTL_SECONDS": "900",
+    "DEFAULT_REFRESH_TTL_SECONDS": "2592000",
+    "REPORT_TTL_SECONDS": "600",
+  },
+  "secrets": {
+    "required": [
+      "BOOTSTRAP_SECRET",
+      "INSTANCE_PEPPER",
+      "ENCRYPTION_KEY",
+      "AUDIT_SIGNING_KEY",
+    ],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "one-fetch",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "AUTH", "class_name": "AuthDurableObject" },
+      { "name": "QUOTA", "class_name": "QuotaDurableObject" },
+    ],
+  },
+  "exports": {
+    "AuthDurableObject": { "type": "durable-object", "storage": "sqlite" },
+    "QuotaDurableObject": { "type": "durable-object", "storage": "sqlite" },
+  },
+  "triggers": {
+    "crons": ["*/10 * * * *"],
+  },
+  "observability": {
+    "enabled": false,
+  },
+}

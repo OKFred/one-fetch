@@ -1,0 +1,27 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "one-fetch-gateway",
+  "main": "src/gateway.ts",
+  "compatibility_date": "2026-09-04",
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
+  "workers_dev": true,
+  "vars": {
+    "ADAPTER_NAME": "cloudflare",
+    "ADAPTER_VERSION": "0.1.0",
+    "MAX_METADATA_BYTES": "49152",
+    "MAX_REQUEST_BYTES": "20971520",
+    "MAX_RESPONSE_BYTES": "20971520",
+    "MAX_REDIRECTS": "20",
+    "XPANEL_ALLOWED_ORIGINS": "chrome-extension://diaemdialoooebdennhpgnmobnjabohm",
+  },
+  "services": [
+    {
+      "binding": "CONTROL",
+      "service": "one-fetch-control",
+      "entrypoint": "ControlService",
+    },
+  ],
+  "observability": {
+    "enabled": false,
+  },
+}

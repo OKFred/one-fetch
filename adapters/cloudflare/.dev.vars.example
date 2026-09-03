@@ -1,0 +1,4 @@
+BOOTSTRAP_SECRET="replace-with-a-random-bootstrap-secret"
+INSTANCE_PEPPER="replace-with-a-random-password-pepper"
+ENCRYPTION_KEY="replace-with-a-base64url-encoded-32-byte-key"
+AUDIT_SIGNING_KEY="replace-with-a-base64url-encoded-ed25519-pkcs8-key"

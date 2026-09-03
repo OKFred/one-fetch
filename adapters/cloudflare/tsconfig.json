@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "WebWorker", "DOM.Iterable"],
+    "noEmit": true,
+    "rootDir": ".",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "types": [
+      "./src/generated/control-env.d.ts",
+      "./src/generated/gateway-env.d.ts",
+      "@cloudflare/vitest-pool-workers/types"
+    ]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"],
+  "references": [
+    { "path": "../../packages/protocol" },
+    { "path": "../../packages/core" }
+  ]
+}
