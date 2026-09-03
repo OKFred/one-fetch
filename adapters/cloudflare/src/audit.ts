@@ -4,6 +4,7 @@ import {
   type AuditEventV1,
   type UnsignedAuditEventV1,
 } from "@one-fetch/protocol";
+import { redactAuditEvent } from "@one-fetch/core";
 
 import { sha256Hex, signAuditPayload, stableStringify } from "./crypto";
 
@@ -54,12 +55,14 @@ export function sanitizeAuditEvent(
 export async function buildAuditEvent(
   input: AuditWriteInput,
 ): Promise<AuditEventV1> {
-  const event = sanitizeAuditEvent({
-    ...input.event,
-    schemaVersion: 1,
-    eventId: input.event.eventId ?? crypto.randomUUID(),
-    recordedAt: input.event.recordedAt ?? new Date().toISOString(),
-  });
+  const event = sanitizeAuditEvent(
+    redactAuditEvent({
+      ...input.event,
+      schemaVersion: 1,
+      eventId: input.event.eventId ?? crypto.randomUUID(),
+      recordedAt: input.event.recordedAt ?? new Date().toISOString(),
+    }),
+  );
   const payload = stableStringify(event);
   const payloadHash = await sha256Hex(payload);
   const signed = await signAuditPayload(payload, input.signingKey);
@@ -84,34 +87,80 @@ export function auditInsertStatement(
         actor_json, correlation_json, detail_json, payload_json, payload_hash, signature, key_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(
-      event.eventId,
-      event.occurredAt,
-      event.recordedAt,
-      event.category,
-      event.action,
-      event.outcome,
-      event.severity,
-      stableStringify(event.actor),
-      stableStringify(event.correlation),
-      stableStringify({
-        request: event.request,
-        decision: event.decision,
-        result: event.result,
-        change: event.change,
-        metrics: event.metrics,
-      }),
-      unsignedPayload(event),
-      event.integrity.payloadHash,
-      event.integrity.signature,
-      event.integrity.keyId,
-    );
+    .bind(...auditBindings(event));
+}
+
+export function auditInsertWhenConfigVersionMatches(
+  database: D1Database,
+  event: AuditEventV1,
+  expectedVersion: string,
+): D1PreparedStatement {
+  return database
+    .prepare(
+      `INSERT INTO audit_events (
+        event_id, occurred_at, recorded_at, category, action, outcome, severity,
+        actor_json, correlation_json, detail_json, payload_json, payload_hash, signature, key_id
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1 FROM instance_state
+        WHERE singleton = 1 AND config_version = ?
+      )`,
+    )
+    .bind(...auditBindings(event), expectedVersion);
+}
+
+export function auditInsertWhenExecutionIsUnfinished(
+  database: D1Database,
+  event: AuditEventV1,
+  requestId: string,
+  tokenId: string,
+  reportId: string,
+): D1PreparedStatement {
+  return database
+    .prepare(
+      `INSERT INTO audit_events (
+        event_id, occurred_at, recorded_at, category, action, outcome, severity,
+        actor_json, correlation_json, detail_json, payload_json, payload_hash, signature, key_id
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM execution_reports
+        WHERE (request_id = ? AND token_id = ?) OR report_id = ?
+      )`,
+    )
+    .bind(...auditBindings(event), requestId, tokenId, reportId);
 }
 
 function unsignedPayload(event: AuditEventV1): string {
   const { integrity: _integrity, ...unsigned } = event;
   void _integrity;
   return stableStringify(unsigned);
+}
+
+function auditBindings(event: AuditEventV1): string[] {
+  return [
+    event.eventId,
+    event.occurredAt,
+    event.recordedAt,
+    event.category,
+    event.action,
+    event.outcome,
+    event.severity,
+    stableStringify(event.actor),
+    stableStringify(event.correlation),
+    stableStringify({
+      request: event.request,
+      decision: event.decision,
+      result: event.result,
+      change: event.change,
+      metrics: event.metrics,
+    }),
+    unsignedPayload(event),
+    event.integrity.payloadHash,
+    event.integrity.signature,
+    event.integrity.keyId,
+  ];
 }
 
 export async function writeAuditEvent(
