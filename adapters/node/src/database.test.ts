@@ -99,8 +99,13 @@ describe("Node database startup and lifecycle", () => {
       DATABASE_MIGRATIONS.map(({ version }) => version),
     );
     expect(
-      initialRows.every(({ checksum }) => /^[0-9a-f]{64}$/u.test(checksum)),
-    ).toBe(true);
+      initialRows.map(({ version, checksum }) => ({ version, checksum })),
+    ).toEqual(
+      DATABASE_MIGRATIONS.map(({ version, artifactSha256 }) => ({
+        version,
+        checksum: artifactSha256,
+      })),
+    );
     expect(
       initialRows.every(
         ({ applied_at }) => !Number.isNaN(Date.parse(applied_at)),
@@ -233,5 +238,19 @@ describe("Node database startup and lifecycle", () => {
     expect(() =>
       assertMigrationDefinitions([{ sql: "SELECT 1", version: 1 }], 2),
     ).toThrow("do not match schema version");
+    expect(() =>
+      assertMigrationDefinitions(
+        [
+          {
+            version: 1,
+            file: "0001_tampered.sql",
+            bytes: 8,
+            artifactSha256: "0".repeat(64),
+            sql: "SELECT 1",
+          },
+        ],
+        1,
+      ),
+    ).toThrow("generated artifact integrity check failed");
   });
 });

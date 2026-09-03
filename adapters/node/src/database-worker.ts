@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
@@ -33,9 +32,6 @@ if (!parentPort)
   throw new Error("Database worker must run inside a Worker thread");
 
 const port = parentPort;
-
-const checksum = (sql: string): string =>
-  createHash("sha256").update(sql, "utf8").digest("hex");
 
 const assertIntegrity = (database: DatabaseSync): void => {
   const result = database.prepare("PRAGMA integrity_check").get() as {
@@ -72,7 +68,7 @@ const migrate = (database: DatabaseSync): void => {
         `Applied migrations must be a contiguous prefix; expected version ${migration.version}, received ${applied.version}`,
       );
     }
-    const expected = checksum(migration.sql);
+    const expected = migration.artifactSha256;
     if (applied.checksum !== expected) {
       throw new Error(
         `Migration ${migration.version} checksum does not match the applied database`,
@@ -81,7 +77,7 @@ const migrate = (database: DatabaseSync): void => {
   }
 
   for (const migration of DATABASE_MIGRATIONS.slice(rows.length)) {
-    const expected = checksum(migration.sql);
+    const expected = migration.artifactSha256;
     database.exec("BEGIN IMMEDIATE");
     try {
       database.exec(migration.sql);

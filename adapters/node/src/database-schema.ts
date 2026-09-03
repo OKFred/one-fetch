@@ -1,200 +1,28 @@
-export const DATABASE_SCHEMA_VERSION = 7;
+import { createHash } from "node:crypto";
 
-export const DATABASE_MIGRATIONS = [
-  {
-    version: 1,
-    sql: `
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version INTEGER PRIMARY KEY,
-        checksum TEXT NOT NULL,
-        applied_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS instance_config (
-        key TEXT PRIMARY KEY,
-        value_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS administrators (
-        id TEXT PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        totp_ciphertext TEXT,
-        failed_attempts INTEGER NOT NULL DEFAULT 0,
-        locked_until TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS bootstrap_state (
-        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-        token_digest TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        consumed_at TEXT
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS auth_tokens (
-        id TEXT PRIMARY KEY,
-        administrator_id TEXT,
-        kind TEXT NOT NULL CHECK (kind IN ('access', 'refresh', 'execution')),
-        digest TEXT NOT NULL UNIQUE,
-        family_id TEXT,
-        parent_id TEXT,
-        scopes_json TEXT NOT NULL,
-        origin_policy_json TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        revoked_at TEXT,
-        used_at TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (administrator_id) REFERENCES administrators(id) ON DELETE CASCADE,
-        FOREIGN KEY (parent_id) REFERENCES auth_tokens(id)
-      ) STRICT;
-      CREATE INDEX IF NOT EXISTS auth_tokens_digest_idx ON auth_tokens(digest);
-      CREATE INDEX IF NOT EXISTS auth_tokens_family_idx ON auth_tokens(family_id);
-
-      CREATE TABLE IF NOT EXISTS policy_rules (
-        id TEXT PRIMARY KEY,
-        position INTEGER NOT NULL,
-        enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
-        rule_json TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS audit_events (
-        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-        event_id TEXT NOT NULL UNIQUE,
-        occurred_at TEXT NOT NULL,
-        category TEXT NOT NULL,
-        action TEXT NOT NULL,
-        outcome TEXT NOT NULL,
-        actor_json TEXT NOT NULL,
-        subject_json TEXT NOT NULL,
-        details_json TEXT NOT NULL,
-        canonical_json TEXT NOT NULL,
-        content_sha256 TEXT NOT NULL,
-        signature TEXT NOT NULL,
-        previous_sha256 TEXT,
-        retention_class TEXT NOT NULL
-      ) STRICT;
-      CREATE INDEX IF NOT EXISTS audit_occurred_at_idx ON audit_events(occurred_at);
-
-      CREATE TABLE IF NOT EXISTS audit_seals (
-        seal_date TEXT PRIMARY KEY,
-        first_sequence INTEGER NOT NULL,
-        last_sequence INTEGER NOT NULL,
-        terminal_sha256 TEXT NOT NULL,
-        signature TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS execution_reports (
-        request_id TEXT PRIMARY KEY,
-        token_id TEXT NOT NULL,
-        outcome TEXT NOT NULL,
-        report_json TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      ) STRICT;
-      CREATE INDEX IF NOT EXISTS execution_reports_expiry_idx ON execution_reports(expires_at);
-
-      CREATE TABLE IF NOT EXISTS webhook_outbox (
-        event_id TEXT PRIMARY KEY,
-        payload_json TEXT NOT NULL,
-        attempt_count INTEGER NOT NULL DEFAULT 0,
-        next_attempt_at TEXT NOT NULL,
-        delivered_at TEXT,
-        last_error TEXT,
-        created_at TEXT NOT NULL
-      ) STRICT;
-    `,
-  },
-  {
-    version: 2,
-    sql: `
-      ALTER TABLE auth_tokens ADD COLUMN session_id TEXT;
-      ALTER TABLE auth_tokens ADD COLUMN credential_json TEXT;
-      CREATE INDEX auth_tokens_session_idx ON auth_tokens(session_id);
-    `,
-  },
-  {
-    version: 3,
-    sql: `
-      ALTER TABLE auth_tokens ADD COLUMN device_fingerprint TEXT;
-    `,
-  },
-  {
-    version: 4,
-    sql: `
-      CREATE TABLE quota_daily_usage (
-        day TEXT NOT NULL,
-        token_id TEXT NOT NULL,
-        bytes_used INTEGER NOT NULL CHECK (bytes_used >= 0),
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (day, token_id)
-      ) STRICT;
-      CREATE INDEX quota_daily_usage_updated_idx
-        ON quota_daily_usage(updated_at);
-
-      CREATE TABLE quota_rate_state (
-        quota_key TEXT PRIMARY KEY,
-        tokens REAL NOT NULL CHECK (tokens >= 0),
-        updated_at INTEGER NOT NULL CHECK (updated_at >= 0)
-      ) STRICT;
-    `,
-  },
-  {
-    version: 5,
-    sql: `
-      ALTER TABLE administrators ADD COLUMN pending_totp_ciphertext TEXT;
-      CREATE TABLE recovery_codes (
-        id TEXT PRIMARY KEY,
-        administrator_id TEXT NOT NULL,
-        digest TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        used_at TEXT,
-        FOREIGN KEY (administrator_id) REFERENCES administrators(id) ON DELETE CASCADE,
-        UNIQUE (administrator_id, digest)
-      ) STRICT;
-      CREATE INDEX recovery_codes_admin_idx
-        ON recovery_codes(administrator_id, used_at);
-    `,
-  },
-  {
-    version: 6,
-    sql: `
-      CREATE TABLE operational_alerts (
-        alert_id TEXT PRIMARY KEY,
-        code TEXT NOT NULL,
-        severity TEXT NOT NULL CHECK (severity IN ('warning', 'critical')),
-        request_id TEXT,
-        report_id TEXT,
-        state TEXT NOT NULL CHECK (state IN ('open', 'resolved')),
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      ) STRICT;
-      CREATE INDEX operational_alerts_state_idx
-        ON operational_alerts(state, updated_at);
-    `,
-  },
-  {
-    version: 7,
-    sql: `
-      CREATE UNIQUE INDEX administrators_singleton_idx
-        ON administrators ((1));
-    `,
-  },
-] as const;
+import {
+  NODE_DATABASE_MIGRATIONS,
+  NODE_DATABASE_SCHEMA_VERSION,
+} from "./generated/database-migrations.js";
 
 export interface DatabaseMigration {
-  readonly sql: string;
   readonly version: number;
+  readonly file: string;
+  readonly bytes: number;
+  readonly artifactSha256: string;
+  readonly sql: string;
 }
 
+type MigrationDefinition = Pick<DatabaseMigration, "sql" | "version"> &
+  Partial<Pick<DatabaseMigration, "artifactSha256" | "bytes" | "file">>;
+
+export const DATABASE_SCHEMA_VERSION = NODE_DATABASE_SCHEMA_VERSION;
+export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] =
+  NODE_DATABASE_MIGRATIONS;
+
 export const assertMigrationDefinitions = (
-  migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS,
-  schemaVersion = DATABASE_SCHEMA_VERSION,
+  migrations: readonly MigrationDefinition[] = DATABASE_MIGRATIONS,
+  schemaVersion: number = DATABASE_SCHEMA_VERSION,
 ): void => {
   if (schemaVersion < 1 || migrations.length !== schemaVersion) {
     throw new Error(
@@ -211,6 +39,41 @@ export const assertMigrationDefinitions = (
     }
     if (!migration.sql.trim()) {
       throw new Error(`Migration ${migration.version} must contain SQL`);
+    }
+
+    const metadata = [
+      migration.file,
+      migration.bytes,
+      migration.artifactSha256,
+    ];
+    if (metadata.every((value) => value === undefined)) continue;
+    if (
+      typeof migration.file !== "string" ||
+      typeof migration.bytes !== "number" ||
+      typeof migration.artifactSha256 !== "string"
+    ) {
+      throw new Error(`Migration ${migration.version} metadata is incomplete`);
+    }
+    if (
+      !migration.file.startsWith(
+        `${String(migration.version).padStart(4, "0")}_`,
+      )
+    ) {
+      throw new Error(
+        `Migration ${migration.version} filename is inconsistent`,
+      );
+    }
+    const actualBytes = Buffer.byteLength(migration.sql, "utf8");
+    const actualSha256 = createHash("sha256")
+      .update(migration.sql, "utf8")
+      .digest("hex");
+    if (
+      migration.bytes !== actualBytes ||
+      migration.artifactSha256 !== actualSha256
+    ) {
+      throw new Error(
+        `Migration ${migration.version} generated artifact integrity check failed`,
+      );
     }
   }
 };
