@@ -30,8 +30,9 @@ function commaSeparatedOrigins(
   if (!value?.trim()) return [];
   return value.split(",").map((item) => {
     const candidate = item.trim().replace(/\/$/u, "");
-    if (allowExtension && /^chrome-extension:\/\/[a-p]{32}$/u.test(candidate))
+    if (allowExtension && /^chrome-extension:\/\/[a-p]{32}$/u.test(candidate)) {
       return candidate;
+    }
     return HttpOriginSchema.parse(candidate);
   });
 }

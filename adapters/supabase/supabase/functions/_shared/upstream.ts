@@ -109,21 +109,24 @@ export function responseHeaderEntries(headers: Headers): HeaderEntryV1[] {
 
 export function responseSetCookies(headers: Headers): string[] {
   const compatible = headers as Headers & { getSetCookie?: () => string[] };
-  if (typeof compatible.getSetCookie === "function")
+  if (typeof compatible.getSetCookie === "function") {
     return compatible.getSetCookie();
+  }
   const merged = headers.get("set-cookie");
   return merged ? [merged] : [];
 }
 
 export function outerResponseHeaders(target: Headers): Headers {
   const headers = new Headers();
-  for (const name of [
-    "content-type",
-    "content-language",
-    "content-disposition",
-    "etag",
-    "last-modified",
-  ]) {
+  for (
+    const name of [
+      "content-type",
+      "content-language",
+      "content-disposition",
+      "etag",
+      "last-modified",
+    ]
+  ) {
     const value = target.get(name);
     if (value) headers.set(name, value);
   }

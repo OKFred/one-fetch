@@ -31,14 +31,16 @@ Deno.test("Policy content type comes from the actual target header", () => {
 });
 
 Deno.test("Conflicting or metadata-only content types are rejected", () => {
-  for (const entries of [
-    [{ name: "Content-Type", value: "text/plain" }],
-    [],
-    [
-      { name: "Content-Type", value: "application/json" },
-      { name: "content-type", value: "application/json" },
-    ],
-  ]) {
+  for (
+    const entries of [
+      [{ name: "Content-Type", value: "text/plain" }],
+      [],
+      [
+        { name: "Content-Type", value: "application/json" },
+        { name: "content-type", value: "application/json" },
+      ],
+    ]
+  ) {
     let rejected = false;
     try {
       requestContentType(entries, metadata("application/json"));

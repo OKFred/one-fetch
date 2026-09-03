@@ -1,15 +1,15 @@
 import { ONE_FETCH_LIMITS_V1 } from "@one-fetch/protocol";
 
 import {
-  stripSensitiveRedirectHeaders,
   stripSensitiveRedirectHeaderEntries,
+  stripSensitiveRedirectHeaders,
 } from "../_shared/upstream.ts";
 import {
+  type ActiveConfig,
+  type GatewayContext,
   milliseconds,
   problem,
   signedError,
-  type ActiveConfig,
-  type GatewayContext,
 } from "./foundation.ts";
 import { prepareExecution } from "./execution-setup.ts";
 import { finalizeRelayError } from "./recording.ts";
@@ -191,12 +191,14 @@ export async function executeHttp(
       ) {
         method = "GET";
         activeBody = new Uint8Array();
-        for (const name of [
-          "content-encoding",
-          "content-language",
-          "content-location",
-          "content-type",
-        ]) {
+        for (
+          const name of [
+            "content-encoding",
+            "content-language",
+            "content-location",
+            "content-type",
+          ]
+        ) {
           headers.delete(name);
           policyHeaders = policyHeaders.filter(
             (entry) => entry.name.toLowerCase() !== name,
@@ -214,8 +216,8 @@ export async function executeHttp(
     const code = timedOut
       ? "timeout"
       : cancelled
-        ? "cancelled"
-        : "upstream_network";
+      ? "cancelled"
+      : "upstream_network";
     return relayError(
       `execution.${code}`,
       code,

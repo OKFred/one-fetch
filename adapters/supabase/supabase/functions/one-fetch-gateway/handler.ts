@@ -1,8 +1,8 @@
 import {
+  decodeRequestMetadata,
   ONE_FETCH_REQUEST_HEADER,
   ONE_FETCH_TOKEN_HEADER,
   ProtocolCodecError,
-  decodeRequestMetadata,
 } from "@one-fetch/protocol";
 import type { OneFetchRequestMetaV1 } from "../_shared/protocol-types.ts";
 
@@ -17,11 +17,11 @@ import { json } from "../_shared/http.ts";
 import { assertNoOuterProtocolHeaders } from "../_shared/upstream.ts";
 import { executeHttp } from "./executor.ts";
 import {
+  type ActiveConfig,
+  ActiveConfigSchema,
+  type GatewayContext,
   problem,
   signedError,
-  ActiveConfigSchema,
-  type ActiveConfig,
-  type GatewayContext,
 } from "./foundation.ts";
 import { pathAndQuery } from "./request.ts";
 
@@ -47,19 +47,21 @@ export function createGatewayHandler(
     }
     const encoded = request.headers.get(ONE_FETCH_REQUEST_HEADER);
     const token = request.headers.get(ONE_FETCH_TOKEN_HEADER)?.trim();
-    if (!encoded || !token)
+    if (!encoded || !token) {
       return applyCors(
         request,
         json({ error: "invalid_metadata" }, { status: 400 }),
         environment.allowedClientOrigins,
       );
+    }
 
     let metadata: OneFetchRequestMetaV1;
     try {
       metadata = decodeRequestMetadata(encoded);
     } catch (error) {
-      const code =
-        error instanceof ProtocolCodecError ? error.code : "invalid_metadata";
+      const code = error instanceof ProtocolCodecError
+        ? error.code
+        : "invalid_metadata";
       return applyCors(
         request,
         json(
@@ -173,20 +175,18 @@ export function createGatewayHandler(
         environment.allowedClientOrigins,
       );
     } catch (error) {
-      const code =
-        error instanceof DatabaseError
-          ? "storage_unavailable"
-          : error instanceof RangeError
-            ? "payload_too_large"
-            : error instanceof TypeError
-              ? "invalid_metadata"
-              : "internal";
-      const stage =
-        code === "storage_unavailable"
-          ? "storage"
-          : code === "internal"
-            ? "internal"
-            : "upload";
+      const code = error instanceof DatabaseError
+        ? "storage_unavailable"
+        : error instanceof RangeError
+        ? "payload_too_large"
+        : error instanceof TypeError
+        ? "invalid_metadata"
+        : "internal";
+      const stage = code === "storage_unavailable"
+        ? "storage"
+        : code === "internal"
+        ? "internal"
+        : "upload";
       return applyCors(
         request,
         await signedError(
@@ -197,10 +197,10 @@ export function createGatewayHandler(
             code === "payload_too_large"
               ? "Request body exceeds 20 MiB"
               : code === "storage_unavailable"
-                ? "Gateway storage is unavailable"
-                : code === "internal"
-                  ? "Gateway execution failed"
-                  : "Request body metadata mismatch",
+              ? "Gateway storage is unavailable"
+              : code === "internal"
+              ? "Gateway execution failed"
+              : "Request body metadata mismatch",
             code === "storage_unavailable" || code === "internal",
           ),
         ),

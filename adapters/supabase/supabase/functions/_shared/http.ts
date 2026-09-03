@@ -65,8 +65,9 @@ export function bearer(
 ): string | undefined {
   const value = request.headers.get(headerName);
   if (!value) return undefined;
-  if (headerName.toLowerCase() !== "authorization")
+  if (headerName.toLowerCase() !== "authorization") {
     return value.trim() || undefined;
+  }
   const match = /^Bearer\s+([^\s]+)$/iu.exec(value);
   return match?.[1];
 }

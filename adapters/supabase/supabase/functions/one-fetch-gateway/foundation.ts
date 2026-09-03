@@ -1,8 +1,8 @@
 import {
+  encodeResponseMetadata,
   ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
   PolicySetV1Schema,
-  encodeResponseMetadata,
 } from "@one-fetch/protocol";
 import type {
   OneFetchProblemV1,
@@ -93,15 +93,17 @@ function problemStatus(code: OneFetchProblemV1["code"]): number {
     code === "forbidden" ||
     code === "target_not_allowed" ||
     code === "user_rule_denied"
-  )
+  ) {
     return 403;
+  }
   if (
     code === "payload_too_large" ||
     code === "response_too_large" ||
     code === "metadata_too_large" ||
     code === "response_metadata_too_large"
-  )
+  ) {
     return 413;
+  }
   if (code === "quota_exceeded") return 429;
   if (code === "timeout") return 504;
   if (code === "upstream_network") return 502;

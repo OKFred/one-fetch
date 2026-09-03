@@ -28,8 +28,9 @@ export function preflight(
   if (
     request.method !== "OPTIONS" ||
     !request.headers.has("access-control-request-method")
-  )
+  ) {
     return undefined;
+  }
   const origin = request.headers.get("origin");
   if (!origin || !allowedOrigins.includes(origin)) {
     return Response.json(

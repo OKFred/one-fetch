@@ -45,8 +45,9 @@ async function importAuditKeys(encoded: string) {
 }
 
 async function auditKeys(environment: SupabaseEnvironment) {
-  if (cachedKey?.encoded === environment.auditSigningPrivateKey)
+  if (cachedKey?.encoded === environment.auditSigningPrivateKey) {
     return cachedKey;
+  }
   cachedKey = {
     encoded: environment.auditSigningPrivateKey,
     ...(await importAuditKeys(environment.auditSigningPrivateKey)),
@@ -78,7 +79,7 @@ type AuditEventInput = Omit<
   "schemaVersion" | "eventId" | "occurredAt" | "recordedAt"
 >;
 
-export async function createAuditEvent(
+export function createAuditEvent(
   input: AuditEventInput,
   environment: SupabaseEnvironment,
 ): Promise<AuditEventV1> {

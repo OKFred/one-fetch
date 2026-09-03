@@ -1,7 +1,7 @@
 import {
+  encodeResponseMetadata,
   ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
-  encodeResponseMetadata,
 } from "@one-fetch/protocol";
 import type { OneFetchTimingV1 } from "../_shared/protocol-types.ts";
 import {
@@ -17,11 +17,11 @@ import {
   responseSetCookies,
 } from "../_shared/upstream.ts";
 import {
+  type AuditState,
+  type GatewayContext,
   milliseconds,
   problem,
   signedError,
-  type AuditState,
-  type GatewayContext,
 } from "./foundation.ts";
 import { finalize, finalizeRelayError } from "./recording.ts";
 import { background, monitoredBody } from "./stream.ts";
@@ -78,8 +78,7 @@ export async function createTargetResponse({
     return signedError(context, error, terminal.auditState, terminal.reportId);
   }
 
-  const noBody =
-    request.method === "HEAD" ||
+  const noBody = request.method === "HEAD" ||
     [204, 205, 304].includes(upstream.status) ||
     !upstream.body;
   const target = {
@@ -196,34 +195,34 @@ export async function createTargetResponse({
       const outcome = complete
         ? "completed"
         : didTimeOut()
-          ? "timeout"
-          : failure === "response_too_large"
-            ? "relay-error"
-            : abortController.signal.aborted
-              ? "cancelled"
-              : "partial";
+        ? "timeout"
+        : failure === "response_too_large"
+        ? "relay-error"
+        : abortController.signal.aborted
+        ? "cancelled"
+        : "partial";
       const terminalProblem = complete
         ? undefined
         : didTimeOut()
-          ? problem("timeout", "timeout", "Response download timed out", true)
-          : failure === "response_too_large"
-            ? problem(
-                "response_too_large",
-                "upstream-body",
-                "Target response exceeded 20 MiB",
-              )
-            : failure === "cancelled" || abortController.signal.aborted
-              ? problem(
-                  "cancelled",
-                  "cancellation",
-                  "Response download was cancelled",
-                )
-              : problem(
-                  "upstream_network",
-                  "upstream-body",
-                  "Target response stream ended unexpectedly",
-                  true,
-                );
+        ? problem("timeout", "timeout", "Response download timed out", true)
+        : failure === "response_too_large"
+        ? problem(
+          "response_too_large",
+          "upstream-body",
+          "Target response exceeded 20 MiB",
+        )
+        : failure === "cancelled" || abortController.signal.aborted
+        ? problem(
+          "cancelled",
+          "cancellation",
+          "Response download was cancelled",
+        )
+        : problem(
+          "upstream_network",
+          "upstream-body",
+          "Target response stream ended unexpectedly",
+          true,
+        );
       await finalize(context, {
         leaseId,
         reportId,

@@ -34,10 +34,9 @@ export function evaluateRequestPolicy(
       pathAndQuery: `${input.url.pathname}${input.url.search}`,
       headers: input.headers,
       fetchOptions: input.context.metadata.fetchOptions,
-      hasUserinfo:
-        input.hops === 0
-          ? (input.context.metadata.targetUrlTraits?.hasUserinfo ?? false)
-          : input.url.username !== "" || input.url.password !== "",
+      hasUserinfo: input.hops === 0
+        ? (input.context.metadata.targetUrlTraits?.hasUserinfo ?? false)
+        : input.url.username !== "" || input.url.password !== "",
       body: {
         availability: bodyAvailable ? "available" : "too-large",
         ...(bodyAvailable ? { bytes: input.body } : {}),

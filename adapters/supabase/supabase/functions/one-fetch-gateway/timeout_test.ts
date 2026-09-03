@@ -1,9 +1,9 @@
 import {
+  decodeResponseMetadata,
+  encodeRequestMetadata,
   ONE_FETCH_REQUEST_HEADER,
   ONE_FETCH_RESPONSE_HEADER,
   ONE_FETCH_TOKEN_HEADER,
-  decodeResponseMetadata,
-  encodeRequestMetadata,
 } from "@one-fetch/protocol";
 
 import type { Database } from "../_shared/database.ts";
@@ -109,7 +109,8 @@ Deno.test(
       );
       assert(
         response.status === 400,
-        `expected 400, got ${response.status}: ${await response.clone().text()}`,
+        `expected 400, got ${response.status}: ${await response.clone()
+          .text()}`,
       );
       assert(
         signed.outcome === "relay-error" &&

@@ -1,9 +1,9 @@
 import {
+  decodeResponseMetadata,
+  encodeRequestMetadata,
   ONE_FETCH_REQUEST_HEADER,
   ONE_FETCH_RESPONSE_HEADER,
   ONE_FETCH_TOKEN_HEADER,
-  decodeResponseMetadata,
-  encodeRequestMetadata,
 } from "@one-fetch/protocol";
 import { verifySignedResponseMetadata } from "@one-fetch/core";
 

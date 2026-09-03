@@ -1,7 +1,7 @@
 import {
+  decodeResponseMetadata,
   ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
-  decodeResponseMetadata,
 } from "@one-fetch/protocol";
 
 import type { Database } from "../_shared/database.ts";

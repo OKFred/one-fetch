@@ -18,8 +18,9 @@ export async function readRequestBody(
     throw new RangeError("payload_too_large");
   }
   const body = await readBody(request.body, signal);
-  if (declared !== undefined && declared !== body.byteLength)
+  if (declared !== undefined && declared !== body.byteLength) {
     throw new TypeError("transport_body_size_mismatch");
+  }
   if (
     metadata.body.sizeBytes !== undefined &&
     metadata.body.sizeBytes !== body.byteLength
@@ -119,8 +120,8 @@ export function tokenAllows(
   const port = target.port
     ? Number.parseInt(target.port, 10)
     : target.protocol === "https:"
-      ? 443
-      : 80;
+    ? 443
+    : 80;
   return ports.includes(port);
 }
 

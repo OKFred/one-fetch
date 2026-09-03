@@ -7,17 +7,19 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 Deno.test("Supabase rejects Fetch options it does not implement", () => {
-  for (const [name, value] of [
-    ["cache", "no-store"],
-    ["credentials", "include"],
-    ["decompress", false],
-    ["duplex", "half"],
-    ["integrity", "sha256-deadbeef"],
-    ["keepalive", true],
-    ["mode", "cors"],
-    ["priority", "high"],
-    ["referrerPolicy", "no-referrer"],
-  ] as const) {
+  for (
+    const [name, value] of [
+      ["cache", "no-store"],
+      ["credentials", "include"],
+      ["decompress", false],
+      ["duplex", "half"],
+      ["integrity", "sha256-deadbeef"],
+      ["keepalive", true],
+      ["mode", "cors"],
+      ["priority", "high"],
+      ["referrerPolicy", "no-referrer"],
+    ] as const
+  ) {
     const result = classifyFetchOptions(
       { redirect: "manual", timeoutMs: 60_000, [name]: value },
       SUPABASE_FETCH_OPTIONS,

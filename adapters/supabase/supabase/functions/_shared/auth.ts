@@ -68,15 +68,16 @@ export async function verifyPassword(
   environment: SupabaseEnvironment,
 ): Promise<boolean> {
   const prehash = await hmacSha256Hex(environment.pepper, password);
-  if (!dummyHash)
+  if (!dummyHash) {
     dummyHash = bcrypt.hash(
       await hmacSha256Hex(environment.pepper, "one-fetch-dummy"),
       BCRYPT_COST,
     );
+  }
   return bcrypt.compare(prehash, passwordHash ?? (await dummyHash));
 }
 
-export async function tokenHash(
+export function tokenHash(
   token: string,
   environment: SupabaseEnvironment,
 ): Promise<string> {
