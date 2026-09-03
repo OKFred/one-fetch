@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns", "dom", "dom.iterable"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true
+  },
+  "imports": {
+    "@one-fetch/core": "../../../../../packages/core/src/index.ts",
+    "@one-fetch/protocol": "../../../../../packages/protocol/src/index.ts",
+    "bcryptjs": "npm:bcryptjs@3.0.3",
+    "zod": "npm:zod@4.5.4"
+  },
+  "unstable": ["sloppy-imports"]
+}

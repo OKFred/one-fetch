@@ -1,0 +1,31 @@
+{
+  "name": "@one-fetch/adapter-supabase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Supabase Edge Functions adapter for one-fetch.",
+  "dependencies": {
+    "@one-fetch/core": "workspace:*",
+    "@one-fetch/protocol": "workspace:*",
+    "bcryptjs": "3.0.3",
+    "hono": "4.13.5",
+    "zod": "4.5.4"
+  },
+  "scripts": {
+    "build": "pnpm typecheck",
+    "db:lint": "supabase db lint --local --level warning",
+    "dev": "supabase functions serve --env-file supabase/.env.local",
+    "functions:serve": "supabase functions serve --env-file supabase/.env.local",
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "test": "deno test --frozen --allow-env --allow-net --unstable-sloppy-imports --config supabase/functions/one-fetch-control/deno.json supabase/functions/one-fetch-control && deno test --frozen --allow-env --allow-net --unstable-sloppy-imports --config supabase/functions/one-fetch-gateway/deno.json supabase/functions/one-fetch-gateway",
+    "test:integration": "supabase test db && pnpm test",
+    "typecheck": "deno check --frozen --config supabase/functions/one-fetch-control/deno.json supabase/functions/one-fetch-control/index.ts && deno check --frozen --config supabase/functions/one-fetch-gateway/deno.json supabase/functions/one-fetch-gateway/index.ts",
+    "verify": "pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "deno": "2.9.6",
+    "supabase": "2.116.0",
+    "vitest": "4.1.11"
+  }
+}
