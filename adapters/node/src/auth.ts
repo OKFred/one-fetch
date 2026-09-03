@@ -8,6 +8,8 @@ import type {
   SessionRecordV1,
   SessionRevokeResponseV1,
   SessionTokenPairV1,
+  TotpEnableResponseV1,
+  TotpPrepareResponseV1,
 } from "@one-fetch/protocol";
 
 import type { AuditLedger } from "./audit.js";
@@ -19,6 +21,10 @@ import {
   ExecutionTokenService,
 } from "./execution-tokens.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import {
+  SecondFactorService,
+  type SecondFactorInput,
+} from "./second-factor.js";
 
 export type { ExecutionCredential } from "./execution-tokens.js";
 
@@ -35,6 +41,7 @@ interface AdministratorRow {
   id: string;
   locked_until: string | null;
   password_hash: string;
+  totp_ciphertext: string | null;
   username: string;
 }
 
@@ -61,8 +68,21 @@ export interface AdminSessionIdentity {
   sessionId: string;
 }
 
+export type LoginFailureCode =
+  | "invalid_credentials"
+  | "invalid_totp"
+  | "totp_required";
+
+export class LoginFailure extends Error {
+  constructor(readonly code: LoginFailureCode) {
+    super(code);
+    this.name = "LoginFailure";
+  }
+}
+
 export class AuthenticationService {
   readonly executionTokens: ExecutionTokenService;
+  readonly secondFactor: SecondFactorService;
 
   constructor(
     private readonly database: DatabaseClient,
@@ -70,6 +90,7 @@ export class AuthenticationService {
     private readonly pepper: string,
   ) {
     this.executionTokens = new ExecutionTokenService(database, audit);
+    this.secondFactor = new SecondFactorService(database, audit, pepper);
   }
 
   async ensureBootstrap(): Promise<string | undefined> {
@@ -158,9 +179,11 @@ export class AuthenticationService {
     username: string,
     password: string,
     deviceFingerprint?: string,
+    secondFactor: SecondFactorInput = {},
   ): Promise<IssuedSession> {
     const administrator = await this.database.get<AdministratorRow>(
-      `SELECT id, username, password_hash, failed_attempts, locked_until
+      `SELECT id, username, password_hash, failed_attempts, locked_until,
+       totp_ciphertext
        FROM administrators WHERE username = ?`,
       [username],
     );
@@ -171,7 +194,7 @@ export class AuthenticationService {
         administrator.locked_until > now.toISOString())
     ) {
       await this.recordLoginFailure(administrator, username, now);
-      throw new Error("Invalid credentials");
+      throw new LoginFailure("invalid_credentials");
     }
     if (
       !(await verifyPassword(
@@ -181,7 +204,19 @@ export class AuthenticationService {
       ))
     ) {
       await this.recordLoginFailure(administrator, username, now);
-      throw new Error("Invalid credentials");
+      throw new LoginFailure("invalid_credentials");
+    }
+
+    const secondFactorResult = await this.secondFactor.verify(
+      administrator.id,
+      administrator.totp_ciphertext,
+      secondFactor,
+    );
+    if (secondFactorResult === "required")
+      throw new LoginFailure("totp_required");
+    if (secondFactorResult === "invalid") {
+      await this.recordLoginFailure(administrator, username, now);
+      throw new LoginFailure("invalid_totp");
     }
 
     const issued = this.prepareSession(
@@ -287,6 +322,17 @@ export class AuthenticationService {
     rawToken: string,
   ): Promise<ExecutionCredential | undefined> {
     return this.executionTokens.authenticate(rawToken);
+  }
+
+  async prepareTotp(administratorId: string): Promise<TotpPrepareResponseV1> {
+    return this.secondFactor.prepare(administratorId);
+  }
+
+  async enableTotp(
+    administratorId: string,
+    code: string,
+  ): Promise<TotpEnableResponseV1 | undefined> {
+    return this.secondFactor.enable(administratorId, code);
   }
 
   async createExecutionToken(
@@ -410,7 +456,8 @@ export class AuthenticationService {
     newPassword: string,
   ): Promise<ChangePasswordResponseV1 | undefined> {
     const administrator = await this.database.get<AdministratorRow>(
-      `SELECT id, username, password_hash, failed_attempts, locked_until
+      `SELECT id, username, password_hash, failed_attempts, locked_until,
+       totp_ciphertext
        FROM administrators WHERE id = ?`,
       [administratorId],
     );

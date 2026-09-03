@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
 
 export const DATABASE_MIGRATIONS = [
   {
@@ -142,6 +142,23 @@ export const DATABASE_MIGRATIONS = [
         tokens REAL NOT NULL CHECK (tokens >= 0),
         updated_at INTEGER NOT NULL CHECK (updated_at >= 0)
       ) STRICT;
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      ALTER TABLE administrators ADD COLUMN pending_totp_ciphertext TEXT;
+      CREATE TABLE recovery_codes (
+        id TEXT PRIMARY KEY,
+        administrator_id TEXT NOT NULL,
+        digest TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        used_at TEXT,
+        FOREIGN KEY (administrator_id) REFERENCES administrators(id) ON DELETE CASCADE,
+        UNIQUE (administrator_id, digest)
+      ) STRICT;
+      CREATE INDEX recovery_codes_admin_idx
+        ON recovery_codes(administrator_id, used_at);
     `,
   },
 ] as const;

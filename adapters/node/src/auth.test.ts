@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { decodeBase32, generateTotpCode } from "@one-fetch/core";
+
 import {
   createTestServices,
   testExecutionTokenRequest,
@@ -167,5 +169,63 @@ describe("Node authentication and audit storage", () => {
     expect(JSON.stringify(await services.audit.list(20))).not.toContain(
       session.refreshToken,
     );
+  });
+
+  it("encrypts TOTP enrollment and consumes recovery codes once", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+    const administratorId = await services.auth.authenticateAdmin(
+      session.accessToken,
+    );
+    const prepared = await services.auth.prepareTotp(administratorId!);
+    const code = await generateTotpCode(decodeBase32(prepared.secret));
+    const enabled = await services.auth.enableTotp(administratorId!, code);
+
+    expect(enabled?.recoveryCodes).toHaveLength(10);
+    const stored = await services.database.get<{
+      pending_totp_ciphertext: string | null;
+      totp_ciphertext: string;
+    }>(
+      "SELECT pending_totp_ciphertext, totp_ciphertext FROM administrators WHERE id = ?",
+      [administratorId!],
+    );
+    expect(stored?.pending_totp_ciphertext).toBeNull();
+    expect(stored?.totp_ciphertext).not.toContain(prepared.secret);
+
+    await expect(
+      services.auth.login("operator", "correct horse battery staple"),
+    ).rejects.toMatchObject({ code: "totp_required" });
+    await expect(
+      services.auth.login(
+        "operator",
+        "correct horse battery staple",
+        undefined,
+        { totpCode: code },
+      ),
+    ).resolves.toMatchObject({ schemaVersion: 1 });
+
+    const recoveryCode = enabled!.recoveryCodes[0]!;
+    await expect(
+      services.auth.login(
+        "operator",
+        "correct horse battery staple",
+        undefined,
+        { recoveryCode },
+      ),
+    ).resolves.toMatchObject({ schemaVersion: 1 });
+    await expect(
+      services.auth.login(
+        "operator",
+        "correct horse battery staple",
+        undefined,
+        { recoveryCode },
+      ),
+    ).rejects.toMatchObject({ code: "invalid_totp" });
   });
 });
