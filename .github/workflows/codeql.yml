@@ -3,7 +3,9 @@ name: CodeQL
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "codex/**"
   schedule:
     - cron: "17 3 * * 1"
 
