@@ -132,35 +132,60 @@ export const streamTarget = async (
         ),
       },
     };
+    let reportSaved = false;
     try {
       await dependencies.reports.save(report, credential.id);
-      await dependencies.audit.append({
-        action: `request.${outcome}`,
-        actor: {
-          actorId: credential.id,
-          credentialId: credential.id,
-          type: "execution-token",
-        },
-        category: "execution",
-        correlation: {
-          requestId: context.metadata.requestId,
-          reportId: context.reportId,
-        },
-        metrics: {
-          durationMs:
-            report.timing.phases.find(({ name }) => name === "total")
-              ?.durationMs ?? 0,
-          responseBytes: bytes,
-          redirects: upstream.redirects,
-        },
-        outcome: outcome === "completed" ? "success" : "partial",
-        result: { source: "target", status: upstream.status },
-        severity: outcome === "completed" ? "info" : "warning",
-      });
+      reportSaved = true;
     } catch (error) {
       console.error("Final execution recording degraded", {
         message: error instanceof Error ? error.message : "unknown",
       });
+    }
+    if (reportSaved) {
+      try {
+        await dependencies.audit.append({
+          action: `request.${outcome}`,
+          actor: {
+            actorId: credential.id,
+            credentialId: credential.id,
+            type: "execution-token",
+          },
+          category: "execution",
+          correlation: {
+            requestId: context.metadata.requestId,
+            reportId: context.reportId,
+          },
+          metrics: {
+            durationMs:
+              report.timing.phases.find(({ name }) => name === "total")
+                ?.durationMs ?? 0,
+            responseBytes: bytes,
+            redirects: upstream.redirects,
+          },
+          outcome: outcome === "completed" ? "success" : "partial",
+          result: { source: "target", status: upstream.status },
+          severity: outcome === "completed" ? "info" : "warning",
+        });
+      } catch (error) {
+        console.error("Final execution audit degraded", {
+          message: error instanceof Error ? error.message : "unknown",
+          reportId: report.reportId,
+        });
+        try {
+          await dependencies.reports.recordAuditDegradation(
+            report,
+            credential.id,
+          );
+        } catch (persistenceError) {
+          console.error("Audit degradation persistence failed", {
+            message:
+              persistenceError instanceof Error
+                ? persistenceError.message
+                : "unknown",
+            reportId: report.reportId,
+          });
+        }
+      }
     }
   }
 };

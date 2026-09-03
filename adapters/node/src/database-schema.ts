@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 5;
+export const DATABASE_SCHEMA_VERSION = 6;
 
 export const DATABASE_MIGRATIONS = [
   {
@@ -159,6 +159,23 @@ export const DATABASE_MIGRATIONS = [
       ) STRICT;
       CREATE INDEX recovery_codes_admin_idx
         ON recovery_codes(administrator_id, used_at);
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      CREATE TABLE operational_alerts (
+        alert_id TEXT PRIMARY KEY,
+        code TEXT NOT NULL,
+        severity TEXT NOT NULL CHECK (severity IN ('warning', 'critical')),
+        request_id TEXT,
+        report_id TEXT,
+        state TEXT NOT NULL CHECK (state IN ('open', 'resolved')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX operational_alerts_state_idx
+        ON operational_alerts(state, updated_at);
     `,
   },
 ] as const;
