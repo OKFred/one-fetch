@@ -12,6 +12,7 @@ import {
 import {
   CapabilitiesResponseSchema,
   HealthResponseSchema,
+  OpaqueJsonSchema,
 } from "./control-schemas.js";
 
 export const createControlApp = (
@@ -100,6 +101,13 @@ export const createControlApp = (
   registerControlAuthRoutes(app, dependencies);
   registerControlManagementRoutes(app, dependencies);
 
+  app.openAPIRegistry.registerPath({
+    method: "get",
+    path: "/api/v1/openapi.json",
+    responses: {
+      200: jsonResponse(OpaqueJsonSchema, "This OpenAPI 3.1 document"),
+    },
+  });
   app.doc31("/api/v1/openapi.json", {
     info: { title: "one-fetch Control API", version: "0.1.0" },
     openapi: "3.1.0",

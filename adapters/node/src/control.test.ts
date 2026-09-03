@@ -57,6 +57,7 @@ describe("Node Control API", () => {
     expect(openapi.components?.securitySchemes).toHaveProperty(
       "executionBearer",
     );
+    expect(openapi.paths).toHaveProperty("/api/v1/openapi.json");
     expect(openapi.paths?.["/api/v1/config"]?.get).toMatchObject({
       security: [{ adminBearer: [] }],
     });
