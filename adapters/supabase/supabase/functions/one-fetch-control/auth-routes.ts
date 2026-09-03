@@ -331,7 +331,8 @@ export function registerAuthRoutes(
         p_username: input.username,
       }),
     );
-    const locked = record?.lockedUntil !== null &&
+    const locked =
+      record?.lockedUntil !== null &&
       record?.lockedUntil !== undefined &&
       new Date(record.lockedUntil).getTime() > Date.now();
     const valid = await verifyPassword(

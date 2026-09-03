@@ -92,12 +92,10 @@ Deno.test(
       ),
     );
     const document = (await response.json()) as OpenApiDocument;
-    for (
-      const path of [
-        "/api/v1/auth/totp/prepare",
-        "/api/v1/auth/totp/enable",
-      ]
-    ) {
+    for (const path of [
+      "/api/v1/auth/totp/prepare",
+      "/api/v1/auth/totp/enable",
+    ]) {
       const responses = document.paths?.[path]?.post?.responses;
       assert(responses !== undefined, `missing ${path}`);
       assert(responses["200"] === undefined, `${path} still advertises 200`);

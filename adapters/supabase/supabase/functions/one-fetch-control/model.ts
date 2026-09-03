@@ -84,9 +84,7 @@ const InstanceStateFields = {
 };
 
 export const InstanceStateSchema = z.discriminatedUnion("initialized", [
-  z
-    .object({ initialized: z.literal(true), ...InstanceStateFields })
-    .strict(),
+  z.object({ initialized: z.literal(true), ...InstanceStateFields }).strict(),
   z
     .object({
       initialized: z.literal(false),

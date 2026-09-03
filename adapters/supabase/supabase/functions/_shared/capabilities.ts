@@ -155,8 +155,8 @@ export function buildSupabaseCapabilities(
       state: state.auditDegraded
         ? "degraded"
         : state.initialized
-        ? "healthy"
-        : "unknown",
+          ? "healthy"
+          : "unknown",
     },
   });
 }

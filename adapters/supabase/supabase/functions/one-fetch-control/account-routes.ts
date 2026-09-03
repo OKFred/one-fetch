@@ -72,12 +72,12 @@ export function registerSessionRoutes(
     }
     return revoked
       ? context.json(
-        SessionRevokeResponseV1Schema.parse({
-          schemaVersion: 1,
-          sessionId: principal.sessionId,
-          revokedAt,
-        }),
-      )
+          SessionRevokeResponseV1Schema.parse({
+            schemaVersion: 1,
+            sessionId: principal.sessionId,
+            revokedAt,
+          }),
+        )
       : controlError("unauthorized", "Unauthorized", 401);
   });
 
@@ -144,12 +144,12 @@ export function registerSessionRoutes(
     }
     return revoked
       ? context.json(
-        SessionRevokeResponseV1Schema.parse({
-          schemaVersion: 1,
-          sessionId,
-          revokedAt,
-        }),
-      )
+          SessionRevokeResponseV1Schema.parse({
+            schemaVersion: 1,
+            sessionId,
+            revokedAt,
+          }),
+        )
       : controlError("not_found", "Session was not found", 404);
   });
 

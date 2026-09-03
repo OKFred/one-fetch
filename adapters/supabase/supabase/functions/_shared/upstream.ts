@@ -118,15 +118,13 @@ export function responseSetCookies(headers: Headers): string[] {
 
 export function outerResponseHeaders(target: Headers): Headers {
   const headers = new Headers();
-  for (
-    const name of [
-      "content-type",
-      "content-language",
-      "content-disposition",
-      "etag",
-      "last-modified",
-    ]
-  ) {
+  for (const name of [
+    "content-type",
+    "content-language",
+    "content-disposition",
+    "etag",
+    "last-modified",
+  ]) {
     const value = target.get(name);
     if (value) headers.set(name, value);
   }

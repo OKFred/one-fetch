@@ -95,7 +95,8 @@ export function createSupabaseOpenApi(request: Request): unknown {
   ) as MutableOpenApiDocument;
   document.servers = [
     {
-      url: request.headers.get(CONTROL_BASE_URL_HEADER) ??
+      url:
+        request.headers.get(CONTROL_BASE_URL_HEADER) ??
         deriveControlBaseUrl(request),
       description: "This Supabase Control Edge Function base URL",
     },

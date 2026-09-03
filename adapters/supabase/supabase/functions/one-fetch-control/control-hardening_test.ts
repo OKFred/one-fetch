@@ -209,31 +209,28 @@ Deno.test(
   },
 );
 
-Deno.test(
-  "Health reflects audit degradation",
-  async () => {
-    const environment = await controlTestEnvironment();
-    const migrations = await controlMigrationHistory();
-    const degradedDatabase: Database = {
-      rpc: <T>() =>
-        Promise.resolve({
-          instanceId: environment.instanceId,
-          initialized: true,
-          auditDegraded: true,
-          migrations,
-        } as T),
-    };
-    const degraded = await createControlHandler(
-      environment,
-      degradedDatabase,
-    )(new Request(`${environment.controlBaseUrl}/api/v1/health`));
-    assert(degraded.status === 200, `expected 200, got ${degraded.status}`);
-    assert(
-      ((await degraded.json()) as { status?: string }).status === "degraded",
-      "health did not expose audit degradation",
-    );
-  },
-);
+Deno.test("Health reflects audit degradation", async () => {
+  const environment = await controlTestEnvironment();
+  const migrations = await controlMigrationHistory();
+  const degradedDatabase: Database = {
+    rpc: <T>() =>
+      Promise.resolve({
+        instanceId: environment.instanceId,
+        initialized: true,
+        auditDegraded: true,
+        migrations,
+      } as T),
+  };
+  const degraded = await createControlHandler(
+    environment,
+    degradedDatabase,
+  )(new Request(`${environment.controlBaseUrl}/api/v1/health`));
+  assert(degraded.status === 200, `expected 200, got ${degraded.status}`);
+  assert(
+    ((await degraded.json()) as { status?: string }).status === "degraded",
+    "health did not expose audit degradation",
+  );
+});
 
 Deno.test(
   "Tampered audit rows fail closed and persist degradation",

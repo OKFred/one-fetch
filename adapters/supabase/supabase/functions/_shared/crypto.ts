@@ -19,7 +19,8 @@ export function base64UrlToBytes(value: string): Uint8Array {
   if (!/^[A-Za-z0-9_-]+$/u.test(value)) {
     throw new Error("Invalid Base64URL value");
   }
-  const padded = value.replaceAll("-", "+").replaceAll("_", "/") +
+  const padded =
+    value.replaceAll("-", "+").replaceAll("_", "/") +
     "=".repeat((4 - (value.length % 4)) % 4);
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
@@ -79,9 +80,7 @@ export function canonicalJson(value: unknown): string {
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, item]) => item !== undefined)
     .sort(([left], [right]) => left.localeCompare(right));
-  return `{${
-    entries.map(([key, item]) =>
-      `${JSON.stringify(key)}:${canonicalJson(item)}`
-    ).join(",")
-  }}`;
+  return `{${entries
+    .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
+    .join(",")}}`;
 }

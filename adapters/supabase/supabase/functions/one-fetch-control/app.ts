@@ -80,7 +80,8 @@ export function createControlApp(
       );
     }
     if (error instanceof DatabaseError) {
-      const conflict = error.code === "40001" ||
+      const conflict =
+        error.code === "40001" ||
         error.message.includes("config_revision_conflict");
       return controlError(
         conflict ? "version_conflict" : "storage_unavailable",

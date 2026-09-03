@@ -210,12 +210,12 @@ function registerExecutionTokenRoutes(
     }
     return revoked
       ? context.json(
-        ExecutionTokenRevokeResponseV1Schema.parse({
-          schemaVersion: 1,
-          id,
-          revokedAt,
-        }),
-      )
+          ExecutionTokenRevokeResponseV1Schema.parse({
+            schemaVersion: 1,
+            id,
+            revokedAt,
+          }),
+        )
       : controlError("not_found", "Execution token was not found", 404);
   });
 }

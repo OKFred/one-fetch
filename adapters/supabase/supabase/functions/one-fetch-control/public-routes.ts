@@ -61,9 +61,8 @@ export function registerPublicRoutes(
     );
   });
 
-  app.get(
-    "/api/v1/openapi.json",
-    (context) => context.json(createSupabaseOpenApi(context.req.raw)),
+  app.get("/api/v1/openapi.json", (context) =>
+    context.json(createSupabaseOpenApi(context.req.raw)),
   );
 
   app.get("/api/v1/capabilities", async (context) => {
@@ -108,8 +107,7 @@ export function registerPublicRoutes(
       instanceId: state.instanceId ?? environment.instanceId,
     });
   };
-  app.get(
-    "/api/v1/bootstrap",
-    async (context) => context.json(await bootstrapStatus()),
+  app.get("/api/v1/bootstrap", async (context) =>
+    context.json(await bootstrapStatus()),
   );
 }

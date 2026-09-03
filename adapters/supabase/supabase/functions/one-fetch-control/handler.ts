@@ -13,7 +13,8 @@ export function createControlHandler(
   const app = createControlApp(environment, database);
   return async (request: Request): Promise<Response> => {
     const path = requestPath(request, "one-fetch-control");
-    const isClientReadable = path === "/api/v1/capabilities" ||
+    const isClientReadable =
+      path === "/api/v1/capabilities" ||
       path === "/api/v1/health" ||
       path === "/api/v1/openapi.json" ||
       path === "/api/v1/features" ||
@@ -21,11 +22,11 @@ export function createControlHandler(
       path.startsWith("/api/v1/reports/");
     const allowedOrigins = isClientReadable
       ? [
-        ...new Set([
-          ...environment.allowedAdminOrigins,
-          ...environment.allowedClientOrigins,
-        ]),
-      ]
+          ...new Set([
+            ...environment.allowedAdminOrigins,
+            ...environment.allowedClientOrigins,
+          ]),
+        ]
       : environment.allowedAdminOrigins;
     const origin = request.headers.get("origin");
     if (origin && !allowedOrigins.includes(origin)) {
