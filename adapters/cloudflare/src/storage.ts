@@ -38,20 +38,21 @@ export const CLOUDFLARE_FETCH_CAPABILITIES: FetchOptionCapabilityV1[] = [
   { option: "timeoutMs", fidelity: "exact" },
   {
     option: "cache",
-    fidelity: "vendor-mutated",
-    detail: "Cloudflare may apply cache semantics independently.",
+    fidelity: "unsupported",
+    detail: "Preview does not pass Fetch cache modes to the upstream request.",
   },
   {
     option: "credentials",
-    fidelity: "translated",
-    detail: "Only explicit target Cookie headers are forwarded.",
+    fidelity: "unsupported",
+    detail:
+      "Preview does not translate Fetch credential modes; explicit target headers remain separate.",
   },
   { option: "integrity", fidelity: "unsupported" },
   { option: "keepalive", fidelity: "unsupported" },
   {
     option: "mode",
-    fidelity: "translated",
-    detail: "Server-side fetch has no browser CORS mode.",
+    fidelity: "unsupported",
+    detail: "Preview does not translate browser Fetch modes.",
   },
   { option: "priority", fidelity: "unsupported" },
   {
@@ -59,12 +60,20 @@ export const CLOUDFLARE_FETCH_CAPABILITIES: FetchOptionCapabilityV1[] = [
     fidelity: "translated",
     detail: "Translated to a Referer header when permitted.",
   },
-  { option: "referrerPolicy", fidelity: "translated" },
-  { option: "duplex", fidelity: "translated", acceptedValues: ["half"] },
+  {
+    option: "referrerPolicy",
+    fidelity: "unsupported",
+    detail: "Preview does not evaluate Fetch referrer policies.",
+  },
+  {
+    option: "duplex",
+    fidelity: "unsupported",
+    detail: "Preview does not expose Fetch duplex semantics.",
+  },
   {
     option: "decompress",
-    fidelity: "vendor-mutated",
-    detail: "Cloudflare controls upstream content decoding.",
+    fidelity: "unsupported",
+    detail: "Preview does not implement configurable response decompression.",
   },
   {
     option: "adapter.cloudflareAcceptMutations",
