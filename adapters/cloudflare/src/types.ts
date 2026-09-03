@@ -84,6 +84,11 @@ export interface ExecutionDecisionInput {
   decision: PolicyDecision;
 }
 
+export type DecisionRecordResult =
+  | "recorded"
+  | "degraded"
+  | "storage_unavailable";
+
 export interface CompletionInput {
   tokenId: string;
   requestId: string;

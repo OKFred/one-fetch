@@ -3,6 +3,7 @@ import type { OneFetchRequestMetaV1 } from "@one-fetch/protocol";
 
 import { CLOUDFLARE_FETCH_CAPABILITIES } from "../storage";
 import type { CompletionInput, ExecutionDecisionInput } from "../types";
+import { problem } from "./errors";
 import type { TunnelDependencies } from "./tunnel-dependencies";
 import type { WebSocketBridgeResult } from "./websocket";
 
@@ -85,8 +86,9 @@ export async function finalizeTunnelBridge(
 
 export function mapAuthorizationCode(
   value: string | undefined,
-): "unauthorized" | "forbidden" | "quota_exceeded" {
+): "unauthorized" | "forbidden" | "quota_exceeded" | "storage_unavailable" {
   if (value === "unauthorized") return "unauthorized";
+  if (value === "storage_unavailable") return "storage_unavailable";
   if (
     value === "quota_exceeded" ||
     value === "rate_limited" ||
@@ -101,8 +103,9 @@ export async function recordTunnelDecisionSafely(
   control: CloudflareGatewayEnv["CONTROL"],
   input: ExecutionDecisionInput,
 ): Promise<"recorded" | "degraded"> {
+  let result: Awaited<ReturnType<TunnelDependencies["recordDecision"]>>;
   try {
-    return await dependencies.recordDecision(control, input);
+    result = await dependencies.recordDecision(control, input);
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -112,4 +115,14 @@ export async function recordTunnelDecisionSafely(
     );
     return "degraded";
   }
+  if (result === "storage_unavailable") {
+    throw problem(
+      "storage_unavailable",
+      "storage",
+      "The Control database migration state is incompatible",
+      503,
+      true,
+    );
+  }
+  return result;
 }

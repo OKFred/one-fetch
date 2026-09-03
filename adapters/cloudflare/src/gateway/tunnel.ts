@@ -187,11 +187,21 @@ async function initializeWebSocketTunnel(
     });
     const authMs = performance.now() - authStartedAt;
     if (!authorization.allowed) {
+      const code = mapAuthorizationCode(authorization.code);
       throw problem(
-        mapAuthorizationCode(authorization.code),
-        authorization.code === "quota_exceeded" ? "quota" : "authorization",
+        code,
+        code === "storage_unavailable"
+          ? "storage"
+          : code === "quota_exceeded"
+            ? "quota"
+            : "authorization",
         authorization.message ?? "Tunnel authorization failed",
-        authorization.code === "quota_exceeded" ? 429 : 403,
+        code === "storage_unavailable"
+          ? 503
+          : code === "quota_exceeded"
+            ? 429
+            : 403,
+        code === "storage_unavailable",
       );
     }
     if (
@@ -434,19 +444,31 @@ async function initializeWebSocketTunnel(
       reportId &&
       !leaseFinalized
     ) {
-      await dependencies.complete(
-        env.CONTROL,
-        tunnelCompletion(
-          authorization.tokenId,
-          meta.requestId,
-          reportId,
-          startedAt,
-          0,
-          failure.problem.code === "cancelled" ? "cancelled" : "relay-error",
-          undefined,
-          failure.problem.code,
-        ),
-      );
+      try {
+        await dependencies.complete(
+          env.CONTROL,
+          tunnelCompletion(
+            authorization.tokenId,
+            meta.requestId,
+            reportId,
+            startedAt,
+            0,
+            failure.problem.code === "cancelled" ? "cancelled" : "relay-error",
+            undefined,
+            failure.problem.code,
+          ),
+        );
+      } catch (completionError) {
+        console.error(
+          JSON.stringify({
+            event: "execution.tunnel-completion.failed",
+            error:
+              completionError instanceof Error
+                ? completionError.message
+                : "unknown",
+          }),
+        );
+      }
     }
     if (meta && token) {
       await sendTunnelErrorHello({

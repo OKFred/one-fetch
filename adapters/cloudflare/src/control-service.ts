@@ -4,6 +4,10 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { auditInsertStatement, buildAuditEvent } from "./audit";
 import { releaseExecution } from "./execution-recording";
 import {
+  assertMigrationCompatibility as assertDatabaseMigrationCompatibility,
+  logMigrationCompatibilityFailure,
+} from "./migration-integrity";
+import {
   authorizationInputSchema,
   authorizationResultSchema,
   completionInputSchema,
@@ -15,12 +19,14 @@ import type {
   AuthorizationInput,
   AuthorizationResult,
   CompletionInput,
+  DecisionRecordResult,
   ExecutionDecisionInput,
   ExecutionPrincipal,
 } from "./types";
 
 export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
   async capabilitiesJson(): Promise<string> {
+    await this.assertMigrationCompatibility();
     const instance = await ensureInstance(this.env.DB);
     return JSON.stringify(
       OneFetchCapabilitiesV1Schema.parse(
@@ -30,6 +36,17 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
   }
 
   async authorizeExecutionJson(inputJson: string): Promise<string> {
+    const compatibility = await this.migrationCompatibilityResult();
+    if (!compatibility.compatible) {
+      return JSON.stringify(
+        authorizationResultSchema.parse({
+          allowed: false,
+          code: compatibility.code,
+          message: "The Control database migration state is incompatible",
+          auditState: "degraded",
+        }),
+      );
+    }
     const input = parseJsonWithSchema(inputJson, authorizationInputSchema);
     return JSON.stringify(
       authorizationResultSchema.parse(await this.authorizeExecution(input)),
@@ -41,6 +58,17 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
     transport: AuthorizationInput["transport"],
     targetUrl: string,
   ): Promise<string> {
+    const compatibility = await this.migrationCompatibilityResult();
+    if (!compatibility.compatible) {
+      return JSON.stringify(
+        authorizationResultSchema.parse({
+          allowed: false,
+          code: compatibility.code,
+          message: "The Control database migration state is incompatible",
+          auditState: "degraded",
+        }),
+      );
+    }
     const input = authorizationInputSchema.parse({
       token,
       transport,
@@ -56,7 +84,9 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
     );
   }
 
-  async releaseExecutionJson(inputJson: string): Promise<string> {
+  async releaseExecutionJson(inputJson: string): Promise<DecisionRecordResult> {
+    const compatibility = await this.migrationCompatibilityResult();
+    if (!compatibility.compatible) return compatibility.code;
     const parsed = parseJsonWithSchema(
       inputJson,
       completionInputSchema,
@@ -66,7 +96,9 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
 
   async recordExecutionDecisionJson(
     inputJson: string,
-  ): Promise<"recorded" | "degraded"> {
+  ): Promise<DecisionRecordResult> {
+    const compatibility = await this.migrationCompatibilityResult();
+    if (!compatibility.compatible) return compatibility.code;
     const input = parseJsonWithSchema(
       inputJson,
       executionDecisionInputSchema,
@@ -84,7 +116,9 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
   async renewExecutionJson(
     tokenId: string,
     requestId: string,
-  ): Promise<boolean> {
+  ): Promise<boolean | "storage_unavailable"> {
+    const compatibility = await this.migrationCompatibilityResult();
+    if (!compatibility.compatible) return compatibility.code;
     const instance = await ensureInstance(this.env.DB);
     return this.env.QUOTA.getByName(tokenId).renew(
       requestId,
@@ -196,6 +230,22 @@ export class ControlService extends WorkerEntrypoint<CloudflareControlEnv> {
       configVersion: instance.configVersion,
       auditState: instance.auditDegraded ? "degraded" : "recorded",
     };
+  }
+
+  private async assertMigrationCompatibility(): Promise<void> {
+    await assertDatabaseMigrationCompatibility(this.env.DB);
+  }
+
+  private async migrationCompatibilityResult(): Promise<
+    { compatible: true } | { compatible: false; code: "storage_unavailable" }
+  > {
+    try {
+      await this.assertMigrationCompatibility();
+      return { compatible: true };
+    } catch (error) {
+      logMigrationCompatibilityFailure("gateway", error);
+      return { compatible: false, code: "storage_unavailable" };
+    }
   }
 
   private async checkTarget(

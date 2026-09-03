@@ -143,11 +143,21 @@ export async function handleGatewayRequest(
     });
     const authMs = performance.now() - authStartedAt;
     if (!authorization.allowed) {
+      const code = mapAuthorizationCode(authorization.code);
       throw problem(
-        mapAuthorizationCode(authorization.code),
-        authorization.code === "quota_exceeded" ? "quota" : "authorization",
+        code,
+        code === "storage_unavailable"
+          ? "storage"
+          : code === "quota_exceeded"
+            ? "quota"
+            : "authorization",
         authorization.message ?? "Request authorization failed",
-        authorization.code === "quota_exceeded" ? 429 : 403,
+        code === "storage_unavailable"
+          ? 503
+          : code === "quota_exceeded"
+            ? 429
+            : 403,
+        code === "storage_unavailable",
       );
     }
     if (
@@ -362,6 +372,16 @@ export async function handleGatewayRequest(
           },
           bodyComplete: false,
           errorCode: gatewayProblem.problem.code,
+        }).catch((completionError: unknown) => {
+          console.error(
+            JSON.stringify({
+              event: "execution.completion.failed",
+              error:
+                completionError instanceof Error
+                  ? completionError.message
+                  : "unknown",
+            }),
+          );
         }),
       );
       authorization = { ...authorization, configVersion };
@@ -396,8 +416,9 @@ function findHeader(
 
 function mapAuthorizationCode(
   value: string | undefined,
-): "unauthorized" | "forbidden" | "quota_exceeded" {
+): "unauthorized" | "forbidden" | "quota_exceeded" | "storage_unavailable" {
   if (value === "unauthorized") return "unauthorized";
+  if (value === "storage_unavailable") return "storage_unavailable";
   if (
     value === "quota_exceeded" ||
     value === "rate_limited" ||
@@ -428,8 +449,9 @@ async function recordDecisionSafely(
   control: CloudflareGatewayEnv["CONTROL"],
   input: ExecutionDecisionInput,
 ): Promise<"recorded" | "degraded"> {
+  let result: Awaited<ReturnType<typeof recordExecutionDecision>>;
   try {
-    return await recordExecutionDecision(control, input);
+    result = await recordExecutionDecision(control, input);
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -439,4 +461,14 @@ async function recordDecisionSafely(
     );
     return "degraded";
   }
+  if (result === "storage_unavailable") {
+    throw problem(
+      "storage_unavailable",
+      "storage",
+      "The Control database migration state is incompatible",
+      503,
+      true,
+    );
+  }
+  return result;
 }

@@ -2,10 +2,12 @@ import type {
   AuthorizationInput,
   AuthorizationResult,
   CompletionInput,
+  DecisionRecordResult,
   ExecutionDecisionInput,
   Transport,
 } from "../types";
 import { authorizationResultSchema } from "../service-schemas";
+import { problem } from "./errors";
 
 export async function authorizeExecution(
   control: CloudflareGatewayEnv["CONTROL"],
@@ -35,13 +37,14 @@ export async function completeExecution(
   control: CloudflareGatewayEnv["CONTROL"],
   input: CompletionInput,
 ): Promise<void> {
-  await control.releaseExecutionJson(JSON.stringify(input));
+  const result = await control.releaseExecutionJson(JSON.stringify(input));
+  if (result === "storage_unavailable") throw storageUnavailableProblem();
 }
 
 export async function recordExecutionDecision(
   control: CloudflareGatewayEnv["CONTROL"],
   input: ExecutionDecisionInput,
-): Promise<"recorded" | "degraded"> {
+): Promise<DecisionRecordResult> {
   return control.recordExecutionDecisionJson(JSON.stringify(input));
 }
 
@@ -50,5 +53,16 @@ export async function renewExecution(
   tokenId: string,
   requestId: string,
 ): Promise<boolean> {
-  return control.renewExecutionJson(tokenId, requestId);
+  const result = await control.renewExecutionJson(tokenId, requestId);
+  return result === true;
+}
+
+function storageUnavailableProblem() {
+  return problem(
+    "storage_unavailable",
+    "storage",
+    "The Control database migration state is incompatible",
+    503,
+    true,
+  );
 }

@@ -2,6 +2,7 @@ import type {
   AuthorizationInput,
   AuthorizationResult,
   CompletionInput,
+  DecisionRecordResult,
   ExecutionDecisionInput,
 } from "../types";
 import {
@@ -24,7 +25,7 @@ export interface TunnelDependencies {
   recordDecision(
     control: CloudflareGatewayEnv["CONTROL"],
     input: ExecutionDecisionInput,
-  ): Promise<"recorded" | "degraded">;
+  ): Promise<DecisionRecordResult>;
   renew(
     control: CloudflareGatewayEnv["CONTROL"],
     tokenId: string,

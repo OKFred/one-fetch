@@ -119,6 +119,70 @@ describe("Cloudflare WebSocket gateway", () => {
     expect(response.status).toBe(400);
     expect(response.webSocket).toBeNull();
   });
+
+  it("stops before opening the target when decision recording detects drift", async () => {
+    const opened = vi.fn(() => Promise.resolve(createEchoUpgrade()));
+    const completed = vi.fn(() =>
+      Promise.reject(new Error("migration ledger remains incompatible")),
+    );
+    const config: RuntimeConfig = structuredClone(DEFAULT_CONFIG);
+    config.systemPolicy = {
+      schemaVersion: 1,
+      mode: "blocklist",
+      revision: 1,
+      rules: [],
+    };
+    const authorize = vi.fn(() =>
+      Promise.resolve<AuthorizationResult>({
+        allowed: true,
+        tokenId: "token-id",
+        config,
+        configVersion: "test-config-v1",
+        auditState: "recorded",
+      }),
+    );
+    const recordDecision = vi.fn(() =>
+      Promise.resolve("storage_unavailable" as const),
+    );
+    const dependencies: TunnelDependencies = {
+      authorize,
+      complete: completed,
+      recordDecision,
+      renew: vi.fn(() => Promise.resolve(true)),
+      openWebSocket: opened,
+    };
+    const context = createExecutionContext();
+    const response = handleGatewayTunnel(
+      upgradeRequest(),
+      {} as CloudflareGatewayEnv,
+      context,
+      dependencies,
+    );
+    const client = response.webSocket!;
+    client.accept();
+    const helloFrame = nextMessage(client);
+    client.send(
+      encodeTunnelClientHello(createTunnelClientHello(requestMeta, token)),
+    );
+
+    const hello = decodeTunnelServerHello(await helloFrame);
+    expect(hello.response).toMatchObject({
+      outcome: "relay-error",
+      error: { code: "storage_unavailable", stage: "storage" },
+    });
+    await expect(
+      verifySignedResponseMetadata(hello.response, {
+        token,
+        requestId: requestMeta.requestId,
+        nonce: requestMeta.nonce,
+      }),
+    ).resolves.toBe(true);
+    expect(authorize).toHaveBeenCalledOnce();
+    expect(recordDecision).toHaveBeenCalledOnce();
+    expect(opened).not.toHaveBeenCalled();
+    await waitOnExecutionContext(context);
+    expect(completed).toHaveBeenCalledOnce();
+  });
 });
 
 function upgradeRequest(): Request {
