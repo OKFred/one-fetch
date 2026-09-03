@@ -1,29 +1,85 @@
-import {
-  ExecutionReportV1Schema,
-  type OneFetchTimingV1,
-} from "@one-fetch/protocol";
+import { ExecutionReportV1Schema } from "@one-fetch/protocol";
+import { z } from "zod";
+import type {
+  AuditEventV1,
+  OneFetchProblemV1,
+  OneFetchTimingV1,
+} from "../_shared/protocol-types.ts";
 
 import { createAuditEvent } from "../_shared/audit.ts";
 import { targetUrl } from "./request.ts";
 import { milliseconds, type GatewayContext } from "./foundation.ts";
 
+interface ExecutionDetails {
+  status?: number;
+  code?: string;
+  responseBytes?: number;
+  durationMs?: number;
+  reportId?: string;
+  targetUrl?: string;
+  source?: "target" | "relay";
+}
+
+type ReportOutcome =
+  | "completed"
+  | "partial"
+  | "timeout"
+  | "cancelled"
+  | "relay-error";
+
+export interface FinalizeOptions {
+  leaseId: string;
+  reportId?: string;
+  targetStatus?: number;
+  responseBytes: number;
+  outcome: ReportOutcome;
+  source: "target" | "relay";
+  timing: OneFetchTimingV1;
+  downloadMs?: number;
+  auditState: "recorded" | "degraded" | "unknown";
+  bodySha256?: string;
+  problem?: OneFetchProblemV1;
+  auditAction?: string;
+  auditOutcome?: "success" | "denied" | "failure" | "partial";
+  targetUrl?: string;
+}
+
+export interface FinalizeResult {
+  reportId: string;
+  auditState: "recorded" | "degraded";
+}
+
+const DatabaseFinalizeResultSchema = z
+  .object({
+    status: z.enum(["finalized", "already_finalized"]),
+    auditState: z.enum(["recorded", "degraded"]),
+  })
+  .strict();
+
 export async function recordExecution(
   context: GatewayContext,
   action: string,
   outcome: "success" | "denied" | "failure" | "partial",
-  details: {
-    status?: number;
-    code?: string;
-    responseBytes?: number;
-    durationMs?: number;
-    reportId?: string;
-  } = {},
+  details: ExecutionDetails = {},
 ): Promise<string | undefined> {
-  const url = targetUrl(
-    context.metadata.targetOrigin ?? "https://invalid.example",
-    context.targetPathAndQuery,
-  );
-  const event = await createAuditEvent(
+  const event = await executionAuditEvent(context, action, outcome, details);
+  await context.database.rpc("of_append_audit", { p_event: event });
+  return event.eventId;
+}
+
+export async function executionAuditEvent(
+  context: GatewayContext,
+  action: string,
+  outcome: "success" | "denied" | "failure" | "partial",
+  details: ExecutionDetails = {},
+): Promise<AuditEventV1> {
+  const url = details.targetUrl
+    ? new URL(details.targetUrl)
+    : targetUrl(
+        context.metadata.targetOrigin ?? "https://invalid.example",
+        context.targetPathAndQuery,
+      );
+  return createAuditEvent(
     {
       category: "execution",
       action,
@@ -56,7 +112,8 @@ export async function recordExecution(
           : {}),
       },
       result: {
-        source: details.status === undefined ? "relay" : "target",
+        source:
+          details.source ?? (details.status === undefined ? "relay" : "target"),
         ...(details.status === undefined ? {} : { status: details.status }),
         ...(details.code === undefined ? {} : { code: details.code }),
       },
@@ -74,43 +131,65 @@ export async function recordExecution(
     },
     context.environment,
   );
-  await context.database.rpc("of_append_audit", { p_event: event });
-  return event.eventId;
 }
 
 export async function finalize(
   context: GatewayContext,
-  leaseId: string,
-  reportId: string,
-  targetStatus: number,
-  responseBytes: number,
-  outcome: "completed" | "partial" | "timeout" | "cancelled" | "relay-error",
-  timing: OneFetchTimingV1,
-  downloadMs: number,
-  auditState: "recorded" | "degraded" | "unknown",
-): Promise<void> {
+  options: FinalizeOptions,
+): Promise<FinalizeResult> {
+  const reportId = options.reportId ?? crypto.randomUUID();
   const durationMs = milliseconds(context.startedAt);
+  let priorAuditDegraded = options.auditState === "degraded";
+  let event: AuditEventV1 | undefined;
+  try {
+    event = await executionAuditEvent(
+      context,
+      options.auditAction ?? `execution.${options.outcome}`,
+      options.auditOutcome ?? reportAuditOutcome(options.outcome),
+      {
+        ...(options.targetStatus === undefined
+          ? {}
+          : { status: options.targetStatus }),
+        ...(options.problem ? { code: options.problem.code } : {}),
+        responseBytes: options.responseBytes,
+        durationMs,
+        reportId,
+        ...(options.targetUrl ? { targetUrl: options.targetUrl } : {}),
+        source: options.source,
+      },
+    );
+  } catch {
+    priorAuditDegraded = true;
+  }
+
   const report = ExecutionReportV1Schema.parse({
     schemaVersion: 1,
     reportId,
     requestId: context.metadata.requestId,
-    outcome,
-    source:
-      outcome === "completed" || outcome === "partial" ? "target" : "relay",
-    status: targetStatus,
-    bodyComplete: outcome === "completed",
-    responseBytes,
+    outcome: options.outcome,
+    source: options.source,
+    ...(options.targetStatus === undefined
+      ? {}
+      : { status: options.targetStatus }),
+    bodyComplete: options.outcome === "completed",
+    responseBytes: options.responseBytes,
+    ...(options.bodySha256 ? { bodySha256: options.bodySha256 } : {}),
+    ...(options.problem ? { problem: options.problem } : {}),
     timing: {
       phases: [
-        ...timing.phases.filter(
+        ...options.timing.phases.filter(
           (phase) => phase.name !== "total" && phase.name !== "download",
         ),
-        {
-          name: "download",
-          state: "measured",
-          source: "gateway",
-          durationMs: downloadMs,
-        },
+        ...(options.downloadMs === undefined
+          ? []
+          : [
+              {
+                name: "download" as const,
+                state: "measured" as const,
+                source: "gateway" as const,
+                durationMs: options.downloadMs,
+              },
+            ]),
         {
           name: "total",
           state: "measured",
@@ -118,38 +197,74 @@ export async function finalize(
           durationMs,
         },
       ],
-      serverTiming: timing.serverTiming,
+      serverTiming: options.timing.serverTiming,
     },
     finishedAt: new Date().toISOString(),
-    auditState,
+    auditState: priorAuditDegraded ? "degraded" : "recorded",
   });
-  await Promise.allSettled([
-    context.database.rpc("of_release_execution", {
-      p_lease_id: leaseId,
-      p_response_bytes: responseBytes,
-    }),
-    context.database.rpc("of_put_execution_report", {
-      p_report_id: reportId,
-      p_request_id: context.metadata.requestId,
-      p_token_id: context.principal.tokenId,
-      p_outcome: report.outcome,
-      p_report: report,
-      p_expires_at: new Date(Date.now() + 600_000).toISOString(),
-    }),
-    recordExecution(
-      context,
-      `execution.${outcome}`,
-      outcome === "completed"
-        ? "success"
-        : outcome === "partial" || outcome === "cancelled"
-          ? "partial"
-          : "failure",
-      {
-        status: targetStatus,
-        responseBytes,
-        durationMs,
-        reportId,
-      },
-    ),
-  ]);
+  const expiresAt = new Date(Date.now() + 600_000).toISOString();
+  const parameters = {
+    p_lease_id: options.leaseId,
+    p_response_bytes: options.responseBytes,
+    p_report_id: reportId,
+    p_request_id: context.metadata.requestId,
+    p_token_id: context.principal.tokenId,
+    p_outcome: report.outcome,
+    p_report: report,
+    p_expires_at: expiresAt,
+    p_audit: event ?? null,
+    p_prior_audit_degraded: priorAuditDegraded,
+  };
+  let stored: unknown;
+  try {
+    stored = await context.database.rpc("of_finalize_execution", parameters);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    stored = await context.database.rpc("of_finalize_execution", parameters);
+  }
+  const result = DatabaseFinalizeResultSchema.parse(stored);
+  return { reportId, auditState: result.auditState };
+}
+
+export function finalizeRelayError(
+  context: GatewayContext,
+  leaseId: string,
+  error: OneFetchProblemV1,
+  auditState: "recorded" | "degraded" | "unknown",
+  options: {
+    action: string;
+    auditOutcome?: "denied" | "failure" | "partial";
+    targetUrl?: string;
+    targetStatus?: number;
+    responseBytes?: number;
+  },
+): Promise<FinalizeResult> {
+  return finalize(context, {
+    leaseId,
+    responseBytes: options.responseBytes ?? 0,
+    outcome:
+      error.code === "timeout"
+        ? "timeout"
+        : error.code === "cancelled"
+          ? "cancelled"
+          : "relay-error",
+    source: "relay",
+    timing: { phases: [], serverTiming: [] },
+    auditState,
+    problem: error,
+    auditAction: options.action,
+    auditOutcome: options.auditOutcome ?? "failure",
+    ...(options.targetUrl ? { targetUrl: options.targetUrl } : {}),
+    ...(options.targetStatus === undefined
+      ? {}
+      : { targetStatus: options.targetStatus }),
+  });
+}
+
+function reportAuditOutcome(
+  outcome: ReportOutcome,
+): "success" | "failure" | "partial" {
+  if (outcome === "completed") return "success";
+  if (outcome === "partial" || outcome === "cancelled") return "partial";
+  return "failure";
 }

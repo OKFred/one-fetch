@@ -2,9 +2,12 @@ import {
   ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
   encodeResponseMetadata,
-  type OneFetchTimingV1,
 } from "@one-fetch/protocol";
-import { createSignedResponseMetadata } from "@one-fetch/core";
+import type { OneFetchTimingV1 } from "../_shared/protocol-types.ts";
+import {
+  createSignedResponseMetadata,
+  IncrementalSha256,
+} from "@one-fetch/core";
 
 import { SUPABASE_HEADER_MUTATIONS } from "../_shared/capabilities.ts";
 import {
@@ -20,8 +23,10 @@ import {
   type AuditState,
   type GatewayContext,
 } from "./foundation.ts";
-import { finalize } from "./recording.ts";
+import { finalize, finalizeRelayError } from "./recording.ts";
 import { background, monitoredBody } from "./stream.ts";
+
+const EMPTY_BODY_SHA256 = new IncrementalSha256().digestHex();
 
 interface TargetResponseOptions {
   request: Request;
@@ -46,6 +51,7 @@ export async function createTargetResponse({
   auditState,
   ttfbMs,
 }: TargetResponseOptions): Promise<Response> {
+  const reportId = crypto.randomUUID();
   const declaredSize = Number(upstream.headers.get("content-length"));
   if (
     Number.isFinite(declaredSize) &&
@@ -53,24 +59,25 @@ export async function createTargetResponse({
   ) {
     clearTimeout(timeout);
     await upstream.body?.cancel();
-    background(
-      context.database.rpc("of_release_execution", {
-        p_lease_id: leaseId,
-        p_response_bytes: 0,
-      }),
+    const error = problem(
+      "response_too_large",
+      "upstream-body",
+      "Declared response exceeds 20 MiB",
     );
-    return signedError(
+    const terminal = await finalizeRelayError(
       context,
-      problem(
-        "response_too_large",
-        "upstream-body",
-        "Declared response exceeds 20 MiB",
-      ),
+      leaseId,
+      error,
       auditState,
+      {
+        action: "execution.response-too-large",
+        ...(upstream.url ? { targetUrl: upstream.url } : {}),
+        targetStatus: upstream.status,
+      },
     );
+    return signedError(context, error, terminal.auditState, terminal.reportId);
   }
 
-  const reportId = crypto.randomUUID();
   const noBody =
     request.method === "HEAD" ||
     [204, 205, 304].includes(upstream.status) ||
@@ -109,12 +116,6 @@ export async function createTargetResponse({
         source: "vendor",
         detail: "Supabase does not expose TLS timing.",
       },
-      {
-        name: "total",
-        state: "measured",
-        source: "gateway",
-        durationMs: milliseconds(context.startedAt),
-      },
     ],
     serverTiming: parseServerTiming(upstream.headers.get("server-timing")),
   };
@@ -141,43 +142,43 @@ export async function createTargetResponse({
   } catch {
     clearTimeout(timeout);
     await upstream.body?.cancel();
-    background(
-      context.database.rpc("of_release_execution", {
-        p_lease_id: leaseId,
-        p_response_bytes: 0,
-      }),
+    const error = problem(
+      "response_metadata_too_large",
+      "upstream-headers",
+      "Target response metadata exceeds the protocol limit",
     );
-    return signedError(
+    const terminal = await finalizeRelayError(
       context,
-      problem(
-        "response_metadata_too_large",
-        "upstream-headers",
-        "Target response metadata exceeds the protocol limit",
-      ),
+      leaseId,
+      error,
       auditState,
+      {
+        action: "execution.response-metadata-too-large",
+        ...(upstream.url ? { targetUrl: upstream.url } : {}),
+        targetStatus: upstream.status,
+      },
     );
+    return signedError(context, error, terminal.auditState, terminal.reportId);
   }
 
   const responseHeaders = outerResponseHeaders(upstream.headers);
   responseHeaders.set(ONE_FETCH_RESPONSE_HEADER, encoded);
-  responseHeaders.set(
-    "server-timing",
-    `of_ttfb;dur=${ttfbMs.toFixed(2)}, of_total;dur=${milliseconds(context.startedAt).toFixed(2)}`,
-  );
+  responseHeaders.set("server-timing", `of_ttfb;dur=${ttfbMs.toFixed(2)}`);
   if (noBody) {
     clearTimeout(timeout);
     background(
-      finalize(
-        context,
+      finalize(context, {
         leaseId,
         reportId,
-        upstream.status,
-        0,
-        "completed",
+        targetStatus: upstream.status,
+        responseBytes: 0,
+        outcome: "completed",
+        source: "target",
         timing,
-        0,
         auditState,
-      ),
+        downloadMs: 0,
+        bodySha256: EMPTY_BODY_SHA256,
+      }),
     );
     return new Response(null, {
       status: upstream.status,
@@ -190,28 +191,52 @@ export async function createTargetResponse({
   const monitored = monitoredBody(
     upstream.body,
     abortController,
-    async (bytes, complete) => {
+    async (bytes, complete, bodySha256, failure) => {
       clearTimeout(timeout);
       const outcome = complete
         ? "completed"
         : didTimeOut()
           ? "timeout"
-          : abortController.signal.reason === "response_too_large"
+          : failure === "response_too_large"
             ? "relay-error"
             : abortController.signal.aborted
               ? "cancelled"
               : "partial";
-      await finalize(
-        context,
+      const terminalProblem = complete
+        ? undefined
+        : didTimeOut()
+          ? problem("timeout", "timeout", "Response download timed out", true)
+          : failure === "response_too_large"
+            ? problem(
+                "response_too_large",
+                "upstream-body",
+                "Target response exceeded 20 MiB",
+              )
+            : failure === "cancelled" || abortController.signal.aborted
+              ? problem(
+                  "cancelled",
+                  "cancellation",
+                  "Response download was cancelled",
+                )
+              : problem(
+                  "upstream_network",
+                  "upstream-body",
+                  "Target response stream ended unexpectedly",
+                  true,
+                );
+      await finalize(context, {
         leaseId,
         reportId,
-        upstream.status,
-        bytes,
+        targetStatus: upstream.status,
+        responseBytes: bytes,
         outcome,
+        source: complete || outcome === "partial" ? "target" : "relay",
         timing,
-        milliseconds(downloadStarted),
         auditState,
-      );
+        downloadMs: milliseconds(downloadStarted),
+        ...(bodySha256 ? { bodySha256 } : {}),
+        ...(terminalProblem ? { problem: terminalProblem } : {}),
+      });
     },
   );
   return new Response(monitored, {
