@@ -13,9 +13,7 @@ import {
   evaluateUserDenyRules,
 } from "@one-fetch/core";
 import {
-  decodeRequestMetadata,
   ONE_FETCH_LIMITS_V1,
-  ONE_FETCH_REQUEST_HEADER,
   ONE_FETCH_TOKEN_HEADER,
   type OneFetchRequestMetaV1,
   type OneFetchTimingV1,
@@ -41,6 +39,7 @@ import { auditAccepted, streamTarget } from "./gateway-stream.js";
 import { setCookieValues, validateTargetHeaders } from "./headers.js";
 import type { QuotaCoordinator, QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
+import { requireRequestMetadata } from "./gateway-request-metadata.js";
 import {
   executeUpstream,
   resolveApprovedTarget,
@@ -65,43 +64,12 @@ const singleHeader = (
   return Array.isArray(value) ? value[0] : value;
 };
 
-const requireMetadata = (request: IncomingMessage): OneFetchRequestMetaV1 => {
-  const encoded = singleHeader(request, ONE_FETCH_REQUEST_HEADER);
-  if (!encoded)
-    throw failure(
-      "invalid_metadata",
-      "protocol",
-      "Missing one-fetch request metadata",
-      400,
-    );
-  try {
-    return decodeRequestMetadata(encoded);
-  } catch (error) {
-    throw failure(
-      error instanceof Error && error.message.includes("maximum")
-        ? "metadata_too_large"
-        : "invalid_metadata",
-      "protocol",
-      "Request metadata is invalid",
-      400,
-    );
-  }
-};
-
 const allowedByCredential = (
   credential: ExecutionCredential,
   origin: string,
 ): boolean =>
   credential.allowedOrigins.includes(origin) ||
   credential.allowedOrigins.includes("*");
-
-const requestContentType = (
-  metadata: OneFetchRequestMetaV1,
-): string | undefined =>
-  metadata.body.contentType ??
-  metadata.targetHeaders.find(
-    ({ name }) => name.toLowerCase() === "content-type",
-  )?.value;
 
 const policyContext = (
   request: IncomingMessage,
@@ -114,13 +82,19 @@ const policyContext = (
   pathAndQuery = request.url ?? "/",
   relaySelf = false,
 ) => {
-  const contentType = requestContentType(metadata);
+  const contentType = headers.find(
+    ({ name }) => name.toLowerCase() === "content-type",
+  )?.value;
+  const sendsBody = !["GET", "HEAD"].includes(method.toUpperCase());
   return createHttpPolicyContext({
     body: {
-      availability: body.contentForPolicy ? "available" : "too-large",
-      ...(body.contentForPolicy ? { bytes: body.contentForPolicy } : {}),
-      ...(contentType ? { contentType } : {}),
-      sizeBytes: body.sizeBytes,
+      availability:
+        sendsBody && !body.contentForPolicy ? "too-large" : "available",
+      ...(sendsBody && body.contentForPolicy
+        ? { bytes: body.contentForPolicy }
+        : { bytes: new Uint8Array() }),
+      ...(contentType === undefined ? {} : { contentType }),
+      sizeBytes: sendsBody ? body.sizeBytes : 0,
     },
     fetchOptions: metadata.fetchOptions,
     headers,
@@ -307,7 +281,7 @@ const handleGatewayRequest = async (
       abort.abort(new Error("Client download cancelled"));
   });
   try {
-    metadata = requireMetadata(request);
+    metadata = requireRequestMetadata(request);
     if (!token)
       throw failure(
         "unauthorized",

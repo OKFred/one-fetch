@@ -1,6 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 
-import type { HeaderEntryV1 } from "@one-fetch/protocol";
+import { ONE_FETCH_LIMITS_V1, type HeaderEntryV1 } from "@one-fetch/protocol";
 
 const UNSAFE_REQUEST_HEADERS = new Set([
   "connection",
@@ -29,6 +29,27 @@ export const validateTargetHeaders = (
     if (normalized.startsWith("proxy-")) return name;
   }
   return undefined;
+};
+
+export const reconcileContentType = (
+  headers: HeaderEntryV1[],
+  declared: string | undefined,
+): HeaderEntryV1[] | undefined => {
+  const contentTypes = headers.filter(
+    ({ name }) => name.toLowerCase() === "content-type",
+  );
+  if (contentTypes.length > 1) return undefined;
+  const forwarded = contentTypes[0]?.value;
+  if (forwarded !== undefined && forwarded.trim() === "") return undefined;
+  if (declared !== undefined && declared.trim() === "") return undefined;
+  if (forwarded !== undefined && declared !== undefined) {
+    return forwarded === declared ? headers : undefined;
+  }
+  if (declared !== undefined && headers.length >= ONE_FETCH_LIMITS_V1.headers)
+    return undefined;
+  return declared === undefined
+    ? headers
+    : [...headers, { name: "Content-Type", value: declared }];
 };
 
 export const toNodeHeaderArray = (headers: HeaderEntryV1[]): string[] =>
