@@ -22,6 +22,13 @@ corepack pnpm --filter @one-fetch/adapter-supabase test:integration
 corepack pnpm --filter @one-fetch/adapter-supabase stop
 ```
 
+Always use these pnpm wrappers. They create ignored, self-contained Function
+entrypoints before the Supabase CLI runs; `config.toml` deliberately points at
+those staged files. A bare `supabase start` from a fresh checkout has no runtime
+entrypoint and is not a supported workflow. The same staging command runs in
+the hosted deployment preflight so local and hosted execution cannot select
+different source graphs.
+
 Use only synthetic data. Confirm the local stack is stopped even after a failed
 test.
 

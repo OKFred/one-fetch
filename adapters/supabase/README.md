@@ -30,6 +30,15 @@ cp adapters/supabase/supabase/.env.example adapters/supabase/supabase/.env.local
 pnpm --filter @one-fetch/adapter-supabase functions:serve
 ```
 
+Use the pnpm wrappers rather than invoking `supabase start` or
+`supabase functions serve` directly. The wrappers first build each Function as
+one self-contained ESM entrypoint under its ignored `.one-fetch-bundle/`
+directory. Local runtime and hosted deployment therefore consume the same
+artifact, while the Supabase CLI only bind-mounts the functions directory
+instead of every workspace package file. Each staged artifact is syntax-checked,
+its dependency graph may contain only the generated file and `node:` runtime
+built-ins, and its SHA-256 is recorded in an adjacent generated manifest.
+
 Supabase injects `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; do not place a real service-role key in Git. Both functions set `verify_jwt = false` because one-fetch owns its opaque admin and execution-token authentication. Internal tables are in the non-exposed `one_fetch` schema; public RPC wrappers revoke access from `public`, `anon`, and `authenticated`, then grant only `service_role`.
 
 Run checks:
@@ -86,7 +95,7 @@ Deployment scripts are dry-run by default and require `--apply`/`-Apply`:
 ./scripts/deploy.ps1 -ProjectRef abcdefghijklmnopqrst -EnvFile C:\secure\one-fetch.env -Apply
 ```
 
-Before any remote mutation, the scripts verify canonical and embedded OpenAPI freshness, run both Deno typechecks and test suites, run deployment-script tests, and produce clean temporary Deno bundles for both functions. Deployment rejects a dirty Git tree: the scripts inject `ONE_FETCH_BUILD_VERSION` as `package-version+supabase.g<12-character-commit>`, then verify Control health/capabilities and issue a metadata-free Gateway request that cannot reach an upstream target. The final checks require the expected instance pair/build and the Gateway's application-level `invalid_metadata` rejection. The scripts link the explicit project, push migrations, set secrets, and deploy Control before Gateway. They do not create a project, publish a Release, or modify xPanel.
+Before any remote mutation, the scripts verify canonical and embedded OpenAPI freshness, run both Deno typechecks and test suites, run deployment-script tests, and stage clean self-contained bundles for both functions. Deployment rejects a dirty Git tree: the scripts inject `ONE_FETCH_BUILD_VERSION` as `package-version+supabase.g<12-character-commit>`, then verify Control health/capabilities and issue a metadata-free Gateway request that cannot reach an upstream target. The final checks require the expected instance pair/build and the Gateway's application-level `invalid_metadata` rejection. The scripts link the explicit project, push migrations, set secrets, and deploy Control before Gateway. They do not create a project, publish a Release, or modify xPanel.
 
 ## Operational boundaries
 
