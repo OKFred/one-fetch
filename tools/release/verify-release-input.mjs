@@ -63,6 +63,27 @@ for (const packagePath of packagePaths) {
 const openApi = await readJson(
   join(repositoryRoot, "docs/api/control.openapi.json"),
 );
+
+function assertPortablePatterns(value, path = "$") {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      assertPortablePatterns(item, `${path}[${index}]`),
+    );
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      key === "pattern" &&
+      typeof child === "string" &&
+      /\/[dgimsuvy]+$/u.test(child)
+    ) {
+      throw new Error(`${path}.${key} contains JavaScript-only regex flags`);
+    }
+    assertPortablePatterns(child, `${path}.${key}`);
+  }
+}
+
 if (openApi.openapi !== "3.1.0")
   throw new Error("Control document must use OpenAPI 3.1.0");
 if (openApi.info?.version !== requestedVersion) {
@@ -70,6 +91,7 @@ if (openApi.info?.version !== requestedVersion) {
     `Control OpenAPI version ${openApi.info?.version} does not match ${requestedVersion}`,
   );
 }
+assertPortablePatterns(openApi);
 
 const requiredPaths = [
   "/api/v1/health",

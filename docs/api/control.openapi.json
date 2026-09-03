@@ -103,7 +103,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     }
                   },
                   "required": [
@@ -195,7 +195,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     }
                   },
                   "required": [
@@ -225,7 +225,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -239,7 +239,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -287,7 +287,7 @@
                   },
                   "totpCode": {
                     "type": "string",
-                    "pattern": "^(?:[0-9]{6}|[0-9]{8})$/u"
+                    "pattern": "^(?:[0-9]{6}|[0-9]{8})$"
                   },
                   "recoveryCode": {
                     "type": "string",
@@ -350,7 +350,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     }
                   },
                   "required": [
@@ -380,7 +380,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -394,7 +394,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -426,7 +426,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -440,7 +440,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -527,7 +527,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     }
                   },
                   "required": [
@@ -557,7 +557,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -571,7 +571,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -617,7 +617,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     },
                     "revokedAt": {
                       "type": "string",
@@ -648,7 +648,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -662,7 +662,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -719,7 +719,7 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128,
-                            "pattern": "^[A-Za-z0-9._:-]+$/u"
+                            "pattern": "^[A-Za-z0-9._:-]+$"
                           },
                           "createdAt": {
                             "type": "string",
@@ -778,7 +778,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -792,7 +792,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -826,7 +826,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[A-Za-z0-9._:-]+$/u"
+              "pattern": "^[A-Za-z0-9._:-]+$"
             },
             "required": true,
             "name": "sessionId",
@@ -851,7 +851,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     },
                     "revokedAt": {
                       "type": "string",
@@ -882,7 +882,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -896,7 +896,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -928,7 +928,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -942,7 +942,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -988,7 +988,7 @@
                       "type": "string",
                       "minLength": 16,
                       "maxLength": 128,
-                      "pattern": "^[A-Z2-7]+$/u"
+                      "pattern": "^[A-Z2-7]+$"
                     },
                     "otpauthUri": {
                       "type": "string",
@@ -1020,7 +1020,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1034,7 +1034,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1077,7 +1077,7 @@
                   },
                   "code": {
                     "type": "string",
-                    "pattern": "^(?:[0-9]{6}|[0-9]{8})$/u"
+                    "pattern": "^(?:[0-9]{6}|[0-9]{8})$"
                   }
                 },
                 "required": [
@@ -1142,7 +1142,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1156,7 +1156,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1188,7 +1188,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1202,7 +1202,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1288,7 +1288,7 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 128,
-                        "pattern": "^[A-Za-z0-9._:-]+$/u"
+                        "pattern": "^[A-Za-z0-9._:-]+$"
                       },
                       "maxItems": 10000
                     }
@@ -1317,7 +1317,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1331,7 +1331,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1382,7 +1382,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1396,7 +1396,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1447,7 +1447,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1461,7 +1461,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1518,7 +1518,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1532,7 +1532,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1564,7 +1564,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1578,7 +1578,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1610,7 +1610,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1624,7 +1624,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1701,7 +1701,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1715,7 +1715,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1747,7 +1747,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1761,7 +1761,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1793,7 +1793,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -1807,7 +1807,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -1864,7 +1864,7 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128,
-                            "pattern": "^[A-Za-z0-9._:-]+$/u"
+                            "pattern": "^[A-Za-z0-9._:-]+$"
                           },
                           "name": {
                             "type": "string",
@@ -2001,7 +2001,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -2015,7 +2015,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -2183,7 +2183,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         },
                         "name": {
                           "type": "string",
@@ -2324,7 +2324,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -2338,7 +2338,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -2372,7 +2372,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[A-Za-z0-9._:-]+$/u"
+              "pattern": "^[A-Za-z0-9._:-]+$"
             },
             "required": true,
             "name": "tokenId",
@@ -2397,7 +2397,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     },
                     "revokedAt": {
                       "type": "string",
@@ -2428,7 +2428,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -2442,7 +2442,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -2474,7 +2474,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -2488,7 +2488,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -2655,7 +2655,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 128,
-                                    "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                    "pattern": "^[A-Za-z0-9._:-]+$"
                                   },
                                   "reportId": {
                                     "type": "string",
@@ -2838,11 +2838,11 @@
                                   },
                                   "beforeHash": {
                                     "type": "string",
-                                    "pattern": "^[a-f0-9]{64}$/u"
+                                    "pattern": "^[a-f0-9]{64}$"
                                   },
                                   "afterHash": {
                                     "type": "string",
-                                    "pattern": "^[a-f0-9]{64}$/u"
+                                    "pattern": "^[a-f0-9]{64}$"
                                   },
                                   "changedFields": {
                                     "type": "array",
@@ -2904,12 +2904,12 @@
                                 "properties": {
                                   "payloadHash": {
                                     "type": "string",
-                                    "pattern": "^[a-f0-9]{64}$/u"
+                                    "pattern": "^[a-f0-9]{64}$"
                                   },
                                   "signature": {
                                     "type": "string",
                                     "minLength": 1,
-                                    "pattern": "^[A-Za-z0-9_-]+$/u"
+                                    "pattern": "^[A-Za-z0-9_-]+$"
                                   },
                                   "keyId": {
                                     "type": "string",
@@ -2963,7 +2963,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -2977,7 +2977,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -3009,7 +3009,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -3023,7 +3023,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -3217,7 +3217,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -3231,7 +3231,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -3425,7 +3425,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -3439,7 +3439,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -3504,13 +3504,13 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "instanceId": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "occurredAt": {
                                 "type": "string",
@@ -3614,13 +3614,13 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "instanceId": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "occurredAt": {
                                 "type": "string",
@@ -3754,7 +3754,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -3768,7 +3768,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -3833,7 +3833,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "createdAt": {
                                 "type": "string",
@@ -3860,7 +3860,7 @@
                               },
                               "sha256": {
                                 "type": "string",
-                                "pattern": "^[a-f0-9]{64}$/u"
+                                "pattern": "^[a-f0-9]{64}$"
                               },
                               "expiresAt": {
                                 "type": "string",
@@ -3928,7 +3928,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$/u"
+                                "pattern": "^[A-Za-z0-9._:-]+$"
                               },
                               "createdAt": {
                                 "type": "string",
@@ -3955,7 +3955,7 @@
                               },
                               "sha256": {
                                 "type": "string",
-                                "pattern": "^[a-f0-9]{64}$/u"
+                                "pattern": "^[a-f0-9]{64}$"
                               },
                               "expiresAt": {
                                 "type": "string",
@@ -4053,7 +4053,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -4067,7 +4067,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -4101,7 +4101,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[A-Za-z0-9._:-]+$/u"
+              "pattern": "^[A-Za-z0-9._:-]+$"
             },
             "required": true,
             "name": "reportId",
@@ -4126,13 +4126,13 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     },
                     "requestId": {
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128,
-                      "pattern": "^[A-Za-z0-9._:-]+$/u"
+                      "pattern": "^[A-Za-z0-9._:-]+$"
                     },
                     "outcome": {
                       "type": "string",
@@ -4168,7 +4168,103 @@
                     },
                     "bodySha256": {
                       "type": "string",
-                      "pattern": "^[a-f0-9]{64}$/u"
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "problem": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "protocol_unsupported",
+                            "invalid_metadata",
+                            "signature_invalid",
+                            "unauthorized",
+                            "forbidden",
+                            "target_not_allowed",
+                            "user_rule_denied",
+                            "unsupported_request",
+                            "unsupported_header",
+                            "unsupported_option",
+                            "metadata_too_large",
+                            "payload_too_large",
+                            "response_too_large",
+                            "response_metadata_too_large",
+                            "redirect_disallowed",
+                            "quota_exceeded",
+                            "timeout",
+                            "cancelled",
+                            "upstream_network",
+                            "audit_degraded",
+                            "storage_unavailable",
+                            "internal"
+                          ]
+                        },
+                        "origin": {
+                          "type": "string",
+                          "enum": [
+                            "one-fetch",
+                            "adapter",
+                            "vendor"
+                          ]
+                        },
+                        "stage": {
+                          "type": "string",
+                          "enum": [
+                            "protocol",
+                            "authentication",
+                            "authorization",
+                            "policy",
+                            "quota",
+                            "upload",
+                            "dns",
+                            "connect",
+                            "tls",
+                            "upstream-headers",
+                            "upstream-body",
+                            "gateway-download",
+                            "timeout",
+                            "cancellation",
+                            "storage",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "origin",
+                        "stage",
+                        "message",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
                     },
                     "timing": {
                       "type": "object",
@@ -4306,7 +4402,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -4320,7 +4416,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -4352,7 +4448,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[a-z0-9_]+$/u"
+                          "pattern": "^[a-z0-9_]+$"
                         },
                         "message": {
                           "type": "string",
@@ -4366,7 +4462,7 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 128,
-                          "pattern": "^[A-Za-z0-9._:-]+$/u"
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
                       "required": [
@@ -4405,7 +4501,8 @@
   "webhooks": {},
   "servers": [
     {
-      "url": "https://control.example"
+      "url": ".",
+      "description": "The configured Control service base URL"
     }
   ],
   "tags": [

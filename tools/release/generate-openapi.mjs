@@ -1,5 +1,6 @@
 import console from "node:console";
 import { readFile } from "node:fs/promises";
+import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -29,11 +30,31 @@ if (!response.ok) {
   throw new Error(`OpenAPI generation failed with HTTP ${response.status}`);
 }
 
+function normalizeSchemaPatterns(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) normalizeSchemaPatterns(item);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    if (
+      key === "pattern" &&
+      typeof child === "string" &&
+      child.endsWith("/u")
+    ) {
+      value[key] = child.slice(0, -2);
+    } else normalizeSchemaPatterns(child);
+  }
+}
+
 const document = await response.json();
+normalizeSchemaPatterns(document);
 document.info.version = rootManifest.version;
 document.info.description =
   "Canonical one-fetch Control API. Runtime capabilities remain authoritative.";
-document.servers = [{ url: "https://control.example" }];
+document.servers = [
+  { url: ".", description: "The configured Control service base URL" },
+];
 document.tags = [
   { name: "public" },
   { name: "auth" },
