@@ -13,8 +13,11 @@ import {
   SessionRevokeResponseV1Schema,
   SessionTokenPairV1Schema,
   TotpEnableRequestV1Schema,
+  TotpEnableResponseV1Schema,
+  TotpPrepareResponseV1Schema,
 } from "@one-fetch/protocol";
 
+import { LoginFailure } from "./auth.js";
 import {
   authorizeAdmin,
   bearer,
@@ -32,7 +35,7 @@ const identifier = z
 
 const authFailureResponses = {
   401: jsonResponse(ControlErrorV1Schema, "Authentication failed"),
-  501: jsonResponse(ControlErrorV1Schema, "Feature unsupported"),
+  428: jsonResponse(ControlErrorV1Schema, "Second factor required"),
 };
 
 const requireAdmin = async (
@@ -104,32 +107,38 @@ export const registerControlAuthRoutes = (
       request: { body: jsonBody(LoginRequestV1Schema) },
       responses: {
         200: jsonResponse(SessionTokenPairV1Schema, "Issued session"),
-        ...authFailureResponses,
+        401: authFailureResponses[401],
+        428: authFailureResponses[428],
       },
     }),
     async (context) => {
       const body = context.req.valid("json");
-      if (body.totpCode || body.recoveryCode) {
-        return context.json(
-          controlError(
-            "totp_unsupported",
-            "TOTP and recovery-code login are not available in the Node Preview",
-          ),
-          501,
-        );
-      }
       try {
         return context.json(
           await dependencies.auth.login(
             body.username,
             body.password,
             body.deviceFingerprint,
+            {
+              ...(body.recoveryCode ? { recoveryCode: body.recoveryCode } : {}),
+              ...(body.totpCode ? { totpCode: body.totpCode } : {}),
+            },
           ),
           200,
         );
-      } catch {
+      } catch (error) {
+        if (error instanceof LoginFailure && error.code === "totp_required")
+          return context.json(
+            controlError("totp_required", "A second factor is required"),
+            428,
+          );
         return context.json(
-          controlError("invalid_credentials", "Invalid credentials"),
+          controlError(
+            error instanceof LoginFailure ? error.code : "invalid_credentials",
+            error instanceof LoginFailure && error.code === "invalid_totp"
+              ? "The second factor is invalid"
+              : "Invalid credentials",
+          ),
           401,
         );
       }
@@ -240,22 +249,21 @@ export const registerControlAuthRoutes = (
       method: "post",
       path: "/api/v1/auth/totp/prepare",
       responses: {
+        200: jsonResponse(TotpPrepareResponseV1Schema, "TOTP preparation"),
         401: authFailureResponses[401],
-        501: authFailureResponses[501],
       },
     }),
     async (context) => {
-      if (
-        !(await requireAdmin(dependencies, context.req.header("Authorization")))
-      ) {
+      const admin = await requireAdmin(
+        dependencies,
+        context.req.header("Authorization"),
+      );
+      if (!admin) {
         return context.json(controlError("unauthorized", "Unauthorized"), 401);
       }
       return context.json(
-        controlError(
-          "totp_unsupported",
-          "TOTP enrollment is not available in the Node Preview",
-        ),
-        501,
+        await dependencies.auth.prepareTotp(admin.administratorId),
+        200,
       );
     },
   );
@@ -266,24 +274,27 @@ export const registerControlAuthRoutes = (
       path: "/api/v1/auth/totp/enable",
       request: { body: jsonBody(TotpEnableRequestV1Schema) },
       responses: {
+        200: jsonResponse(TotpEnableResponseV1Schema, "TOTP enabled"),
+        400: jsonResponse(ControlErrorV1Schema, "Invalid TOTP code"),
         401: authFailureResponses[401],
-        501: authFailureResponses[501],
       },
     }),
     async (context) => {
-      void context.req.valid("json");
-      if (
-        !(await requireAdmin(dependencies, context.req.header("Authorization")))
-      ) {
+      const body = context.req.valid("json");
+      const admin = await requireAdmin(
+        dependencies,
+        context.req.header("Authorization"),
+      );
+      if (!admin) {
         return context.json(controlError("unauthorized", "Unauthorized"), 401);
       }
-      return context.json(
-        controlError(
-          "totp_unsupported",
-          "TOTP enrollment is not available in the Node Preview",
-        ),
-        501,
+      const enabled = await dependencies.auth.enableTotp(
+        admin.administratorId,
+        body.code,
       );
+      return enabled
+        ? context.json(enabled, 200)
+        : context.json(controlError("invalid_totp", "Invalid TOTP code"), 400);
     },
   );
 

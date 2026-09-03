@@ -1,9 +1,13 @@
+import { decodeBase32, generateTotpCode } from "@one-fetch/core";
 import {
   AlertsResponseV1Schema,
   AuditPageV1Schema,
   ControlFeatureStatusListV1Schema,
   ExecutionTokenListV1Schema,
   SessionListV1Schema,
+  SessionTokenPairV1Schema,
+  TotpEnableResponseV1Schema,
+  TotpPrepareResponseV1Schema,
 } from "@one-fetch/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -210,7 +214,7 @@ describe("Node Control API", () => {
     );
     expect(featurePayload.schemaVersion).toBe(1);
     expect(featurePayload.features).toContainEqual(
-      expect.objectContaining({ feature: "totp", state: "unsupported" }),
+      expect.objectContaining({ feature: "totp", state: "supported" }),
     );
     const alerts = AlertsResponseV1Schema.parse(
       await (await app.request("/api/v1/alerts", { headers })).json(),
@@ -253,5 +257,64 @@ describe("Node Control API", () => {
     const auditPage = AuditPageV1Schema.parse(await audit.json());
     expect(auditPage.schemaVersion).toBe(1);
     expect(auditPage.events.length).toBeGreaterThan(0);
+  });
+
+  it("enrolls and requires TOTP through canonical routes", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+    const app = createControlApp(services);
+    const headers = { Authorization: `Bearer ${session.accessToken}` };
+    const preparedResponse = await app.request("/api/v1/auth/totp/prepare", {
+      headers,
+      method: "POST",
+    });
+    expect(preparedResponse.status).toBe(200);
+    const prepared = TotpPrepareResponseV1Schema.parse(
+      await preparedResponse.json(),
+    );
+    const code = await generateTotpCode(decodeBase32(prepared.secret));
+    const enabledResponse = await app.request("/api/v1/auth/totp/enable", {
+      body: JSON.stringify({ code, schemaVersion: 1 }),
+      headers: { ...headers, "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(enabledResponse.status).toBe(200);
+    expect(
+      TotpEnableResponseV1Schema.parse(await enabledResponse.json())
+        .recoveryCodes,
+    ).toHaveLength(10);
+
+    const missing = await app.request("/api/v1/auth/login", {
+      body: JSON.stringify({
+        password: "correct horse battery staple",
+        rememberDevice: false,
+        schemaVersion: 1,
+        username: "operator",
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(missing.status).toBe(428);
+    const accepted = await app.request("/api/v1/auth/login", {
+      body: JSON.stringify({
+        password: "correct horse battery staple",
+        rememberDevice: false,
+        schemaVersion: 1,
+        totpCode: code,
+        username: "operator",
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(accepted.status).toBe(200);
+    expect(SessionTokenPairV1Schema.parse(await accepted.json())).toMatchObject(
+      { schemaVersion: 1 },
+    );
   });
 });

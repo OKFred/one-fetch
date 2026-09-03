@@ -65,12 +65,7 @@ const featureStatuses = (): ControlFeatureStatusListV1 =>
       },
       { schemaVersion: 1, feature: "gateway-pause", state: "supported" },
       { schemaVersion: 1, feature: "sessions", state: "supported" },
-      {
-        schemaVersion: 1,
-        feature: "totp",
-        state: "unsupported",
-        reason: "TOTP enrollment is not available in the Node Preview",
-      },
+      { schemaVersion: 1, feature: "totp", state: "supported" },
       { schemaVersion: 1, feature: "password-change", state: "supported" },
       {
         schemaVersion: 1,
