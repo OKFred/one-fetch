@@ -1,3 +1,4 @@
+export * from "./control.js";
 export * from "./fixtures.js";
 export * from "./runner.js";
 export * from "./server-timing.js";

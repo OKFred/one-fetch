@@ -71,7 +71,7 @@ export type ControlFeatureStatusListV1 = z.infer<
 const AlertPageFields = {
   schemaVersion: z.literal(1),
   feature: z.literal("alerts"),
-  alerts: z.array(AlertEventV1Schema).max(1_000),
+  alerts: z.array(AlertEventV1Schema).max(500),
   nextCursor: z.string().min(1).max(1_024).optional(),
 } as const;
 
@@ -116,7 +116,7 @@ export type BackupRecordV1 = z.infer<typeof BackupRecordV1Schema>;
 const BackupPageFields = {
   schemaVersion: z.literal(1),
   feature: z.literal("backups"),
-  backups: z.array(BackupRecordV1Schema).max(1_000),
+  backups: z.array(BackupRecordV1Schema).max(500),
   nextCursor: z.string().min(1).max(1_024).optional(),
 } as const;
 

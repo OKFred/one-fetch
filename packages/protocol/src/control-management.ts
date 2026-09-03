@@ -71,7 +71,7 @@ export type ExecutionTokenRevokeResponseV1 = z.infer<
 export const AuditPageV1Schema = z
   .object({
     schemaVersion: z.literal(1),
-    events: z.array(AuditEventV1Schema).max(1_000),
+    events: z.array(AuditEventV1Schema).max(500),
     nextCursor: CursorSchema.optional(),
   })
   .strict();
@@ -80,7 +80,7 @@ export type AuditPageV1 = z.infer<typeof AuditPageV1Schema>;
 export const AuditPageQueryV1Schema = z
   .object({
     cursor: CursorSchema.optional(),
-    limit: z.number().int().min(1).max(1_000).default(100),
+    limit: z.number().int().min(1).max(500).default(100),
   })
   .strict();
 export type AuditPageQueryV1 = z.infer<typeof AuditPageQueryV1Schema>;
