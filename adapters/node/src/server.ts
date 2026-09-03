@@ -22,7 +22,10 @@ export const startOneFetchNode = async (
   assertSupportedRuntime();
   const database = new DatabaseClient(suppliedConfig.databasePath);
   await database.ready();
-  const configuration = new ConfigurationStore(database);
+  const configuration = new ConfigurationStore(
+    database,
+    suppliedConfig.instanceId,
+  );
   await configuration.initialize();
   const audit = new AuditLedger(
     database,

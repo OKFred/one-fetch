@@ -7,7 +7,11 @@ import { testConfig } from "./test-helpers.js";
 
 const stored: StoredConfiguration = {
   controlGatewayPairId: "pair-test",
+  gatewayPaused: false,
+  instanceId: "test-node",
   policy: { mode: "allowlist", revision: 0, rules: [], schemaVersion: 1 },
+  revision: 0,
+  schemaVersion: 1,
   updatedAt: "2026-09-04T00:00:00.000Z",
   version: "2026-09-04T00:00:00.000Z:0",
 };

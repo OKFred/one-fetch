@@ -55,7 +55,7 @@ export const createTestServices = async () => {
   const config = testConfig(join(directory, "test.sqlite"));
   const database = new DatabaseClient(config.databasePath);
   await database.ready();
-  const configuration = new ConfigurationStore(database);
+  const configuration = new ConfigurationStore(database, config.instanceId);
   await configuration.initialize();
   const audit = new AuditLedger(database, config.auditSigningPrivateKey);
   const auth = new AuthenticationService(
