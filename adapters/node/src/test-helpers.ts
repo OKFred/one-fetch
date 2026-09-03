@@ -15,6 +15,7 @@ import { ConfigurationStore } from "./configuration.js";
 import { DatabaseClient } from "./database.js";
 import { ExecutionReportStore } from "./execution-reports.js";
 import { DEFAULT_EXECUTION_QUOTA } from "./execution-tokens.js";
+import { QuotaCoordinator } from "./quota.js";
 
 export const testExecutionTokenRequest = (
   transports: TransportV1[],
@@ -64,6 +65,7 @@ export const createTestServices = async () => {
     config.instancePepper,
   );
   const reports = new ExecutionReportStore(database);
+  const quota = new QuotaCoordinator(database);
   return {
     audit,
     auth,
@@ -71,6 +73,7 @@ export const createTestServices = async () => {
     configuration,
     database,
     directory,
+    quota,
     reports,
     cleanup: async () => {
       await database.close();
