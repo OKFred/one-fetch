@@ -6,6 +6,59 @@ export function json(data: unknown, init: ResponseInit = {}): Response {
   return Response.json(data, { ...init, headers });
 }
 
+export const CONTROL_JSON_LIMIT_BYTES = 1_048_576;
+
+export class InvalidJsonBodyError extends Error {}
+
+export class JsonBodyTooLargeError extends Error {}
+
+export async function readBoundedJson(
+  request: Request,
+  limitBytes = CONTROL_JSON_LIMIT_BYTES,
+): Promise<unknown> {
+  const contentLength = request.headers.get("content-length");
+  if (
+    contentLength !== null &&
+    /^\d+$/u.test(contentLength) &&
+    Number(contentLength) > limitBytes
+  ) {
+    throw new JsonBodyTooLargeError();
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) throw new InvalidJsonBodyError();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limitBytes) {
+        await reader
+          .cancel("Control JSON body exceeded its byte limit")
+          .catch(() => undefined);
+        throw new JsonBodyTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  } catch {
+    throw new InvalidJsonBodyError();
+  }
+}
+
 export function bearer(
   request: Request,
   headerName = "authorization",

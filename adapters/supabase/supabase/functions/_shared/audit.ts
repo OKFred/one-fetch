@@ -1,33 +1,63 @@
-import {
-  AuditEventV1Schema,
-  type AuditEventV1,
-  type UnsignedAuditEventV1,
-} from "@one-fetch/protocol";
+import { AuditEventV1Schema } from "@one-fetch/protocol";
+import type { AuditEventV1, UnsignedAuditEventV1 } from "./protocol-types.ts";
 import {
   redactAuditEvent,
   signAuditEvent as signCoreAuditEvent,
+  verifyAuditEvent as verifyCoreAuditEvent,
 } from "@one-fetch/core";
 
 import { base64UrlToBytes } from "./crypto.ts";
 import type { SupabaseEnvironment } from "./env.ts";
 
-let cachedKey: { encoded: string; key: CryptoKey } | undefined;
+let cachedKey:
+  | { encoded: string; privateKey: CryptoKey; publicKey: CryptoKey }
+  | undefined;
 
-async function auditPrivateKey(
-  environment: SupabaseEnvironment,
-): Promise<CryptoKey> {
-  if (cachedKey?.encoded === environment.auditSigningPrivateKey)
-    return cachedKey.key;
-  const key = await crypto.subtle.importKey(
+async function importAuditKeys(encoded: string) {
+  const keyData = Uint8Array.from(base64UrlToBytes(encoded)).buffer;
+  const extractablePrivateKey = await crypto.subtle.importKey(
     "pkcs8",
-    Uint8Array.from(base64UrlToBytes(environment.auditSigningPrivateKey))
-      .buffer,
+    keyData,
+    { name: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const privateJwk = await crypto.subtle.exportKey(
+    "jwk",
+    extractablePrivateKey,
+  );
+  if (!privateJwk.x) throw new Error("Audit signing key has no public key");
+  const publicKey = await crypto.subtle.importKey(
+    "jwk",
+    { crv: "Ed25519", kty: "OKP", x: privateJwk.x },
+    { name: "Ed25519" },
+    false,
+    ["verify"],
+  );
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    keyData,
     { name: "Ed25519" },
     false,
     ["sign"],
   );
-  cachedKey = { encoded: environment.auditSigningPrivateKey, key };
-  return key;
+  return { privateKey, publicKey };
+}
+
+async function auditKeys(environment: SupabaseEnvironment) {
+  if (cachedKey?.encoded === environment.auditSigningPrivateKey)
+    return cachedKey;
+  cachedKey = {
+    encoded: environment.auditSigningPrivateKey,
+    ...(await importAuditKeys(environment.auditSigningPrivateKey)),
+  };
+  return cachedKey;
+}
+
+async function auditPrivateKey(
+  environment: SupabaseEnvironment,
+): Promise<CryptoKey> {
+  return (await auditKeys(environment)).privateKey;
 }
 
 export async function signAuditEvent(
@@ -63,4 +93,12 @@ export async function createAuditEvent(
     },
     environment,
   );
+}
+
+export async function verifyAuditEvent(
+  event: AuditEventV1,
+  environment: SupabaseEnvironment,
+): Promise<boolean> {
+  if (event.integrity.keyId !== environment.auditKeyId) return false;
+  return verifyCoreAuditEvent(event, (await auditKeys(environment)).publicKey);
 }

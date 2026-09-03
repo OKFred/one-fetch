@@ -1,4 +1,9 @@
+import {
+  ExecutionQuotaV1Schema,
+  ExecutionTokenScopeV1Schema,
+} from "@one-fetch/protocol";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 
 import type { Database } from "./database.ts";
 import type { SupabaseEnvironment } from "./env.ts";
@@ -18,10 +23,24 @@ export interface AdminPrincipal {
 export interface ExecutionPrincipal {
   tokenId: string;
   name: string;
-  scopes: Record<string, unknown>;
-  quotas: Record<string, unknown>;
+  scopes: z.infer<typeof ExecutionTokenScopeV1Schema>;
+  quotas: z.infer<typeof ExecutionQuotaV1Schema>;
   expiresAt?: string;
 }
+
+const AdminPrincipalSchema = z.object({
+  adminId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  familyId: z.string().uuid(),
+});
+
+const ExecutionPrincipalSchema = z.object({
+  tokenId: z.string().uuid(),
+  name: z.string().min(1).max(128),
+  scopes: ExecutionTokenScopeV1Schema,
+  quotas: ExecutionQuotaV1Schema,
+  expiresAt: z.string().datetime().nullish(),
+});
 
 export async function hashPassword(
   password: string,
@@ -85,11 +104,11 @@ export async function authenticateAdmin(
   environment: SupabaseEnvironment,
 ): Promise<AdminPrincipal | undefined> {
   if (!token) return undefined;
-  return (
-    (await database.rpc<AdminPrincipal | null>("of_authenticate_access", {
-      p_token_hash: await tokenHash(token, environment),
-    })) ?? undefined
-  );
+  const value = await database.rpc<unknown>("of_authenticate_access", {
+    p_token_hash: await tokenHash(token, environment),
+  });
+  if (value === null) return undefined;
+  return AdminPrincipalSchema.parse(value);
 }
 
 export async function authenticateExecution(
@@ -98,14 +117,18 @@ export async function authenticateExecution(
   environment: SupabaseEnvironment,
 ): Promise<ExecutionPrincipal | undefined> {
   if (!token) return undefined;
-  return (
-    (await database.rpc<ExecutionPrincipal | null>(
-      "of_authenticate_execution",
-      {
-        p_token_hash: await tokenHash(token, environment),
-      },
-    )) ?? undefined
-  );
+  const value = await database.rpc<unknown>("of_authenticate_execution", {
+    p_token_hash: await tokenHash(token, environment),
+  });
+  if (value === null) return undefined;
+  const parsed = ExecutionPrincipalSchema.parse(value);
+  return {
+    tokenId: parsed.tokenId,
+    name: parsed.name,
+    scopes: parsed.scopes,
+    quotas: parsed.quotas,
+    ...(parsed.expiresAt ? { expiresAt: parsed.expiresAt } : {}),
+  };
 }
 
 export function issueExecutionToken(): string {

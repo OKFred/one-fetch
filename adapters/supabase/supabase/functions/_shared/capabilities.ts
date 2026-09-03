@@ -1,10 +1,12 @@
 import {
   ONE_FETCH_LIMITS_V1,
   OneFetchCapabilitiesV1Schema,
-  type FetchOptionCapabilityV1,
-  type HeaderMutationNoticeV1,
-  type OneFetchCapabilitiesV1,
 } from "@one-fetch/protocol";
+import type {
+  FetchOptionCapabilityV1,
+  HeaderMutationNoticeV1,
+  OneFetchCapabilitiesV1,
+} from "./protocol-types.ts";
 
 import type { SupabaseEnvironment } from "./env.ts";
 
@@ -13,8 +15,9 @@ export const SUPABASE_FETCH_OPTIONS: FetchOptionCapabilityV1[] = [
   { option: "timeoutMs", fidelity: "exact" },
   {
     option: "credentials",
-    fidelity: "translated",
-    detail: "Only explicit Cookie headers are forwarded.",
+    fidelity: "unsupported",
+    detail:
+      "Preview does not translate Fetch credential modes; explicit target headers remain separate.",
   },
   {
     option: "referrer",
@@ -30,26 +33,33 @@ export const SUPABASE_FETCH_OPTIONS: FetchOptionCapabilityV1[] = [
   },
   {
     option: "cache",
-    fidelity: "vendor-mutated",
-    detail: "The Supabase gateway or upstream may alter caching.",
+    fidelity: "unsupported",
+    detail: "Preview does not pass Fetch cache modes to the upstream request.",
   },
   {
     option: "keepalive",
-    fidelity: "vendor-mutated",
-    detail: "Edge Runtime owns connection reuse.",
+    fidelity: "unsupported",
+    detail: "Preview does not expose Fetch keepalive semantics.",
   },
   {
     option: "duplex",
-    fidelity: "vendor-mutated",
-    detail: "Edge Runtime owns request streaming details.",
+    fidelity: "unsupported",
+    detail: "Preview does not expose Fetch duplex semantics.",
   },
   { option: "priority", fidelity: "unsupported" },
   { option: "mode", fidelity: "unsupported" },
   { option: "integrity", fidelity: "unsupported" },
   {
     option: "decompress",
-    fidelity: "vendor-mutated",
-    detail: "Edge Runtime may decode upstream content.",
+    fidelity: "unsupported",
+    detail: "Preview does not implement configurable response decompression.",
+  },
+  {
+    option: "adapter.supabaseAcceptMutations",
+    fidelity: "exact",
+    acceptedValues: [true],
+    detail:
+      "Confirms adapter translations and documented platform mutations for this request.",
   },
 ];
 
@@ -92,6 +102,7 @@ interface CapabilityState {
   configVersion?: string;
   updatedAt?: string;
   config?: { policy?: { mode?: "allowlist" | "blocklist" } };
+  auditDegraded?: boolean;
 }
 
 export function buildSupabaseCapabilities(
@@ -140,6 +151,12 @@ export function buildSupabaseCapabilities(
     },
     fetchOptions: SUPABASE_FETCH_OPTIONS,
     headerMutations: SUPABASE_HEADER_MUTATIONS,
-    audit: { state: state.initialized ? "healthy" : "unknown" },
+    audit: {
+      state: state.auditDegraded
+        ? "degraded"
+        : state.initialized
+          ? "healthy"
+          : "unknown",
+    },
   });
 }
