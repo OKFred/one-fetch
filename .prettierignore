@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.wrangler
+artifacts
+pnpm-lock.yaml
+adapters/supabase/deno.lock
+
