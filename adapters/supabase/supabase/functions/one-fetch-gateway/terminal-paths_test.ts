@@ -68,7 +68,10 @@ const config: ActiveConfig = {
   },
 };
 
-async function harness(requestMetadata: OneFetchRequestMetaV1) {
+async function harness(
+  requestMetadata: OneFetchRequestMetaV1,
+  storageResults: { acquire?: unknown; reconcile?: unknown } = {},
+) {
   const reports: Array<Record<string, unknown>> = [];
   const database: Database = {
     rpc: <T>(name: string, parameters: Record<string, unknown> = {}) => {
@@ -76,13 +79,17 @@ async function harness(requestMetadata: OneFetchRequestMetaV1) {
         return Promise.resolve(crypto.randomUUID() as T);
       }
       if (name === "of_acquire_execution") {
-        return Promise.resolve({
-          allowed: true,
-          leaseId: crypto.randomUUID(),
-        } as T);
+        return Promise.resolve(
+          (storageResults.acquire ?? {
+            allowed: true,
+            leaseId: crypto.randomUUID(),
+          }) as T,
+        );
       }
       if (name === "of_reconcile_execution_request") {
-        return Promise.resolve({ allowed: true } as T);
+        return Promise.resolve(
+          (storageResults.reconcile ?? { allowed: true }) as T,
+        );
       }
       if (name === "of_finalize_execution") {
         reports.push(parameters.p_report as Record<string, unknown>);
@@ -292,3 +299,69 @@ Deno.test(
     }
   },
 );
+
+Deno.test("Malformed execution acquisition results fail closed", async () => {
+  const fixtures: unknown[] = [
+    { allowed: "false", reason: "rate_limit" },
+    { allowed: true, leaseId: "not-a-uuid" },
+    { allowed: false, reason: "rate_limit", unexpected: true },
+  ];
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = () => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response());
+  };
+  try {
+    for (const acquire of fixtures) {
+      const { context, reports } = await harness(metadata(), { acquire });
+      const response = await executeHttp(
+        new Request(`${context.environment.gatewayBaseUrl}/terminal`),
+        context,
+        config,
+      );
+      const signed = decodeResponseMetadata(
+        response.headers.get(ONE_FETCH_RESPONSE_HEADER) ?? "",
+      );
+      assert(response.status === 503, `expected 503, got ${response.status}`);
+      assert(
+        signed.error?.code === "storage_unavailable",
+        "malformed acquisition was not a storage failure",
+      );
+      assert(!signed.reportId, "an invalid acquisition created a report ID");
+      assert(reports.length === 0, "an invalid acquisition was finalized");
+    }
+    assert(fetchCalls === 0, "an invalid acquisition reached the target");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("Malformed request reconciliation results fail closed", async () => {
+  const fixtures: unknown[] = [
+    { allowed: "true" },
+    { allowed: true, unexpected: true },
+    { allowed: false },
+  ];
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = () => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response());
+  };
+  try {
+    for (const reconcile of fixtures) {
+      const { context, reports } = await harness(metadata(), { reconcile });
+      const response = await executeHttp(
+        new Request(`${context.environment.gatewayBaseUrl}/terminal`),
+        context,
+        config,
+      );
+      assert(response.status === 503, `expected 503, got ${response.status}`);
+      assertTerminalError(response, reports, "storage_unavailable");
+    }
+    assert(fetchCalls === 0, "an invalid reconciliation reached the target");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

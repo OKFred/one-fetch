@@ -1,6 +1,7 @@
 import { ONE_FETCH_LIMITS_V1 } from "@one-fetch/protocol";
 import type { HeaderEntryV1 } from "../_shared/protocol-types.ts";
 import { classifyFetchOptions } from "@one-fetch/core";
+import { z } from "zod";
 
 import { SUPABASE_FETCH_OPTIONS } from "../_shared/capabilities.ts";
 import {
@@ -24,6 +25,30 @@ import {
   targetUrl,
   tokenAllows,
 } from "./request.ts";
+
+const DeniedExecutionSchema = z
+  .object({
+    allowed: z.literal(false),
+    reason: z.string().min(1).max(128),
+  })
+  .strict();
+
+const AcquireExecutionResultSchema = z.discriminatedUnion("allowed", [
+  z
+    .object({
+      allowed: z.literal(true),
+      leaseId: z.string().uuid(),
+    })
+    .strict(),
+  DeniedExecutionSchema.extend({
+    retryAfterSeconds: z.number().int().positive().optional(),
+  }).strict(),
+]);
+
+const ReconcileExecutionResultSchema = z.discriminatedUnion("allowed", [
+  z.object({ allowed: z.literal(true) }).strict(),
+  DeniedExecutionSchema,
+]);
 
 export interface PreparedExecution {
   configuration: NonNullable<ActiveConfig["config"]>;
@@ -201,15 +226,17 @@ export async function prepareExecution(
     );
   }
 
-  let lease: { allowed: boolean; reason?: string; leaseId?: string };
+  let lease: z.infer<typeof AcquireExecutionResultSchema>;
   try {
-    lease = await context.database.rpc("of_acquire_execution", {
-      p_token_id: context.principal.tokenId,
-      p_request_id: context.metadata.requestId,
-      p_transport: "http",
-      p_request_bytes: 0,
-      p_lease_seconds: 120,
-    });
+    lease = AcquireExecutionResultSchema.parse(
+      await context.database.rpc<unknown>("of_acquire_execution", {
+        p_token_id: context.principal.tokenId,
+        p_request_id: context.metadata.requestId,
+        p_transport: "http",
+        p_request_bytes: 0,
+        p_lease_seconds: 120,
+      }),
+    );
   } catch {
     return rejected(
       context,
@@ -221,14 +248,14 @@ export async function prepareExecution(
       { outcome: "failure", retryable: true, targetUrl: target },
     );
   }
-  if (!lease.allowed || !lease.leaseId) {
+  if (!lease.allowed) {
     return rejected(
       context,
       auditState,
       "execution.quota-denied",
       "quota_exceeded",
       "quota",
-      `Quota denied: ${lease.reason ?? "unknown"}`,
+      `Quota denied: ${lease.reason}`,
       { retryable: true, targetUrl: target },
     );
   }
@@ -291,12 +318,14 @@ export async function prepareExecution(
     );
   }
 
-  let reconciled: { allowed: boolean; reason?: string };
+  let reconciled: z.infer<typeof ReconcileExecutionResultSchema>;
   try {
-    reconciled = await context.database.rpc("of_reconcile_execution_request", {
-      p_lease_id: lease.leaseId,
-      p_request_bytes: body.byteLength,
-    });
+    reconciled = ReconcileExecutionResultSchema.parse(
+      await context.database.rpc<unknown>("of_reconcile_execution_request", {
+        p_lease_id: lease.leaseId,
+        p_request_bytes: body.byteLength,
+      }),
+    );
   } catch {
     clearTimeout(timeout);
     return rejected(
@@ -322,7 +351,7 @@ export async function prepareExecution(
       "execution.quota-denied",
       "quota_exceeded",
       "quota",
-      `Quota denied: ${reconciled.reason ?? "unknown"}`,
+      `Quota denied: ${reconciled.reason}`,
       { retryable: true, targetUrl: target, leaseId: lease.leaseId },
     );
   }

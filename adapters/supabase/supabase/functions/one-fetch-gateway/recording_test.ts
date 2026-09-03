@@ -1,4 +1,4 @@
-import type { Database } from "../_shared/database.ts";
+import { createDatabase, type Database } from "../_shared/database.ts";
 import { bytesToBase64Url } from "../_shared/crypto.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
 import type { OneFetchTimingV1 } from "../_shared/protocol-types.ts";
@@ -167,3 +167,63 @@ Deno.test(
     assert(result.auditState === "recorded", "retry result was not accepted");
   },
 );
+
+for (const failure of ["database_transport", "database_timeout"] as const) {
+  Deno.test(
+    `The real database client retries ${failure} finalization once`,
+    async () => {
+      let attempts = 0;
+      const bodies: string[] = [];
+      const database = createDatabase(
+        {
+          supabaseUrl: "https://project.supabase.co",
+          serviceRoleKey: "service-role-test",
+          buildVersion: "0.1.0-test",
+        } as SupabaseEnvironment,
+        {
+          timeoutMs: 5,
+          fetch: async (_input, init) => {
+            attempts += 1;
+            bodies.push(typeof init?.body === "string" ? init.body : "");
+            if (attempts === 1 && failure === "database_transport") {
+              throw new TypeError("connection reset after commit");
+            }
+            if (attempts === 1) {
+              await new Promise<never>((_resolve, reject) => {
+                const signal = init?.signal;
+                if (!signal) {
+                  reject(new Error("missing database timeout signal"));
+                  return;
+                }
+                signal.addEventListener("abort", () => reject(signal.reason), {
+                  once: true,
+                });
+              });
+            }
+            return new Response(
+              JSON.stringify({
+                status: "already_finalized",
+                auditState: "recorded",
+              }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            );
+          },
+        },
+      );
+      const result = await finalize(await context(database), {
+        leaseId: crypto.randomUUID(),
+        reportId: crypto.randomUUID(),
+        targetStatus: 204,
+        responseBytes: 0,
+        outcome: "completed",
+        source: "target",
+        timing,
+        downloadMs: 0,
+        auditState: "recorded",
+      });
+      assert(attempts === 2, `${failure} was not retried exactly once`);
+      assert(bodies[0] === bodies[1], `${failure} retry parameters changed`);
+      assert(result.auditState === "recorded", "retry result was not accepted");
+    },
+  );
+}

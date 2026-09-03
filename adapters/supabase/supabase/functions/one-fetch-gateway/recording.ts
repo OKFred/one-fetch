@@ -7,6 +7,7 @@ import type {
 } from "../_shared/protocol-types.ts";
 
 import { createAuditEvent } from "../_shared/audit.ts";
+import { DatabaseError } from "../_shared/database.ts";
 import { targetUrl } from "./request.ts";
 import { type GatewayContext, milliseconds } from "./foundation.ts";
 
@@ -55,6 +56,12 @@ const DatabaseFinalizeResultSchema = z
     auditState: z.enum(["recorded", "degraded"]),
   })
   .strict();
+
+function retryableFinalizationFailure(error: unknown): boolean {
+  return error instanceof TypeError ||
+    (error instanceof DatabaseError &&
+      ["database_transport", "database_timeout"].includes(error.code ?? ""));
+}
 
 export async function recordExecution(
   context: GatewayContext,
@@ -214,7 +221,7 @@ export async function finalize(
   try {
     stored = await context.database.rpc("of_finalize_execution", parameters);
   } catch (error) {
-    if (!(error instanceof TypeError)) throw error;
+    if (!retryableFinalizationFailure(error)) throw error;
     stored = await context.database.rpc("of_finalize_execution", parameters);
   }
   const result = DatabaseFinalizeResultSchema.parse(stored);
