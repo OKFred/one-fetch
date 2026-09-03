@@ -6,6 +6,15 @@ import {
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { AdminControlApi, UnsupportedControlFeatureError } from "./api";
+import {
+  clearRefreshToken,
+  hasPersistentRefreshToken,
+  persistProfiles,
+  readActiveProfileId,
+  readProfiles,
+  readRefreshToken,
+  storeRefreshToken,
+} from "./profile-storage";
 import type {
   AuditPage,
   BootstrapState,
@@ -15,68 +24,9 @@ import type {
   SessionState,
 } from "./types";
 
-const PROFILES_KEY = "one-fetch.admin.profiles.v1";
-const ACTIVE_PROFILE_KEY = "one-fetch.admin.active-profile.v1";
-const REFRESH_PREFIX = "one-fetch.admin.refresh.v1.";
-
-interface StoredRefreshToken {
-  token: string;
-  expiresAt: string;
-}
-
-function isInstanceProfile(value: unknown): value is InstanceProfile {
-  if (typeof value !== "object" || value === null) return false;
-  const profile = value as Record<string, unknown>;
-  return (
-    typeof profile.id === "string" &&
-    typeof profile.name === "string" &&
-    typeof profile.controlUrl === "string"
-  );
-}
-
-function readProfiles(): InstanceProfile[] {
-  try {
-    const value: unknown = JSON.parse(
-      localStorage.getItem(PROFILES_KEY) ?? "[]",
-    );
-    if (!Array.isArray(value)) return [];
-    return value.filter(isInstanceProfile);
-  } catch {
-    return [];
-  }
-}
-
-function refreshKey(profileId: string): string {
-  return `${REFRESH_PREFIX}${profileId}`;
-}
-
-function readRefreshToken(profileId: string): StoredRefreshToken | null {
-  for (const storage of [sessionStorage, localStorage]) {
-    try {
-      const value: unknown = JSON.parse(
-        storage.getItem(refreshKey(profileId)) ?? "null",
-      );
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "token" in value &&
-        "expiresAt" in value &&
-        typeof value.token === "string" &&
-        typeof value.expiresAt === "string" &&
-        new Date(value.expiresAt).getTime() > Date.now()
-      ) {
-        return value as StoredRefreshToken;
-      }
-    } catch {
-      // Ignore corrupt browser storage and require a new login.
-    }
-  }
-  return null;
-}
-
 export const useControlStore = defineStore("control", () => {
   const profiles = ref<InstanceProfile[]>(readProfiles());
-  const savedActiveId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+  const savedActiveId = readActiveProfileId();
   const activeProfileId = ref<string | null>(
     profiles.value.some(({ id }) => id === savedActiveId)
       ? savedActiveId
@@ -109,13 +59,6 @@ export const useControlStore = defineStore("control", () => {
   const authenticated = computed(() => session.value !== null);
   const connected = computed(() => capabilities.value !== null);
 
-  function persistProfiles(): void {
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles.value));
-    if (activeProfileId.value)
-      localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfileId.value);
-    else localStorage.removeItem(ACTIVE_PROFILE_KEY);
-  }
-
   function activateClient(): AdminControlApi {
     if (!profile.value) throw new Error("Control URL is not configured");
     const client = new AdminControlApi(
@@ -140,15 +83,14 @@ export const useControlStore = defineStore("control", () => {
     const endpointChanged =
       index >= 0 && profiles.value[index]?.controlUrl !== normalizedUrl;
     if (endpointChanged) {
-      sessionStorage.removeItem(refreshKey(next.id));
-      localStorage.removeItem(refreshKey(next.id));
+      clearRefreshToken(next.id);
       clearMemoryState();
     }
     if (index === -1) profiles.value.push(next);
     else profiles.value[index] = next;
     if (activeProfileId.value !== next.id) clearMemoryState();
     activeProfileId.value = next.id;
-    persistProfiles();
+    persistProfiles(profiles.value, activeProfileId.value);
     activateClient();
   }
 
@@ -156,20 +98,19 @@ export const useControlStore = defineStore("control", () => {
     if (!profiles.value.some((item) => item.id === id)) return;
     if (activeProfileId.value !== id) clearMemoryState();
     activeProfileId.value = id;
-    persistProfiles();
+    persistProfiles(profiles.value, activeProfileId.value);
     activateClient();
   }
 
   function deleteProfile(id: string): void {
-    sessionStorage.removeItem(refreshKey(id));
-    localStorage.removeItem(refreshKey(id));
+    clearRefreshToken(id);
     profiles.value = profiles.value.filter((item) => item.id !== id);
     if (activeProfileId.value === id) {
       clearMemoryState();
       activeProfileId.value = profiles.value[0]?.id ?? null;
       if (activeProfileId.value) activateClient();
     }
-    persistProfiles();
+    persistProfiles(profiles.value, activeProfileId.value);
   }
 
   function clearMemoryState(): void {
@@ -217,8 +158,7 @@ export const useControlStore = defineStore("control", () => {
         const pair = await (api.value ?? activateClient()).refresh(
           stored.token,
         );
-        const persisted =
-          localStorage.getItem(refreshKey(profile.value!.id)) !== null;
+        const persisted = hasPersistentRefreshToken(profile.value!.id);
         applySession(pair, persisted);
         await loadConfiguration();
       },
@@ -288,16 +228,10 @@ export const useControlStore = defineStore("control", () => {
     };
     api.value?.setAccessToken(pair.accessToken);
     if (!profile.value) return;
-    const key = refreshKey(profile.value.id);
-    const target = rememberDevice ? localStorage : sessionStorage;
-    const other = rememberDevice ? sessionStorage : localStorage;
-    other.removeItem(key);
-    target.setItem(
-      key,
-      JSON.stringify({
-        token: pair.refreshToken,
-        expiresAt: pair.refreshExpiresAt,
-      }),
+    storeRefreshToken(
+      profile.value.id,
+      { token: pair.refreshToken, expiresAt: pair.refreshExpiresAt },
+      rememberDevice,
     );
   }
 
@@ -308,8 +242,7 @@ export const useControlStore = defineStore("control", () => {
       error.value = cause instanceof Error ? cause.message : String(cause);
     } finally {
       if (profile.value) {
-        sessionStorage.removeItem(refreshKey(profile.value.id));
-        localStorage.removeItem(refreshKey(profile.value.id));
+        clearRefreshToken(profile.value.id);
       }
       session.value = null;
       configuration.value = null;
