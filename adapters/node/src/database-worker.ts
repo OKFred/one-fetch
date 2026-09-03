@@ -87,9 +87,8 @@ const execute = (operation: SqlOperation): SqlResult => {
       lastInsertRowid: BigInt(result.lastInsertRowid),
     } satisfies RunResult;
   }
-  if (operation.kind === "get")
-    return statement.get(...parameters) as SqlResult;
-  return statement.all(...parameters) as SqlResult;
+  if (operation.kind === "get") return statement.get(...parameters);
+  return statement.all(...parameters);
 };
 
 const runTransaction = (operations: SqlOperation[]): SqlResult[] => {
@@ -117,7 +116,7 @@ parentPort.on("message", (request: DatabaseRequest) => {
     } else if (request.kind === "exec") {
       database.exec(request.sql);
     } else if (request.kind === "integrity") {
-      result = database.prepare("PRAGMA integrity_check").get() as SqlResult;
+      result = database.prepare("PRAGMA integrity_check").get();
     } else if (request.kind === "operation") {
       result = execute(request.operation);
     } else {

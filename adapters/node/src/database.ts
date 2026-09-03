@@ -1,7 +1,6 @@
 import { Worker } from "node:worker_threads";
 
 import type {
-  DatabaseRequest,
   DatabaseRequestWithoutId,
   DatabaseResponse,
   RunResult,
@@ -100,7 +99,7 @@ export class DatabaseClient {
     this.#nextId += 1;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { reject, resolve });
-      this.#worker.postMessage({ ...request, id } as DatabaseRequest);
+      this.#worker.postMessage({ ...request, id });
     });
   }
 
