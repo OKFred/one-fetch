@@ -89,6 +89,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/config",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(OpaqueJsonSchema, "Configuration"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
@@ -110,6 +111,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/config/policy",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(OpaqueJsonSchema, "System policy"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
@@ -131,6 +133,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "put",
       path: "/api/v1/config/policy",
+      security: [{ adminBearer: [] }],
       request: { body: jsonBody(OpaqueJsonSchema) },
       responses: {
         200: jsonResponse(OpaqueJsonSchema, "Updated configuration"),
@@ -197,6 +200,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "put",
       path: "/api/v1/config/gateway-paused",
+      security: [{ adminBearer: [] }],
       request: { body: jsonBody(SetGatewayPausedRequestV1Schema) },
       responses: {
         200: jsonResponse(OpaqueJsonSchema, "Updated configuration"),
@@ -256,6 +260,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/tokens/execution",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(ExecutionTokenListV1Schema, "Execution tokens"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
@@ -281,6 +286,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "post",
       path: "/api/v1/tokens/execution",
+      security: [{ adminBearer: [] }],
       request: { body: jsonBody(CreateExecutionTokenRequestV1Schema) },
       responses: {
         201: jsonResponse(CreatedExecutionTokenV1Schema, "Execution token"),
@@ -308,6 +314,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "delete",
       path: "/api/v1/tokens/execution/{tokenId}",
+      security: [{ adminBearer: [] }],
       request: { params: z.object({ tokenId: identifier }) },
       responses: {
         200: jsonResponse(
@@ -348,6 +355,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/audit",
+      security: [{ adminBearer: [] }],
       request: { query: auditQuery },
       responses: {
         200: jsonResponse(AuditPageV1Schema, "Audit event page"),
@@ -426,6 +434,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/alerts",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(AlertsResponseV1Schema, "Alert state"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
@@ -453,6 +462,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/backups",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(BackupsResponseV1Schema, "Backup state"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
@@ -480,6 +490,7 @@ export const registerControlManagementRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/reports/{reportId}",
+      security: [{ executionBearer: [] }],
       request: { params: z.object({ reportId: identifier }) },
       responses: {
         200: jsonResponse(ExecutionReportV1Schema, "Execution report"),

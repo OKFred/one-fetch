@@ -176,6 +176,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "post",
       path: "/api/v1/auth/logout",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(LogoutResponseV1Schema, "Revoked session"),
         401: authFailureResponses[401],
@@ -194,6 +195,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "get",
       path: "/api/v1/auth/sessions",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(SessionListV1Schema, "Administrator sessions"),
         401: authFailureResponses[401],
@@ -220,6 +222,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "delete",
       path: "/api/v1/auth/sessions/{sessionId}",
+      security: [{ adminBearer: [] }],
       request: { params: z.object({ sessionId: identifier }) },
       responses: {
         200: jsonResponse(SessionRevokeResponseV1Schema, "Revoked session"),
@@ -248,6 +251,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "post",
       path: "/api/v1/auth/totp/prepare",
+      security: [{ adminBearer: [] }],
       responses: {
         200: jsonResponse(TotpPrepareResponseV1Schema, "TOTP preparation"),
         401: authFailureResponses[401],
@@ -272,6 +276,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "post",
       path: "/api/v1/auth/totp/enable",
+      security: [{ adminBearer: [] }],
       request: { body: jsonBody(TotpEnableRequestV1Schema) },
       responses: {
         200: jsonResponse(TotpEnableResponseV1Schema, "TOTP enabled"),
@@ -302,6 +307,7 @@ export const registerControlAuthRoutes = (
     createRoute({
       method: "post",
       path: "/api/v1/auth/password",
+      security: [{ adminBearer: [] }],
       request: { body: jsonBody(ChangePasswordRequestV1Schema) },
       responses: {
         200: jsonResponse(ChangePasswordResponseV1Schema, "Password changed"),

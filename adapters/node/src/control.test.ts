@@ -47,7 +47,22 @@ describe("Node Control API", () => {
         `OpenAPI generation failed: ${document.status} ${await document.text()}`,
       );
     }
-    expect(await document.json()).toMatchObject({ openapi: "3.1.0" });
+    const openapi = (await document.json()) as {
+      components?: { securitySchemes?: Record<string, unknown> };
+      openapi?: string;
+      paths?: Record<string, { get?: unknown; post?: unknown }>;
+    };
+    expect(openapi).toMatchObject({ openapi: "3.1.0" });
+    expect(openapi.components?.securitySchemes).toHaveProperty("adminBearer");
+    expect(openapi.components?.securitySchemes).toHaveProperty(
+      "executionBearer",
+    );
+    expect(openapi.paths?.["/api/v1/config"]?.get).toMatchObject({
+      security: [{ adminBearer: [] }],
+    });
+    expect(openapi.paths?.["/api/v1/reports/{reportId}"]?.get).toMatchObject({
+      security: [{ executionBearer: [] }],
+    });
 
     expect((await app.request("/api/v1/config")).status).toBe(401);
     const bootstrapStatus = await app.request("/api/v1/bootstrap");

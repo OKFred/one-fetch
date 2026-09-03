@@ -19,6 +19,17 @@ export const createControlApp = (
 ): OpenAPIHono => {
   const app = new OpenAPIHono();
 
+  app.openAPIRegistry.registerComponent("securitySchemes", "adminBearer", {
+    type: "http",
+    scheme: "bearer",
+    description: "Opaque administrator access token",
+  });
+  app.openAPIRegistry.registerComponent("securitySchemes", "executionBearer", {
+    type: "http",
+    scheme: "bearer",
+    description: "Opaque execution token scoped to its own report",
+  });
+
   app.use("/api/*", async (context, next) => {
     const origin = context.req.header("Origin");
     if (
