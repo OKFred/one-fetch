@@ -1,6 +1,8 @@
 import { createControlHandler } from "./handler.ts";
 import type { Database } from "../_shared/database.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
+import { SUPABASE_MIGRATION_HISTORY } from "../_shared/migration-manifest.generated.ts";
+import { defaultConfig } from "./model.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -21,6 +23,10 @@ const environment: SupabaseEnvironment = {
   buildVersion: "test",
 };
 
+function migrationHistory() {
+  return SUPABASE_MIGRATION_HISTORY.map((entry) => ({ ...entry }));
+}
+
 Deno.test(
   "Control handler strips the function prefix and returns validated capabilities",
   async () => {
@@ -30,8 +36,12 @@ Deno.test(
         return Promise.resolve({
           instanceId: environment.instanceId,
           initialized: true,
-          configVersion: "20260904T000000.000Z-test",
+          gatewayPaused: false,
+          revision: 0,
+          version: "20260904T000000.000Z-test",
+          config: defaultConfig(),
           updatedAt: "2026-09-04T00:00:00.000Z",
+          auditDegraded: false,
         } as T);
       },
     };
@@ -86,6 +96,100 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "Disallowed browser origins are rejected before storage",
+  async () => {
+    const database: Database = {
+      rpc: () => Promise.reject(new Error("unexpected database access")),
+    };
+    const response = await createControlHandler(
+      environment,
+      database,
+    )(
+      new Request(`${environment.controlBaseUrl}/api/v1/bootstrap`, {
+        headers: { origin: "https://malicious.example" },
+      }),
+    );
+    assert(response.status === 403, `expected 403, got ${response.status}`);
+    const problem = (await response.json()) as {
+      error?: { code?: string };
+    };
+    assert(problem.error?.code === "origin_not_allowed", "wrong origin code");
+  },
+);
+
+Deno.test(
+  "Public feature status permits configured extension origins",
+  async () => {
+    const database: Database = {
+      rpc: () => Promise.reject(new Error("unexpected database access")),
+    };
+    const response = await createControlHandler(
+      environment,
+      database,
+    )(
+      new Request(`${environment.controlBaseUrl}/api/v1/features`, {
+        headers: {
+          origin: "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+      }),
+    );
+    assert(response.status === 200, `expected 200, got ${response.status}`);
+    assert(
+      response.headers.get("access-control-allow-origin") ===
+        "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "feature status CORS origin missing",
+    );
+  },
+);
+
+Deno.test("Health and canonical OpenAPI are public and validated", async () => {
+  const database: Database = {
+    rpc: async <T>(name: string) => {
+      assert(name === "of_get_control_runtime_state", `unexpected RPC ${name}`);
+      return Promise.resolve({
+        instanceId: environment.instanceId,
+        initialized: true,
+        auditDegraded: false,
+        migrations: await migrationHistory(),
+      } as T);
+    },
+  };
+  const handler = createControlHandler(environment, database);
+  const health = await handler(
+    new Request(`${environment.controlBaseUrl}/api/v1/health`),
+  );
+  assert(health.status === 200, `expected health 200, got ${health.status}`);
+  assert(
+    ((await health.json()) as { instanceId?: string }).instanceId ===
+      environment.instanceId,
+    "health response lost the canonical instance ID",
+  );
+
+  const openApi = await handler(
+    new Request(`${environment.controlBaseUrl}/api/v1/openapi.json`, {
+      headers: {
+        origin: "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    }),
+  );
+  const document = (await openApi.json()) as {
+    openapi?: string;
+    paths?: Record<string, unknown>;
+  };
+  assert(openApi.status === 200, `expected OpenAPI 200, got ${openApi.status}`);
+  assert(document.openapi === "3.1.0", "canonical OpenAPI version missing");
+  assert(
+    document.paths?.["/api/v1/openapi.json"] !== undefined,
+    "canonical OpenAPI self-description route missing",
+  );
+  assert(
+    openApi.headers.get("access-control-allow-origin") ===
+      "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "OpenAPI client CORS origin missing",
+  );
+});
+
 Deno.test("Execution reports use an Authorization bearer token", async () => {
   const calls: string[] = [];
   const database: Database = {
@@ -95,8 +199,15 @@ Deno.test("Execution reports use an Authorization bearer token", async () => {
         return Promise.resolve({
           tokenId: "00000000-0000-4000-8000-000000000002",
           name: "test",
-          scopes: { transports: ["http"] },
-          quotas: {},
+          scopes: { transports: ["http"], origins: ["*"], ports: [] },
+          quotas: {
+            requestsPerMinute: 60,
+            burst: 10,
+            concurrentHttp: 4,
+            concurrentTunnels: 2,
+            bytesPerDay: 1_073_741_824,
+          },
+          expiresAt: null,
         } as T);
       }
       if (name === "of_get_execution_report") {
@@ -151,10 +262,13 @@ Deno.test("Configuration uses the canonical flattened shape", async () => {
       }
       if (name === "of_get_active_config") {
         return Promise.resolve({
+          instanceId: environment.instanceId,
           initialized: true,
+          gatewayPaused: false,
           revision: 0,
           version: "20260904T000000.000Z-test",
           updatedAt: "2026-09-04T00:00:00.000Z",
+          auditDegraded: false,
           config: {
             gatewayPaused: false,
             policy: {
@@ -194,13 +308,28 @@ Deno.test("Configuration uses the canonical flattened shape", async () => {
 
 Deno.test("Unimplemented management capabilities are explicit", async () => {
   const database: Database = {
-    rpc: () => Promise.reject(new Error("unexpected database access")),
+    rpc: <T>(name: string) => {
+      assert(name === "of_authenticate_access", `unexpected RPC ${name}`);
+      return Promise.resolve({
+        adminId: "00000000-0000-4000-8000-000000000010",
+        sessionId: "00000000-0000-4000-8000-000000000011",
+        familyId: "00000000-0000-4000-8000-000000000012",
+      } as T);
+    },
   };
   const response = await createControlHandler(
     environment,
     database,
-  )(new Request(`${environment.controlBaseUrl}/api/v1/alerts`));
-  const body = (await response.json()) as { error?: { code?: string } };
-  assert(response.status === 501, `expected 501, got ${response.status}`);
-  assert(body.error?.code === "unsupported", "missing unsupported marker");
+  )(
+    new Request(`${environment.controlBaseUrl}/api/v1/alerts`, {
+      headers: { authorization: "Bearer ofa_test-token" },
+    }),
+  );
+  const body = (await response.json()) as {
+    feature?: string;
+    state?: string;
+  };
+  assert(response.status === 200, `expected 200, got ${response.status}`);
+  assert(body.feature === "alerts", "wrong feature marker");
+  assert(body.state === "unsupported", "missing unsupported marker");
 });
