@@ -15,7 +15,7 @@ export const bootstrapBody = {
 
 export async function bootstrapAdmin() {
   const response = await jsonRequest("/api/v1/bootstrap", bootstrapBody);
-  expect(response.status).toBe(201);
+  expect(response.status).toBe(200);
   return SessionTokenPairV1Schema.parse(await response.json());
 }
 

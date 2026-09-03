@@ -78,7 +78,7 @@ async function updateConfiguration(
     );
   if (current.configVersion !== expected)
     return controlError(
-      412,
+      409,
       "config_conflict",
       "The configuration version does not match",
     );
@@ -124,7 +124,7 @@ async function updateConfiguration(
   ]);
   if (results[0]?.meta.changes !== 1 || results[1]?.meta.changes !== 1)
     return controlError(
-      412,
+      409,
       "config_conflict",
       "The configuration changed before the update completed",
     );

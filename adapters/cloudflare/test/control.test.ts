@@ -62,7 +62,14 @@ describe("Cloudflare canonical Control API", () => {
       await SELF.fetch("https://control.example/api/v1/openapi.json")
     ).json<{
       openapi: string;
-      paths: Record<string, { get?: { security?: unknown[] } }>;
+      paths: Record<
+        string,
+        {
+          get?: { security?: unknown[] };
+          post?: { responses?: Record<string, unknown> };
+          put?: { responses?: Record<string, unknown> };
+        }
+      >;
       components: { securitySchemes: Record<string, unknown> };
     }>();
     expect(openapi).toMatchObject({ openapi: "3.1.0" });
@@ -78,6 +85,19 @@ describe("Cloudflare canonical Control API", () => {
     expect(openapi.paths["/api/v1/reports/{reportId}"]?.get?.security).toEqual([
       { executionBearer: [] },
     ]);
+    expect(openapi.paths["/api/v1/bootstrap"]?.post?.responses).toHaveProperty(
+      "200",
+    );
+    expect(
+      openapi.paths["/api/v1/bootstrap"]?.post?.responses,
+    ).not.toHaveProperty("201");
+    for (const path of [
+      "/api/v1/config/policy",
+      "/api/v1/config/gateway-paused",
+    ]) {
+      expect(openapi.paths[path]?.put?.responses).toHaveProperty("409");
+      expect(openapi.paths[path]?.put?.responses).not.toHaveProperty("412");
+    }
     expect(Object.keys(openapi.paths).sort()).toEqual(
       [
         "/api/v1/alerts",
@@ -225,7 +245,7 @@ describe("Cloudflare canonical Control API", () => {
         headers: { "If-Match": etag },
         body: { schemaVersion: 1, policy: updated.policy },
       }),
-      412,
+      409,
       "config_conflict",
     );
 
@@ -287,7 +307,7 @@ describe("Cloudflare canonical Control API", () => {
         }),
       ),
     );
-    expect(responses.map(({ status }) => status).sort()).toEqual([200, 412]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
     const audit = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM audit_events WHERE action = 'config.policy.update' AND outcome = 'success'",
     ).first<{ count: number }>();

@@ -119,7 +119,7 @@ export function registerControlOpenApi(app: ControlApp): void {
     path: "/api/v1/bootstrap",
     request: { body: jsonBody(BootstrapRequestV1Schema) },
     responses: {
-      201: jsonResponse(
+      200: jsonResponse(
         SessionTokenPairV1Schema,
         "Initial administrator session",
       ),
@@ -340,7 +340,7 @@ function configurationMutationResponses() {
     ),
     400: protectedErrors[400],
     401: protectedErrors[401],
-    412: jsonResponse(ControlErrorV1Schema, "Configuration conflict"),
+    409: jsonResponse(ControlErrorV1Schema, "Configuration conflict"),
     428: jsonResponse(ControlErrorV1Schema, "If-Match required"),
   };
 }

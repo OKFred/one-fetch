@@ -75,7 +75,7 @@ export function registerPublicControlRoutes(app: ControlApp): void {
           : "The bootstrap secret is invalid",
       );
     }
-    return context.json(SessionTokenPairV1Schema.parse(result.value), 201);
+    return context.json(SessionTokenPairV1Schema.parse(result.value), 200);
   });
 
   app.post("/api/v1/auth/login", async (context) => {

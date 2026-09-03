@@ -23,7 +23,7 @@ describe("Cloudflare authentication integrity", () => {
       jsonRequest("/api/v1/bootstrap", bootstrapBody),
       jsonRequest("/api/v1/bootstrap", bootstrapBody),
     ]);
-    expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
     expect(
       await env.DB.prepare("SELECT COUNT(*) AS count FROM admins").first<{
         count: number;
