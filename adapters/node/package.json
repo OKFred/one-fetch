@@ -13,12 +13,15 @@
     "one-fetch": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "pnpm run migrations:check && tsc -b",
     "clean": "node --input-type=module -e \"import('node:fs').then(({rmSync})=>rmSync('dist',{recursive:true,force:true}))\"",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
-    "test": "tsc -b && vitest run --config vitest.config.ts",
-    "typecheck": "tsc -b --pretty false"
+    "migrations:check": "node scripts/migration-integrity.mjs --check",
+    "migrations:generate": "node scripts/migration-integrity.mjs --write",
+    "migrations:test": "node --test scripts/migration-integrity.test.mjs",
+    "test": "pnpm run migrations:check && pnpm run migrations:test && tsc -b && vitest run --config vitest.config.ts",
+    "typecheck": "pnpm run migrations:check && tsc -b --pretty false"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
