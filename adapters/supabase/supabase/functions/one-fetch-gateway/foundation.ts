@@ -1,12 +1,17 @@
 import {
+  ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
+  PolicySetV1Schema,
   encodeResponseMetadata,
-  type OneFetchProblemV1,
-  type OneFetchRequestMetaV1,
-  type OneFetchTimingV1,
-  type OneFetchUnsignedResponseMetaV1,
 } from "@one-fetch/protocol";
+import type {
+  OneFetchProblemV1,
+  OneFetchRequestMetaV1,
+  OneFetchTimingV1,
+  OneFetchUnsignedResponseMetaV1,
+} from "../_shared/protocol-types.ts";
 import { createSignedResponseMetadata } from "@one-fetch/core";
+import { z } from "zod";
 
 import type { ExecutionPrincipal } from "../_shared/auth.ts";
 import { SUPABASE_HEADER_MUTATIONS } from "../_shared/capabilities.ts";
@@ -14,16 +19,32 @@ import type { Database } from "../_shared/database.ts";
 import type { SupabaseEnvironment } from "../_shared/env.ts";
 import { json } from "../_shared/http.ts";
 
-export interface ActiveConfig {
-  initialized: boolean;
-  gatewayPaused?: boolean;
-  version?: string;
-  config?: {
-    gatewayPaused: boolean;
-    policy: unknown;
-    bodyInspectionBytes: number;
-  };
-}
+export const ActiveConfigSchema = z
+  .object({
+    instanceId: z.string().uuid().optional(),
+    initialized: z.boolean(),
+    gatewayPaused: z.boolean().optional(),
+    version: z.string().min(1).optional(),
+    auditDegraded: z.boolean().optional(),
+    config: z
+      .object({
+        gatewayPaused: z.boolean(),
+        policy: PolicySetV1Schema,
+        bodyInspectionBytes: z
+          .number()
+          .int()
+          .min(0)
+          .max(ONE_FETCH_LIMITS_V1.inspectableBodyBytes),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .strict()
+  .refine((value) => !value.initialized || value.instanceId !== undefined, {
+    message: "Initialized storage must include its instance ID",
+  });
+
+export type ActiveConfig = z.infer<typeof ActiveConfigSchema>;
 
 export interface GatewayContext {
   environment: SupabaseEnvironment;
@@ -93,6 +114,7 @@ export async function signedError(
   context: GatewayContext,
   error: OneFetchProblemV1,
   auditState: "recorded" | "degraded" | "unknown" = "unknown",
+  reportId?: string,
 ): Promise<Response> {
   const unsigned: OneFetchUnsignedResponseMetaV1 = {
     protocolVersion: 1,
@@ -104,6 +126,7 @@ export async function signedError(
     configVersionUsed: context.configVersion,
     mutations: SUPABASE_HEADER_MUTATIONS,
     audit: { state: auditState },
+    ...(reportId ? { reportId } : {}),
   };
   const encoded = encodeResponseMetadata(
     await createSignedResponseMetadata(unsigned, context.token),

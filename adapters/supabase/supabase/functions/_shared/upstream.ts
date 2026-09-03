@@ -1,11 +1,7 @@
-import {
-  ONE_FETCH_RESERVED_HEADER_NAMES,
-  type HeaderEntryV1,
-  type OneFetchRequestMetaV1,
-  type ServerTimingMetricV1Schema,
-} from "@one-fetch/protocol";
+import { ONE_FETCH_RESERVED_HEADER_NAMES } from "@one-fetch/protocol";
+import type { HeaderEntryV1, OneFetchRequestMetaV1 } from "./protocol-types.ts";
 
-type ServerTimingMetric = typeof ServerTimingMetricV1Schema._output;
+export { parseServerTiming } from "@one-fetch/core";
 
 const FORBIDDEN_TARGET_HEADERS = new Set([
   "connection",
@@ -21,6 +17,42 @@ const FORBIDDEN_TARGET_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
+const SENSITIVE_REDIRECT_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+  "referer",
+]);
+
+function validateTargetHeader(name: string): void {
+  const normalized = name.toLowerCase();
+  if (
+    FORBIDDEN_TARGET_HEADERS.has(normalized) ||
+    ONE_FETCH_RESERVED_HEADER_NAMES.has(normalized) ||
+    normalized.startsWith("proxy-")
+  ) {
+    throw new TypeError(`Unsupported target header: ${name}`);
+  }
+}
+
+export function targetHeaderEntries(
+  entries: readonly HeaderEntryV1[],
+  metadata: OneFetchRequestMetaV1,
+): HeaderEntryV1[] {
+  const result = entries.map(({ name, value }) => {
+    validateTargetHeader(name);
+    return { name, value };
+  });
+  if (metadata.fetchOptions.referrer) {
+    if (result.some(({ name }) => name.toLowerCase() === "referer")) {
+      throw new TypeError(
+        "Fetch referrer conflicts with an explicit Referer header",
+      );
+    }
+    result.push({ name: "Referer", value: metadata.fetchOptions.referrer });
+  }
+  return result;
+}
 
 export function targetHeaders(
   entries: readonly HeaderEntryV1[],
@@ -28,33 +60,43 @@ export function targetHeaders(
 ): Headers {
   const headers = new Headers();
   const cookieValues: string[] = [];
-  for (const { name, value } of entries) {
+  for (const { name, value } of targetHeaderEntries(entries, metadata)) {
     const normalized = name.toLowerCase();
-    if (
-      FORBIDDEN_TARGET_HEADERS.has(normalized) ||
-      ONE_FETCH_RESERVED_HEADER_NAMES.has(normalized) ||
-      normalized.startsWith("proxy-")
-    ) {
-      throw new TypeError(`Unsupported target header: ${name}`);
-    }
     if (normalized === "cookie") cookieValues.push(value);
     else headers.append(name, value);
   }
   if (cookieValues.length > 0) headers.set("cookie", cookieValues.join("; "));
-  if (metadata.fetchOptions.referrer && !headers.has("referer")) {
-    headers.set("referer", metadata.fetchOptions.referrer);
-  }
   return headers;
 }
 
+export function requestContentType(
+  entries: readonly HeaderEntryV1[],
+  metadata: OneFetchRequestMetaV1,
+): string | undefined {
+  const values = entries
+    .filter(({ name }) => name.toLowerCase() === "content-type")
+    .map(({ value }) => value.trim());
+  if (values.length > 1) {
+    throw new TypeError("Multiple Content-Type headers are unsupported");
+  }
+  const headerValue = values[0];
+  const declared = metadata.body.contentType?.trim();
+  if (declared !== undefined && declared !== headerValue) {
+    throw new TypeError("Body content type does not match target headers");
+  }
+  return headerValue;
+}
+
 export function stripSensitiveRedirectHeaders(headers: Headers): void {
-  for (const name of [
-    "authorization",
-    "cookie",
-    "proxy-authorization",
-    "referer",
-  ])
-    headers.delete(name);
+  for (const name of SENSITIVE_REDIRECT_HEADERS) headers.delete(name);
+}
+
+export function stripSensitiveRedirectHeaderEntries(
+  entries: readonly HeaderEntryV1[],
+): HeaderEntryV1[] {
+  return entries.filter(
+    ({ name }) => !SENSITIVE_REDIRECT_HEADERS.has(name.toLowerCase()),
+  );
 }
 
 export function responseHeaderEntries(headers: Headers): HeaderEntryV1[] {
@@ -88,60 +130,6 @@ export function outerResponseHeaders(target: Headers): Headers {
   headers.set("cache-control", "no-store");
   headers.set("x-content-type-options", "nosniff");
   return headers;
-}
-
-function splitOutsideQuotes(value: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let quoted = false;
-  let escaped = false;
-  for (const character of value) {
-    if (escaped) {
-      current += character;
-      escaped = false;
-    } else if (character === "\\" && quoted) {
-      current += character;
-      escaped = true;
-    } else if (character === '"') {
-      current += character;
-      quoted = !quoted;
-    } else if (character === "," && !quoted) {
-      result.push(current.trim());
-      current = "";
-    } else current += character;
-  }
-  if (current.trim()) result.push(current.trim());
-  return result;
-}
-
-export function parseServerTiming(value: string | null): ServerTimingMetric[] {
-  if (!value) return [];
-  return splitOutsideQuotes(value)
-    .slice(0, 128)
-    .flatMap((entry) => {
-      const [rawName, ...parameters] = entry.split(";");
-      const name = rawName?.trim();
-      if (!name || !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/u.test(name)) return [];
-      let durationMs: number | undefined;
-      let description: string | undefined;
-      for (const parameter of parameters) {
-        const [rawKey, ...rawValue] = parameter.trim().split("=");
-        const parameterValue = rawValue.join("=").trim();
-        if (rawKey?.toLowerCase() === "dur") {
-          const parsed = Number(parameterValue);
-          if (Number.isFinite(parsed) && parsed >= 0) durationMs = parsed;
-        } else if (rawKey?.toLowerCase() === "desc") {
-          description = parameterValue.replace(/^"|"$/gu, "").slice(0, 512);
-        }
-      }
-      return [
-        {
-          name,
-          ...(durationMs === undefined ? {} : { durationMs }),
-          ...(description === undefined ? {} : { description }),
-        },
-      ];
-    });
 }
 
 export function assertNoOuterProtocolHeaders(headers: Headers): void {
