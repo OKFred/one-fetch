@@ -17,16 +17,29 @@ import {
   StoredConfigSchema,
 } from "./model.ts";
 
-const RuntimeStateSchema = z
-  .object({
-    instanceId: z.string().uuid().optional(),
-    initialized: z.boolean(),
-    auditDegraded: z.boolean(),
-    migrations: z.array(
-      z.object({ version: z.string(), checksum: z.string() }).strict(),
-    ),
-  })
-  .strict();
+const RuntimeStateFields = {
+  auditDegraded: z.boolean(),
+  migrations: z.array(
+    z.object({ version: z.string(), checksum: z.string() }).strict(),
+  ),
+};
+
+const RuntimeStateSchema = z.discriminatedUnion("initialized", [
+  z
+    .object({
+      initialized: z.literal(true),
+      instanceId: z.string().uuid(),
+      ...RuntimeStateFields,
+    })
+    .strict(),
+  z
+    .object({
+      initialized: z.literal(false),
+      instanceId: z.string().uuid().optional(),
+      ...RuntimeStateFields,
+    })
+    .strict(),
+]);
 
 export function registerPublicRoutes(
   app: Hono,

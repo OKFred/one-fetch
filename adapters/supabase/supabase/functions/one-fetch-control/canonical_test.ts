@@ -63,7 +63,10 @@ const signedAudit = await createAuditEvent(
   environment,
 );
 const { integrity: signedAuditIntegrity, ...signedAuditPayload } = signedAudit;
-const migrations = SUPABASE_MIGRATION_HISTORY.map((entry) => ({ ...entry }));
+const migrations = SUPABASE_MIGRATION_HISTORY.map(({ version, checksum }) => ({
+  version,
+  checksum,
+}));
 
 const storedConfiguration = {
   instanceId,

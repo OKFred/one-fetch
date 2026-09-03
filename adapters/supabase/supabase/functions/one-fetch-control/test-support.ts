@@ -35,5 +35,8 @@ export async function controlTestEnvironment(): Promise<SupabaseEnvironment> {
 }
 
 export function controlMigrationHistory() {
-  return SUPABASE_MIGRATION_HISTORY.map((entry) => ({ ...entry }));
+  return SUPABASE_MIGRATION_HISTORY.map(({ version, checksum }) => ({
+    version,
+    checksum,
+  }));
 }

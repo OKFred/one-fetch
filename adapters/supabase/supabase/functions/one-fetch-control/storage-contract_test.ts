@@ -226,6 +226,22 @@ Deno.test("Health and configuration reject a different stored instance", async (
   await expectControlError(configuration, 503, "instance_mismatch");
 });
 
+Deno.test("Initialized health requires a stored instance identity", async () => {
+  const migrations = await controlMigrationHistory();
+  const database: Database = {
+    rpc: <T>() =>
+      Promise.resolve({
+        initialized: true,
+        auditDegraded: false,
+        migrations,
+      } as T),
+  };
+  const health = await createControlHandler(environment, database)(
+    request("/api/v1/health"),
+  );
+  await expectControlError(health, 503, "storage_contract_invalid");
+});
+
 async function expectDatabaseFailure(
   operation: () => Promise<unknown>,
   code: string,
