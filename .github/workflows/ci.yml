@@ -53,6 +53,7 @@ jobs:
           node-version: 24.20.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/adapter-cloudflare migrations:check
       - run: pnpm --filter @one-fetch/adapter-cloudflare... typecheck
       - run: pnpm --filter @one-fetch/adapter-cloudflare test
       - run: pnpm --filter @one-fetch/adapter-cloudflare check:startup
@@ -75,15 +76,32 @@ jobs:
           node-version: 24.20.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @one-fetch/adapter-supabase check:migrations
+      - run: pnpm --filter @one-fetch/adapter-supabase check:embedded-openapi
       - run: pnpm --filter @one-fetch/adapter-supabase typecheck
       - run: pnpm --filter @one-fetch/adapter-supabase test
+      - name: Verify Supabase generated files stay clean
+        run: >-
+          git diff --exit-code --
+          adapters/supabase/supabase/migrations
+          adapters/supabase/supabase/functions/_shared/control-openapi.generated.ts
+          adapters/supabase/supabase/functions/_shared/migration-manifest.generated.ts
+          adapters/supabase/supabase/tests/migration_integrity.sql
+      - name: Generate ephemeral local Function secrets
+        run: >-
+          node adapters/supabase/scripts/generate-env.mjs
+          --out adapters/supabase/supabase/functions/.env
+          --base-url http://127.0.0.1:54321/functions/v1
       - name: Start local Supabase
         run: pnpm --filter @one-fetch/adapter-supabase start
       - name: Database and function integration
         run: pnpm --filter @one-fetch/adapter-supabase test:integration
+      - name: Remove ephemeral local Function secrets
+        if: always()
+        run: rm -f adapters/supabase/supabase/functions/.env
       - name: Stop local Supabase
         if: always()
-        run: pnpm --filter @one-fetch/adapter-supabase stop
+        run: pnpm --filter @one-fetch/adapter-supabase exec supabase stop --no-backup
 
   node:
     name: node-${{ matrix.node-version }}
@@ -166,7 +184,11 @@ jobs:
           node-version: 24.20.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --prod --audit-level high
+      - name: Audit locked dependencies with OSV
+        uses: google/osv-scanner-action/osv-scanner-action@0c58c542420dfd23fcac08dd9c8ca3cca9c36f1a # v2.5.0
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
       - run: node tools/release/check-import-boundaries.mjs
       - run: node tools/release/check-dependency-policy.mjs
       - run: node tools/release/check-source-size.mjs

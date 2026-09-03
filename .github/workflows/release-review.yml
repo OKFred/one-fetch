@@ -28,7 +28,7 @@ jobs:
   bundle:
     name: build-attest-review-only
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_CHANNEL: ${{ inputs.channel }}
@@ -36,8 +36,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-      - name: Require main for stable review
-        if: inputs.channel == 'stable'
+      - name: Require reviewed main branch
         shell: bash
         run: test "$GITHUB_REF" = "refs/heads/main"
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -49,8 +48,42 @@ jobs:
           node-version: 24.20.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Audit locked dependencies with OSV
+        uses: google/osv-scanner-action/osv-scanner-action@0c58c542420dfd23fcac08dd9c8ca3cca9c36f1a # v2.5.0
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
       - run: node tools/release/verify-release-input.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL"
       - run: pnpm check
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "26.x"
+          cache: pnpm
+      - run: pnpm --filter @one-fetch/adapter-node... typecheck
+      - run: pnpm --filter @one-fetch/adapter-node test
+      - run: pnpm --filter @one-fetch/adapter-node build
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm --filter @one-fetch/adapter-cloudflare check:startup
+      - name: Generate ephemeral local Function secrets
+        run: >-
+          node adapters/supabase/scripts/generate-env.mjs
+          --out adapters/supabase/supabase/functions/.env
+          --base-url http://127.0.0.1:54321/functions/v1
+      - name: Start local Supabase
+        run: pnpm --filter @one-fetch/adapter-supabase start
+      - name: Database and Function integration
+        run: pnpm --filter @one-fetch/adapter-supabase test:integration
+      - name: Remove ephemeral local Function secrets
+        if: always()
+        run: rm -f adapters/supabase/supabase/functions/.env
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm --filter @one-fetch/adapter-supabase exec supabase stop --no-backup
+      - name: Verify checks did not rewrite tracked inputs
+        run: git diff --exit-code
       - run: node tools/release/build-review-bundle.mjs --version "$RELEASE_VERSION"
       - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:

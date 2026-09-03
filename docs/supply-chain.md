@@ -22,10 +22,12 @@ comment. Workflows declare least privileges. Pull requests have no deployment
 secrets; forks cannot produce trusted release provenance. CodeQL runs on pull
 requests, main, and a weekly schedule. Gitleaks scans full history.
 
-The security job also runs production dependency audit, ESLint, Prettier,
-dependency policy, AST import boundaries, and the 1,000-line authored-source
-hard limit. Generated Cloudflare types are regenerated and must leave a clean
-diff. Generated files are not exempt from human review.
+The security job also scans the complete frozen pnpm lockfile against OSV,
+runs ESLint, Prettier, dependency policy, AST import boundaries, and enforces
+the 1,000-line authored-source hard limit. The OSV scan is a blocking gate for
+known vulnerabilities in production and development dependencies; it does not
+depend on npm's advisory endpoint. Generated Cloudflare types are checked and
+must leave a clean diff. Generated files are not exempt from human review.
 
 ## Artifacts
 

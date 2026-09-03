@@ -41,8 +41,8 @@ resolved from an unpublished npm name.
    500 lines. Generated runtime declarations are excluded and reviewed by diff.
 3. Run formatting, typecheck, unit/property tests, builds, adapter startup/dry
    runs, Admin tests, and conformance fixtures.
-4. Run CodeQL, Gitleaks, production dependency audit, AST import-boundary checks,
-   dependency policy, generated-file clean diff, and SBOM generation.
+4. Run CodeQL, Gitleaks, the frozen-lockfile OSV audit, AST import-boundary
+   checks, dependency policy, generated-file clean diff, and SBOM generation.
 5. Review protocol/OpenAPI/JSON Schema changes and migration checksums.
 
 PR jobs have read-only repository permissions and no provider deployment
