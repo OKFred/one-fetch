@@ -15,6 +15,8 @@ artifacts/
 playwright-report/
 test-results/
 *.log
+*.cpuprofile
+*.tsbuildinfo
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
@@ -22,4 +24,3 @@ test-results/
 *.key
 .DS_Store
 Thumbs.db
-
