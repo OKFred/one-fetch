@@ -10,6 +10,7 @@ import {
 import type { ConformanceCaseResult, ConformanceReport } from "./runner.js";
 
 export const CONTROL_CONFORMANCE_CASES = Object.freeze([
+  { id: "control-health", access: "public" },
   { id: "control-capabilities", access: "public" },
   { id: "control-bootstrap-status", access: "public" },
   { id: "control-feature-status", access: "public" },
@@ -66,8 +67,23 @@ export async function runControlConformance(
   let policyMode: "allowlist" | "blocklist" | undefined;
 
   results.push(
+    await capture("control-health", async () => {
+      const health = await client.getHealth();
+      instanceId = health.instanceId;
+      const failures: string[] = [];
+      if (health.service !== "one-fetch-control")
+        failures.push("health returned an unexpected service");
+      if (health.status !== "ok" && health.status !== "degraded")
+        failures.push("health returned an unexpected status");
+      return failures;
+    }),
+  );
+
+  results.push(
     await capture("control-capabilities", async () => {
       const capabilities = await client.getCapabilities();
+      if (instanceId !== undefined && capabilities.instanceId !== instanceId)
+        return ["health and capabilities instance IDs differ"];
       instanceId = capabilities.instanceId;
       pairId = capabilities.controlGatewayPairId;
       configVersion = capabilities.configVersion;

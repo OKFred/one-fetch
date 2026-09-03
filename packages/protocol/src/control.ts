@@ -42,6 +42,16 @@ export const ControlErrorV1Schema = z
   .strict();
 export type ControlErrorV1 = z.infer<typeof ControlErrorV1Schema>;
 
+export const HealthResponseV1Schema = z
+  .object({
+    instanceId: IdentifierSchema,
+    service: z.literal("one-fetch-control"),
+    status: z.enum(["ok", "degraded"]),
+    version: z.string().min(1).max(128),
+  })
+  .strict();
+export type HealthResponseV1 = z.infer<typeof HealthResponseV1Schema>;
+
 export const BootstrapStatusV1Schema = z
   .object({
     schemaVersion: z.literal(1),

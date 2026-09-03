@@ -61,6 +61,7 @@ function referenceControlFetch(): {
     const request = new Request(input, init);
     const url = new URL(request.url);
     const protectedRoute = ![
+      "/api/v1/health",
       "/api/v1/capabilities",
       "/api/v1/bootstrap",
       "/api/v1/features",
@@ -80,6 +81,15 @@ function referenceControlFetch(): {
     }
 
     switch (url.pathname) {
+      case "/api/v1/health":
+        return Promise.resolve(
+          Response.json({
+            instanceId: INSTANCE_ID,
+            service: "one-fetch-control",
+            status: "ok",
+            version: "0.1.0",
+          }),
+        );
       case "/api/v1/capabilities":
         return Promise.resolve(Response.json(capabilities));
       case "/api/v1/bootstrap":

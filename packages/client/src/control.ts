@@ -16,6 +16,7 @@ import {
   ExecutionReportV1Schema,
   ExecutionTokenListV1Schema,
   ExecutionTokenRevokeResponseV1Schema,
+  HealthResponseV1Schema,
   LoginRequestV1Schema,
   LogoutResponseV1Schema,
   OneFetchCapabilitiesV1Schema,
@@ -47,6 +48,7 @@ import {
   type ExecutionReportV1,
   type ExecutionTokenListV1,
   type ExecutionTokenRevokeResponseV1,
+  type HealthResponseV1,
   type LoginRequestV1,
   type LogoutResponseV1,
   type OneFetchCapabilitiesV1,
@@ -164,6 +166,10 @@ export class OneFetchControlClient {
       CONTROL_ROUTES_V1.capabilities,
       OneFetchCapabilitiesV1Schema,
     );
+  }
+
+  async getHealth(): Promise<HealthResponseV1> {
+    return this.requestJson(CONTROL_ROUTES_V1.health, HealthResponseV1Schema);
   }
 
   async getBootstrapStatus(): Promise<BootstrapStatusV1> {
