@@ -217,7 +217,8 @@ jobs:
       - run: pnpm build
       - id: metadata
         shell: bash
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          node -p "'version=' + require('./package.json').version" >> "$GITHUB_OUTPUT"
       - run: node tools/release/verify-release-input.mjs --version "${{ steps.metadata.outputs.version }}" --channel preview
       - run: node tools/release/build-review-bundle.mjs --version "${{ steps.metadata.outputs.version }}"
       - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
