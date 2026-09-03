@@ -321,6 +321,16 @@ const handleGatewayRequest = async (
         401,
       );
     configuration = await dependencies.configuration.get();
+    if (configuration.gatewayPaused) {
+      request.resume();
+      throw failure(
+        "forbidden",
+        "policy",
+        "Gateway is paused by the administrator",
+        503,
+        true,
+      );
+    }
     body = await spoolBody(
       request,
       dependencies.config.requestBodyLimitBytes,

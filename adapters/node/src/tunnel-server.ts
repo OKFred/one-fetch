@@ -192,6 +192,14 @@ const handleTunnel = async (
         "Execution token is invalid",
         401,
       );
+    if (configuration.gatewayPaused)
+      throw failure(
+        "forbidden",
+        "policy",
+        "Gateway is paused by the administrator",
+        503,
+        true,
+      );
     timeout = setTimeout(
       () => abort.abort(new Error("Tunnel setup timeout")),
       metadata.fetchOptions.timeoutMs,

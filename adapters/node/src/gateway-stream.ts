@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { performance } from "node:perf_hooks";
 
-import type { OneFetchRequestMetaV1 } from "@one-fetch/protocol";
+import type {
+  ExecutionReportV1,
+  OneFetchRequestMetaV1,
+} from "@one-fetch/protocol";
 
 import type { ExecutionCredential } from "./auth.js";
 import type { BodySpool } from "./body-spool.js";
@@ -10,6 +13,7 @@ import type { StoredConfiguration } from "./configuration.js";
 import { failure } from "./gateway-error.js";
 import type { ResponseContext } from "./gateway-response.js";
 import type { GatewayDependencies } from "./gateway.js";
+import { parseServerTiming } from "./server-timing.js";
 import type { executeUpstream } from "./upstream.js";
 
 export const auditAccepted = async (
@@ -68,7 +72,8 @@ export const streamTarget = async (
   let bytes = 0;
   let outcome: "completed" | "partial" | "cancelled" = "completed";
   try {
-    for await (const chunk of upstream.response) {
+    for await (const value of upstream.response as AsyncIterable<Uint8Array>) {
+      const chunk = Buffer.from(value);
       bytes += chunk.byteLength;
       if (bytes > dependencies.config.responseBodyLimitBytes) {
         outcome = "partial";
@@ -88,18 +93,39 @@ export const streamTarget = async (
     if (response.destroyed) outcome = "cancelled";
     response.destroy(error instanceof Error ? error : undefined);
   } finally {
-    const report = {
+    const report: ExecutionReportV1 = {
+      auditState: context.auditState,
       bodyComplete: outcome === "completed",
       ...(bytes > 0 ? { bodySha256: hash.digest("hex") } : {}),
       finishedAt: new Date().toISOString(),
       outcome,
+      reportId: context.reportId ?? context.metadata.requestId,
       requestId: context.metadata.requestId,
       responseBytes: bytes,
+      schemaVersion: 1,
+      source: "target",
+      status: upstream.status,
       timing: {
-        downloadMs: performance.now() - downloadStarted,
-        totalMs: performance.now() - startedAt,
+        phases: [
+          ...upstream.timing,
+          {
+            durationMs: performance.now() - downloadStarted,
+            name: "download",
+            source: "gateway",
+            state: "measured",
+          },
+          {
+            durationMs: performance.now() - startedAt,
+            name: "total",
+            source: "gateway",
+            state: "measured",
+          },
+        ],
+        serverTiming: parseServerTiming(
+          upstream.response.headers["server-timing"],
+        ),
       },
-    } as const;
+    };
     try {
       await dependencies.reports.save(report, credential.id);
       await dependencies.audit.append({
@@ -115,7 +141,9 @@ export const streamTarget = async (
           reportId: context.reportId,
         },
         metrics: {
-          durationMs: report.timing.totalMs,
+          durationMs:
+            report.timing.phases.find(({ name }) => name === "total")
+              ?.durationMs ?? 0,
           responseBytes: bytes,
           redirects: upstream.redirects,
         },

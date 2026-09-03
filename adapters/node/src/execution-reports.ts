@@ -1,25 +1,18 @@
+import {
+  ExecutionReportV1Schema,
+  type ExecutionReportV1,
+} from "@one-fetch/protocol";
+
 import { stableJson } from "./crypto.js";
 import type { DatabaseClient } from "./database.js";
 
 const REPORT_RETENTION_MS = 10 * 60 * 1_000;
 
-export interface ExecutionReport {
-  bodyComplete: boolean;
-  bodySha256?: string;
-  finishedAt: string;
-  outcome: "completed" | "partial" | "timeout" | "cancelled" | "relay-error";
-  requestId: string;
-  responseBytes: number;
-  timing: {
-    downloadMs?: number;
-    totalMs: number;
-  };
-}
-
 export class ExecutionReportStore {
   constructor(private readonly database: DatabaseClient) {}
 
-  async save(report: ExecutionReport, tokenId: string): Promise<void> {
+  async save(report: ExecutionReportV1, tokenId: string): Promise<void> {
+    const validated = ExecutionReportV1Schema.parse(report);
     const now = new Date();
     await this.database.run(
       `INSERT INTO execution_reports(request_id, token_id, outcome, report_json, expires_at, created_at)
@@ -27,10 +20,10 @@ export class ExecutionReportStore {
        ON CONFLICT(request_id) DO UPDATE SET outcome = excluded.outcome,
          report_json = excluded.report_json, expires_at = excluded.expires_at`,
       [
-        report.requestId,
+        validated.reportId,
         tokenId,
-        report.outcome,
-        stableJson(report),
+        validated.outcome,
+        stableJson(validated),
         new Date(now.getTime() + REPORT_RETENTION_MS).toISOString(),
         now.toISOString(),
       ],
@@ -40,7 +33,7 @@ export class ExecutionReportStore {
   async get(
     requestId: string,
     tokenId?: string,
-  ): Promise<ExecutionReport | undefined> {
+  ): Promise<ExecutionReportV1 | undefined> {
     const tokenClause = tokenId ? " AND token_id = ?" : "";
     const parameters = tokenId
       ? [requestId, new Date().toISOString(), tokenId]
@@ -49,7 +42,9 @@ export class ExecutionReportStore {
       `SELECT report_json FROM execution_reports WHERE request_id = ? AND expires_at > ?${tokenClause}`,
       parameters,
     );
-    return row ? (JSON.parse(row.report_json) as ExecutionReport) : undefined;
+    return row
+      ? ExecutionReportV1Schema.parse(JSON.parse(row.report_json))
+      : undefined;
   }
 
   async cleanup(): Promise<number> {

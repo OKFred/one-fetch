@@ -310,4 +310,60 @@ describe("Node transparent Gateway", () => {
     expect(result.status).toBe(403);
     expect(connections).toBe(0);
   });
+
+  it("returns a signed relay result while the administrator pause is active", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const bootstrapToken = await services.auth.ensureBootstrap();
+    const session = await services.auth.bootstrap(
+      bootstrapToken!,
+      "operator",
+      "correct horse battery staple",
+    );
+    const administratorId = await services.auth.authenticateAdmin(
+      session.accessToken,
+    );
+    const issued = await services.auth.createExecutionToken(
+      administratorId!,
+      testExecutionTokenRequest(["http"], ["https://example.com"]),
+    );
+    const current = await services.configuration.get();
+    const paused = services.configuration.prepareGatewayPaused(current, true);
+    await services.database.transaction([paused.operation]);
+
+    const gateway = createGatewayServer(services);
+    const gatewayPort = await listen(gateway);
+    cleanups.push(() => closeServer(gateway));
+    const metadata: OneFetchRequestMetaV1 = {
+      body: { sizeBytes: 0 },
+      fetchOptions: { redirect: "follow", timeoutMs: 60_000 },
+      hop: 0,
+      nonce: "22222222222222222222222222222222",
+      protocolVersion: 1,
+      requestId: "gateway-paused",
+      targetHeaders: [],
+      targetOrigin: "https://example.com",
+      transport: "http",
+    };
+    const result = await fetch(`http://127.0.0.1:${gatewayPort}/blocked`, {
+      headers: {
+        [ONE_FETCH_REQUEST_HEADER]: encodeRequestMetadata(metadata),
+        [ONE_FETCH_TOKEN_HEADER]: issued.token,
+      },
+    });
+
+    expect(result.status).toBe(503);
+    const classified = await classifyOneFetchResponse(
+      result.headers.get(ONE_FETCH_RESPONSE_HEADER),
+      {
+        nonce: metadata.nonce,
+        requestId: metadata.requestId,
+        token: issued.token,
+      },
+    );
+    expect(classified.source).toBe("relay");
+    if (classified.source === "relay") {
+      expect(classified.error.code).toBe("forbidden");
+    }
+  });
 });
