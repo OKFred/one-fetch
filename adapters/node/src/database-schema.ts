@@ -1,4 +1,4 @@
-export const DATABASE_SCHEMA_VERSION = 2;
+export const DATABASE_SCHEMA_VERSION = 3;
 
 export const DATABASE_MIGRATIONS = [
   {
@@ -116,6 +116,12 @@ export const DATABASE_MIGRATIONS = [
       ALTER TABLE auth_tokens ADD COLUMN session_id TEXT;
       ALTER TABLE auth_tokens ADD COLUMN credential_json TEXT;
       CREATE INDEX auth_tokens_session_idx ON auth_tokens(session_id);
+    `,
+  },
+  {
+    version: 3,
+    sql: `
+      ALTER TABLE auth_tokens ADD COLUMN device_fingerprint TEXT;
     `,
   },
 ] as const;

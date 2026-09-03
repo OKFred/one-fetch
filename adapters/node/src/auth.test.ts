@@ -102,7 +102,7 @@ describe("Node authentication and audit storage", () => {
     expect(page.nextCursor).toMatch(/^[1-9][0-9]*$/u);
   });
 
-  it("logs out the current session without exposing session credentials", async () => {
+  it("lists, revokes and protects administrator sessions", async () => {
     const services = await createTestServices();
     cleanups.push(services.cleanup);
     const bootstrapToken = await services.auth.ensureBootstrap();
@@ -111,8 +111,55 @@ describe("Node authentication and audit storage", () => {
       "operator",
       "correct horse battery staple",
     );
+    const identity = await services.auth.authenticateAdminSession(
+      session.accessToken,
+    );
+    const second = await services.auth.login(
+      "operator",
+      "correct horse battery staple",
+      "test-device-two",
+    );
 
-    expect(await services.auth.logout(session.accessToken)).toBe(true);
+    const sessions = await services.auth.listSessions(
+      identity!.administratorId,
+      identity!.sessionId,
+    );
+    expect(sessions.sessions).toHaveLength(2);
+    expect(
+      sessions.sessions.find(({ id }) => id === second.sessionId),
+    ).toMatchObject({ deviceFingerprint: "test-device-two" });
+    expect(sessions.sessions.find(({ current }) => current)?.id).toBe(
+      session.sessionId,
+    );
+    expect(
+      await services.auth.revokeSession(
+        identity!.administratorId,
+        second.sessionId,
+      ),
+    ).toMatchObject({ sessionId: second.sessionId });
+    await expect(services.auth.refresh(second.refreshToken)).rejects.toThrow();
+
+    const changed = await services.auth.changePassword(
+      identity!.administratorId,
+      identity!.sessionId,
+      "correct horse battery staple",
+      "a different correct horse battery staple",
+    );
+    expect(changed).toMatchObject({ schemaVersion: 1 });
+    await expect(
+      services.auth.login("operator", "correct horse battery staple"),
+    ).rejects.toThrow();
+    expect(
+      await services.auth.login(
+        "operator",
+        "a different correct horse battery staple",
+      ),
+    ).toMatchObject({ schemaVersion: 1 });
+
+    expect(await services.auth.logout(session.accessToken)).toMatchObject({
+      schemaVersion: 1,
+      sessionId: session.sessionId,
+    });
     expect(await services.auth.authenticateAdmin(session.accessToken)).toBe(
       undefined,
     );
