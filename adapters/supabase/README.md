@@ -41,6 +41,29 @@ pnpm --filter @one-fetch/adapter-supabase db:lint
 pnpm --filter @one-fetch/adapter-supabase test:integration
 ```
 
+Every migration embeds one `self-zeroed-sha256-v1` checksum. The checksum is
+SHA-256 over the exact UTF-8 file bytes after replacing only the two embedded
+checksum values (the marker and database insert) with 64 ASCII zeroes. A
+detached generated manifest also records each final file's ordinary byte-for-byte
+SHA-256, byte length, full filename, and normalized checksum. This avoids the
+impossible requirement for a file to contain its own raw hash while still
+detecting changes to every other byte and supporting future migrations.
+
+Create a new migration with two zero placeholders, then explicitly regenerate
+and review the migration plus both generated files:
+
+```bash
+pnpm --filter @one-fetch/adapter-supabase sync:migrations
+pnpm --filter @one-fetch/adapter-supabase check:migrations
+```
+
+Normal build, test, startup, and CI paths only check; they never repair stale
+generated files. Health compares the database's exact ordered normalized
+checksum list with the bundled manifest and fails closed on missing, changed,
+reordered, or unknown versions. This is an application compatibility ledger,
+not independent proof of the historical bytes executed by Postgres and not a
+substitute for schema-drift or backup-restore checks.
+
 Each function has its own `deno.json` and `deno.lock`. Runtime imports map shared packages to built JavaScript, so Supabase never depends on development-only sloppy `.js` to `.ts` resolution. Adapter-local types are inferred from the same runtime Zod schemas, keeping those imports in lockstep with the deployed values. The build also validates the canonical Control OpenAPI 3.1 document and embeds a generated, bundle-local snapshot; the deployed function never reads outside its bundle. `GET /api/v1/openapi.json` overlays that canonical snapshot with the complete request-derived Edge Function base URL and the Supabase Preview's permanent `501` TOTP responses. It does not change the cross-adapter canonical document.
 
 ## Safe deployment

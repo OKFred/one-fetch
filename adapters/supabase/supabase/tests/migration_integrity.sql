@@ -10,8 +10,8 @@ select is(
 );
 select is(
   public.of_get_migration_integrity(),
-  '[{"version":"202609040001","checksum":"39bb47b3c973b575676f5004ee1b018f466763102045fb1bece37f6d27bc0510"},{"version":"202609040002","checksum":"7dbc55c50491e9b508441a338966547a017d8210730daad13bb6f8c3f859d63f"},{"version":"202609040003","checksum":"3621e5ca5fe199a5d4fab73d7df9e450566c524b76f951e32ca5e8b567ca8546"},{"version":"202609040004","checksum":"87a661ff08ae6ea521512620d0121c3f4053286302119e0ed3bf8eb63448c1be"},{"version":"202609040005","checksum":"e643698c9dbf74acd57bf4d43b37b5edea4acc554b611bec461634c7ce90f592"},{"version":"202609040006","checksum":"4eb74e19ffff656e64d9e81797e67dca408e0d7f433d1f42e97bf0964a6ab791"},{"version":"202609040007","checksum":"b96eebcb63f0b69fdf46ea057f51c1928dac974591bf9b6365eca90c8efbc883"},{"version":"202609040008","checksum":"c3a66b2d1a4a5c0ea8694cfba655b5438c6d4b8cacf518bfed869d77fbafb265"},{"version":"202609040009","checksum":"925160ccb5c7ff9477e3b8034853690dcc0f239d358ff5c72af618b9ff2e5a71"}]'::jsonb,
-  'database migration checksums match the shipped SQL bytes'
+  '[{"version":"202609040001","checksum":"fa2880cabc22ef229c73da48343050f28b6f04cd1e99ca0be9e006b169035ed2"},{"version":"202609040002","checksum":"aacb3a7bf0d2e30679fab5dca5d2ef883ce8a59053d796fced39290a469c6450"},{"version":"202609040003","checksum":"e1b544260fdecf4194c61b74c400ace390019ff1444d451745d4caf9f66e043b"},{"version":"202609040004","checksum":"5a64d5913d0abd63363c91932b91a1e010ce6782a08db21bb73a4bd88313a24e"},{"version":"202609040005","checksum":"8931f2f241e4104b9941247fa341cabc4f44f333c2a55401775301fe54a1a532"},{"version":"202609040006","checksum":"078ec284c90e752d5702a8a913688dd9731db9304b7450c80c2e50f095ae0c7f"},{"version":"202609040007","checksum":"aa1d8206d0a25c5d4e592a4cf278a97c7fbb70a65584a4920ce3f0bf6e2c1371"},{"version":"202609040008","checksum":"85ceb468f5a19e9370a768ce1d864f36adb6bc100f0da96842f549996f17eb76"},{"version":"202609040009","checksum":"7d9ac8e564fcf7fd3d931387a1284d543830aa6c8d0174ce8d4c36de4adc7c31"}]'::jsonb,
+  'database migration checksums match self-zeroed-sha256-v1'
 );
 
 select * from finish();

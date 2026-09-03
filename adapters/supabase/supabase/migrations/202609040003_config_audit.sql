@@ -207,10 +207,8 @@ grant execute on function public.of_put_execution_report(uuid, text, uuid, text,
 revoke all on function public.of_get_execution_report(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.of_get_execution_report(uuid, uuid) to service_role;
 
+-- one-fetch-self-checksum-v1: e1b544260fdecf4194c61b74c400ace390019ff1444d451745d4caf9f66e043b
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040003',
-  encode(extensions.digest(convert_to('one-fetch-supabase-config-audit-v1', 'UTF8'), 'sha256'), 'hex')
-);
+values ('202609040003', 'e1b544260fdecf4194c61b74c400ace390019ff1444d451745d4caf9f66e043b');
 
 commit;

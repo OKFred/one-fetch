@@ -249,10 +249,8 @@ alter default privileges in schema one_fetch revoke all on sequences from public
 alter default privileges in schema one_fetch revoke all on functions from public, anon, authenticated;
 revoke all on function one_fetch.append_audit(jsonb) from public, anon, authenticated;
 
+-- one-fetch-self-checksum-v1: fa2880cabc22ef229c73da48343050f28b6f04cd1e99ca0be9e006b169035ed2
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040001',
-  encode(extensions.digest(convert_to('one-fetch-supabase-schema-v1', 'UTF8'), 'sha256'), 'hex')
-);
+values ('202609040001', 'fa2880cabc22ef229c73da48343050f28b6f04cd1e99ca0be9e006b169035ed2');
 
 commit;

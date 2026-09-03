@@ -181,10 +181,8 @@ grant execute on function public.of_release_execution(uuid, bigint) to service_r
 revoke all on function public.of_cleanup_expired() from public, anon, authenticated;
 grant execute on function public.of_cleanup_expired() to service_role;
 
+-- one-fetch-self-checksum-v1: 5a64d5913d0abd63363c91932b91a1e010ce6782a08db21bb73a4bd88313a24e
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040004',
-  encode(extensions.digest(convert_to('one-fetch-supabase-quota-v1', 'UTF8'), 'sha256'), 'hex')
-);
+values ('202609040004', '5a64d5913d0abd63363c91932b91a1e010ce6782a08db21bb73a4bd88313a24e');
 
 commit;

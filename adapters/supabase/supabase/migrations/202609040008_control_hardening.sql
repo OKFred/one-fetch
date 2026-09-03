@@ -411,13 +411,8 @@ grant execute on function public.of_set_audit_degraded() to service_role;
 revoke all on function public.of_get_control_runtime_state() from public, anon, authenticated;
 grant execute on function public.of_get_control_runtime_state() to service_role;
 
+-- one-fetch-self-checksum-v1: 85ceb468f5a19e9370a768ce1d864f36adb6bc100f0da96842f549996f17eb76
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040008',
-  encode(extensions.digest(
-    convert_to('one-fetch-supabase-control-hardening-v1', 'UTF8'),
-    'sha256'
-  ), 'hex')
-);
+values ('202609040008', '85ceb468f5a19e9370a768ce1d864f36adb6bc100f0da96842f549996f17eb76');
 
 commit;

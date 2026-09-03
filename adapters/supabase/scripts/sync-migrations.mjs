@@ -1,42 +1,96 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const CHECK = process.argv.slice(2);
-if (CHECK.some((argument) => argument !== "--check")) {
-  throw new Error("Usage: sync-migrations.mjs [--check]");
-}
+const ALGORITHM = "self-zeroed-sha256-v1";
+const ZERO_CHECKSUM = "0".repeat(64);
+const MARKER_PATTERN = /-- one-fetch-self-checksum-v1: ([0-9a-f]{64})/gu;
+const FILE_PATTERN = /^(\d{12})_[a-z0-9_]+\.sql$/u;
 
-const migrationsUrl = new URL("../supabase/migrations/", import.meta.url);
-const generatedMigrationUrl = new URL(
-  "../supabase/migrations/202609040009_migration_integrity.sql",
-  import.meta.url,
-);
-const manifestUrl = new URL(
-  "../supabase/functions/_shared/migration-manifest.generated.ts",
-  import.meta.url,
-);
-const integrityTestUrl = new URL(
-  "../supabase/tests/migration_integrity.sql",
-  import.meta.url,
-);
-const generatedName = "202609040009_migration_integrity.sql";
-const expectedInputVersions = Array.from(
-  { length: 8 },
-  (_, index) => `20260904000${index + 1}`,
-);
+function parseArguments(arguments_) {
+  let mode;
+  let root;
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    if (argument === "--check" || argument === "--write") {
+      if (mode) throw new Error("Choose exactly one of --check or --write");
+      mode = argument.slice(2);
+      continue;
+    }
+    if (argument === "--root") {
+      root = arguments_[index + 1];
+      if (!root) throw new Error("--root requires an adapter directory");
+      index += 1;
+      continue;
+    }
+    throw new Error(
+      "Usage: sync-migrations.mjs (--check|--write) [--root <adapter-dir>]",
+    );
+  }
+  if (!mode) {
+    throw new Error(
+      "Usage: sync-migrations.mjs (--check|--write) [--root <adapter-dir>]",
+    );
+  }
+  return {
+    mode,
+    root: resolve(root ?? fileURLToPath(new URL("..", import.meta.url))),
+  };
+}
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-async function sourceMigrations() {
-  const entries = await readdir(migrationsUrl, { withFileTypes: true });
+function occurrences(value, needle) {
+  return value.split(needle).length - 1;
+}
+
+function analyzeMigration(file, version, bytes, mode) {
+  const source = bytes.toString("utf8");
+  if (!Buffer.from(source, "utf8").equals(bytes)) {
+    throw new Error(`${file} must be valid UTF-8`);
+  }
+  const markers = [...source.matchAll(MARKER_PATTERN)];
+  if (markers.length !== 1 || !markers[0]?.[1]) {
+    throw new Error(`${file} must contain exactly one ${ALGORITHM} marker`);
+  }
+  const embeddedChecksum = markers[0][1];
+  if (occurrences(source, embeddedChecksum) !== 2) {
+    throw new Error(`${file} must use its checksum exactly twice`);
+  }
+  const insertPattern = new RegExp(
+    `values\\s*\\(\\s*'${version}'\\s*,\\s*'${embeddedChecksum}'\\s*\\)`,
+    "iu",
+  );
+  if (!insertPattern.test(source)) {
+    throw new Error(`${file} must record its version and checksum`);
+  }
+  const normalized = source.replaceAll(embeddedChecksum, ZERO_CHECKSUM);
+  const checksum = sha256(Buffer.from(normalized, "utf8"));
+  if (mode === "check" && embeddedChecksum !== checksum) {
+    throw new Error(`${file} has a stale embedded checksum`);
+  }
+  const finalSource = source.replaceAll(embeddedChecksum, checksum);
+  const finalBytes = Buffer.from(finalSource, "utf8");
+  return {
+    version,
+    file,
+    checksum,
+    artifactSha256: sha256(finalBytes),
+    bytes: finalBytes.byteLength,
+    finalSource,
+    changed: !finalBytes.equals(bytes),
+  };
+}
+
+async function readMigrations(adapterRoot, mode) {
+  const migrationsDirectory = resolve(adapterRoot, "supabase", "migrations");
+  const entries = await readdir(migrationsDirectory, { withFileTypes: true });
   const names = entries
-    .filter(
-      (entry) => entry.name.endsWith(".sql") && entry.name !== generatedName,
-    )
+    .filter((entry) => entry.name.endsWith(".sql"))
     .map((entry) => {
       if (!entry.isFile() || entry.isSymbolicLink()) {
         throw new Error(`Migration must be a regular file: ${entry.name}`);
@@ -44,90 +98,43 @@ async function sourceMigrations() {
       return entry.name;
     })
     .sort();
-  const versions = names.map(
-    (name) => /^(\d{12})_[a-z0-9_]+\.sql$/u.exec(name)?.[1],
-  );
-  if (
-    versions.length !== expectedInputVersions.length ||
-    versions.some((version, index) => version !== expectedInputVersions[index])
-  ) {
-    throw new Error("Supabase migration input set is incomplete or unordered");
+  if (names.length === 0) throw new Error("No Supabase migrations found");
+
+  let previousVersion;
+  const migrations = [];
+  for (const name of names) {
+    const version = FILE_PATTERN.exec(name)?.[1];
+    if (!version || (previousVersion && version <= previousVersion)) {
+      throw new Error(`Migration filenames are invalid or unordered: ${name}`);
+    }
+    previousVersion = version;
+    const path = resolve(migrationsDirectory, name);
+    const stat = await lstat(path);
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`Migration must be a regular file: ${name}`);
+    }
+    migrations.push(
+      analyzeMigration(name, version, await readFile(path), mode),
+    );
   }
-  return Promise.all(
-    names.map(async (name, index) => {
-      const url = new URL(name, migrationsUrl);
-      const stat = await lstat(url);
-      if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw new Error(`Migration must be a regular file: ${name}`);
-      }
-      return {
-        version: expectedInputVersions[index],
-        checksum: sha256(await readFile(url)),
-      };
-    }),
-  );
+  return { migrationsDirectory, migrations };
 }
 
-function migrationTemplate(inputs, selfChecksum) {
-  const values = inputs
-    .map(({ version, checksum }) => `    ('${version}', '${checksum}')`)
-    .join(",\n");
-  return `-- Generated by scripts/sync-migrations.mjs. Do not edit.
-begin;
-
-do $$
-declare
-  v_updated integer;
-begin
-  update one_fetch.migration_history as history
-  set checksum = source.checksum
-  from (values
-${values}
-  ) as source(version, checksum)
-  where history.version = source.version;
-  get diagnostics v_updated = row_count;
-  if v_updated <> ${inputs.length} then
-    raise exception using errcode = 'P0001', message = 'migration_history_incomplete';
-  end if;
-end;
-$$;
-
-create or replace function public.of_get_migration_integrity()
-returns jsonb
-language sql
-stable
-security definer
-set search_path = one_fetch, pg_temp
-as $$
-  select coalesce(jsonb_agg(
-    jsonb_build_object('version', version, 'checksum', checksum)
-    order by version
-  ), '[]'::jsonb)
-  from migration_history;
-$$;
-
-revoke all on function public.of_get_migration_integrity()
-  from public, anon, authenticated;
-grant execute on function public.of_get_migration_integrity() to service_role;
-
-insert into one_fetch.migration_history (version, checksum)
-values ('202609040009', '${selfChecksum}');
-
-commit;
-`;
-}
-
-function manifestSource(history) {
-  const rows = history
+function manifestSource(migrations) {
+  const rows = migrations
     .map(
-      ({ version, checksum }) =>
-        `  {\n    version: "${version}",\n    checksum:\n      "${checksum}",\n  },`,
+      ({ version, file, checksum, artifactSha256, bytes }) =>
+        `  {\n    version: "${version}",\n    file: "${file}",\n    checksum:\n      "${checksum}",\n    artifactSha256:\n      "${artifactSha256}",\n    bytes: ${bytes},\n  },`,
     )
     .join("\n");
-  return `// Generated by scripts/sync-migrations.mjs. Do not edit.\nexport const SUPABASE_MIGRATION_HISTORY = [\n${rows}\n] as const;\n`;
+  return `// Generated by scripts/sync-migrations.mjs. Do not edit.\nexport const SUPABASE_MIGRATION_CHECKSUM_ALGORITHM =\n  "${ALGORITHM}" as const;\nexport const SUPABASE_MIGRATION_HISTORY = [\n${rows}\n] as const;\n`;
 }
 
-function integrityTestSource(history) {
+function integrityTestSource(migrations) {
+  const history = migrations.map(({ version, checksum }) => ({
+    version,
+    checksum,
+  }));
   const expected = JSON.stringify(history).replaceAll("'", "''");
   return `-- Generated by scripts/sync-migrations.mjs. Do not edit.
 begin;
@@ -142,7 +149,7 @@ select is(
 select is(
   public.of_get_migration_integrity(),
   '${expected}'::jsonb,
-  'database migration checksums match the shipped SQL bytes'
+  'database migration checksums match ${ALGORITHM}'
 );
 
 select * from finish();
@@ -150,34 +157,46 @@ rollback;
 `;
 }
 
-const inputs = await sourceMigrations();
-const zeroChecksum = "0".repeat(64);
-const normalizedMigration = migrationTemplate(inputs, zeroChecksum);
-const selfChecksum = sha256(Buffer.from(normalizedMigration, "utf8"));
-const migration = migrationTemplate(inputs, selfChecksum);
-const manifest = manifestSource([
-  ...inputs,
-  { version: "202609040009", checksum: selfChecksum },
-]);
-const integrityTest = integrityTestSource([
-  ...inputs,
-  { version: "202609040009", checksum: selfChecksum },
-]);
+async function syncGenerated(path, expected, mode) {
+  if (mode === "check") {
+    const actual = await readFile(path, "utf8");
+    if (actual !== expected) throw new Error(`${path} is stale`);
+    return;
+  }
+  await writeFile(path, expected, "utf8");
+}
 
-async function sync(url, expected) {
-  if (CHECK.includes("--check")) {
-    const actual = await readFile(url, "utf8");
-    if (actual !== expected) {
-      throw new Error(`${fileURLToPath(url)} is stale`);
+const { mode, root: adapterRoot } = parseArguments(process.argv.slice(2));
+const { migrationsDirectory, migrations } = await readMigrations(
+  adapterRoot,
+  mode,
+);
+if (mode === "write") {
+  for (const migration of migrations) {
+    if (migration.changed) {
+      await writeFile(
+        resolve(migrationsDirectory, migration.file),
+        migration.finalSource,
+        "utf8",
+      );
     }
-  } else {
-    await writeFile(url, expected, "utf8");
   }
 }
-
-await sync(generatedMigrationUrl, migration);
-await sync(manifestUrl, manifest);
-await sync(integrityTestUrl, integrityTest);
-if (CHECK.includes("--check")) {
-  console.log("Supabase migration content manifest is current");
-}
+await syncGenerated(
+  resolve(
+    adapterRoot,
+    "supabase/functions/_shared/migration-manifest.generated.ts",
+  ),
+  manifestSource(migrations),
+  mode,
+);
+await syncGenerated(
+  resolve(adapterRoot, "supabase/tests/migration_integrity.sql"),
+  integrityTestSource(migrations),
+  mode,
+);
+console.log(
+  mode === "check"
+    ? "Supabase migration integrity is current"
+    : "Updated Supabase migration checksums and generated manifests",
+);

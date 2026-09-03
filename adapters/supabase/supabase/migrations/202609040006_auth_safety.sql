@@ -114,13 +114,8 @@ grant execute on function public.of_issue_session(
   text, text, jsonb
 ) to service_role;
 
+-- one-fetch-self-checksum-v1: 078ec284c90e752d5702a8a913688dd9731db9304b7450c80c2e50f095ae0c7f
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040006',
-  encode(extensions.digest(
-    convert_to('one-fetch-supabase-auth-safety-v1', 'UTF8'),
-    'sha256'
-  ), 'hex')
-);
+values ('202609040006', '078ec284c90e752d5702a8a913688dd9731db9304b7450c80c2e50f095ae0c7f');
 
 commit;

@@ -134,10 +134,8 @@ grant execute on function public.of_get_admin_for_password_change(uuid) to servi
 revoke all on function public.of_change_password(uuid, uuid, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.of_change_password(uuid, uuid, text, text, jsonb) to service_role;
 
+-- one-fetch-self-checksum-v1: 8931f2f241e4104b9941247fa341cabc4f44f333c2a55401775301fe54a1a532
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040005',
-  encode(extensions.digest(convert_to('one-fetch-supabase-canonical-control-v1', 'UTF8'), 'sha256'), 'hex')
-);
+values ('202609040005', '8931f2f241e4104b9941247fa341cabc4f44f333c2a55401775301fe54a1a532');
 
 commit;

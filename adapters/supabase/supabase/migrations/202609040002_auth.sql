@@ -437,10 +437,8 @@ grant execute on function public.of_revoke_execution_token(uuid, uuid, text, jso
 revoke all on function public.of_list_execution_tokens(uuid) from public, anon, authenticated;
 grant execute on function public.of_list_execution_tokens(uuid) to service_role;
 
+-- one-fetch-self-checksum-v1: aacb3a7bf0d2e30679fab5dca5d2ef883ce8a59053d796fced39290a469c6450
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040002',
-  encode(extensions.digest(convert_to('one-fetch-supabase-auth-v1', 'UTF8'), 'sha256'), 'hex')
-);
+values ('202609040002', 'aacb3a7bf0d2e30679fab5dca5d2ef883ce8a59053d796fced39290a469c6450');
 
 commit;

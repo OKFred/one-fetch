@@ -380,13 +380,8 @@ grant execute on function public.of_finalize_execution(
   uuid, bigint, uuid, text, uuid, text, jsonb, timestamptz, jsonb, boolean
 ) to service_role;
 
+-- one-fetch-self-checksum-v1: aa1d8206d0a25c5d4e592a4cf278a97c7fbb70a65584a4920ce3f0bf6e2c1371
 insert into one_fetch.migration_history (version, checksum)
-values (
-  '202609040007',
-  encode(extensions.digest(
-    convert_to('one-fetch-supabase-execution-lifecycle-v1', 'UTF8'),
-    'sha256'
-  ), 'hex')
-);
+values ('202609040007', 'aa1d8206d0a25c5d4e592a4cf278a97c7fbb70a65584a4920ce3f0bf6e2c1371');
 
 commit;
