@@ -16,6 +16,7 @@ playwright-report/
 test-results/
 *.log
 *.cpuprofile
+*.sarif
 *.tsbuildinfo
 *.sqlite
 *.sqlite-shm

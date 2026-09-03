@@ -4,5 +4,6 @@ coverage
 .wrangler
 artifacts
 pnpm-lock.yaml
+*.sarif
 adapters/cloudflare/src/generated
 adapters/supabase/**/deno.lock
