@@ -7,7 +7,6 @@ import { pathToFileURL } from "node:url";
 import { createDeterministicTarGzip } from "./deterministic-tar.mjs";
 import {
   assertInsideRepository,
-  corepackPnpm,
   defaultOutputRoot,
   digestFile,
   git,
@@ -21,7 +20,11 @@ import {
   requireVersion,
   writeJson,
 } from "./lib.mjs";
-import { materializePortableNodeModules } from "./portable-node-modules.mjs";
+import {
+  assertPortableDistributionTree,
+  materializePortableNodeModules,
+} from "./portable-node-modules.mjs";
+import { runSharedPnpmDeploy } from "./pnpm-shared-deploy.mjs";
 
 const adapterDirectory = join(repositoryRoot, "adapters", "node");
 const dockerfilePath = join(adapterDirectory, "Dockerfile");
@@ -143,7 +146,25 @@ function runtimeDependencies(dependencies, version) {
   );
 }
 
-async function pruneAdapterBuild(directory) {
+export function normalizeInternalRuntimeManifest(manifest, version) {
+  const normalized = {
+    name: manifest.name,
+    version,
+    private: true,
+    type: "module",
+    license: manifest.license,
+    exports: manifest.exports,
+  };
+  const dependencies = runtimeDependencies(manifest.dependencies, version);
+  if (Object.keys(dependencies).length > 0)
+    normalized.dependencies = dependencies;
+  const optional = runtimeDependencies(manifest.optionalDependencies, version);
+  if (Object.keys(optional).length > 0)
+    normalized.optionalDependencies = optional;
+  return normalized;
+}
+
+async function pruneRuntimeBuild(directory, keepDeclarations = false) {
   async function visit(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {
       const path = join(current, entry.name);
@@ -151,8 +172,8 @@ async function pruneAdapterBuild(directory) {
       else if (
         entry.name === ".tsbuildinfo" ||
         entry.name === "test-helpers.js" ||
-        entry.name.endsWith(".d.ts") ||
         entry.name.endsWith(".d.ts.map") ||
+        (!keepDeclarations && entry.name.endsWith(".d.ts")) ||
         entry.name.includes(".test.")
       ) {
         await rm(path, { force: true });
@@ -162,29 +183,29 @@ async function pruneAdapterBuild(directory) {
   await visit(directory);
 }
 
-async function prunePackageManagerState(directory) {
-  async function visit(current) {
-    for (const entry of await readdir(current, { withFileTypes: true })) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory() && entry.name === ".bin") {
-        await rm(path, { recursive: true, force: true });
-      } else if (entry.isDirectory()) {
-        await visit(path);
-      }
-    }
-  }
-  await visit(directory);
-  await Promise.all(
-    [
-      join(directory, ".modules.yaml"),
-      join(directory, ".package-map.json"),
-      join(directory, ".pnpm", "lock.yaml"),
-    ].map((path) => rm(path, { force: true })),
+async function normalizeInternalRuntimePackage(directory, version) {
+  const manifestPath = join(directory, "package.json");
+  await writeJson(
+    manifestPath,
+    normalizeInternalRuntimeManifest(await readJson(manifestPath), version),
   );
+  await pruneRuntimeBuild(join(directory, "dist"), true);
 }
 
 async function exists(path) {
   return Boolean(await lstat(path).catch(() => undefined));
+}
+
+async function listTreeNames(directory) {
+  const result = [];
+  async function visit(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      result.push(entry.name);
+      if (entry.isDirectory()) await visit(join(current, entry.name));
+    }
+  }
+  await visit(directory);
+  return result;
 }
 
 async function validateDeploymentTree(directory, version) {
@@ -212,8 +233,18 @@ async function validateDeploymentTree(directory, version) {
       throw new Error(`Node deployment contains development input ${path}`);
     }
   }
-  if (await exists(join(directory, "node_modules", ".pnpm"))) {
-    throw new Error("Node deployment still contains pnpm virtual-store state");
+  for (const path of [
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "node_modules/.modules.yaml",
+    "node_modules/.package-map.json",
+    "node_modules/.pnpm",
+    "node_modules.pnpm-source",
+    "node_modules.portable",
+  ]) {
+    if (await exists(join(directory, path))) {
+      throw new Error(`Node deployment still contains pnpm state ${path}`);
+    }
   }
   const manifest = await readJson(join(directory, "package.json"));
   if (
@@ -244,39 +275,61 @@ async function validateDeploymentTree(directory, version) {
       );
     }
   }
+  for (const name of ["core", "protocol"]) {
+    const packageDirectory = join(
+      directory,
+      "node_modules",
+      "@one-fetch",
+      name,
+    );
+    const internal = await readJson(join(packageDirectory, "package.json"));
+    if (
+      internal.version !== version ||
+      internal.devDependencies ||
+      internal.scripts ||
+      internal.packageManager ||
+      JSON.stringify(internal).includes("workspace:")
+    ) {
+      throw new Error(
+        `Internal runtime package ${name} has development metadata`,
+      );
+    }
+    const names = await listTreeNames(join(packageDirectory, "dist"));
+    if (
+      names.some(
+        (entry) => entry === ".tsbuildinfo" || entry.endsWith(".d.ts.map"),
+      )
+    ) {
+      throw new Error(`Internal runtime package ${name} has build metadata`);
+    }
+  }
 }
 
 async function stageNodeDeployment(directory, version) {
-  corepackPnpm(
-    [
-      "--filter",
-      "@one-fetch/adapter-node",
-      "deploy",
-      "--prod",
-      "--legacy",
-      "--offline",
-      directory,
-    ],
-    { env: { ...process.env, CI: "true" } },
-  );
-  await prunePackageManagerState(join(directory, "node_modules"));
-  // pnpm's legacy deploy adds a workspace self-link for tooling. It points back
-  // outside the deployment tree and is neither needed nor safe in an archive.
-  await rm(
-    join(
-      directory,
-      "node_modules",
-      ".pnpm",
-      "node_modules",
-      "@one-fetch",
-      "adapter-node",
-    ),
-    { recursive: true, force: true },
-  );
-  await materializePortableNodeModules(join(directory, "node_modules"));
-  await pruneAdapterBuild(join(directory, "dist"));
-
   const source = await readJson(join(adapterDirectory, "package.json"));
+  const workspace = await runSharedPnpmDeploy({
+    destinationDirectory: directory,
+    workspaceDirectory: repositoryRoot,
+  });
+  await materializePortableNodeModules(join(directory, "node_modules"), {
+    expectedStoreDir: workspace.storeDir,
+    workspaceDirectory: repositoryRoot,
+  });
+  await Promise.all(
+    ["pnpm-lock.yaml", "pnpm-workspace.yaml"].map((path) =>
+      rm(join(directory, path), { force: true }),
+    ),
+  );
+  await pruneRuntimeBuild(join(directory, "dist"));
+  await Promise.all(
+    ["core", "protocol"].map((name) =>
+      normalizeInternalRuntimePackage(
+        join(directory, "node_modules", "@one-fetch", name),
+        version,
+      ),
+    ),
+  );
+
   const dependencies = runtimeDependencies(source.dependencies, version);
   await writeJson(join(directory, "package.json"), {
     name: source.name,
@@ -305,8 +358,17 @@ async function stageNodeDeployment(directory, version) {
     node: source.engines.node,
     entrypoint: "dist/cli.js",
     dependenciesIncluded: true,
+    lockfileSha256: await digestFile(
+      join(repositoryRoot, "pnpm-lock.yaml"),
+      "sha256",
+    ),
     archiveRoot,
   });
+  await assertPortableDistributionTree(directory, [
+    repositoryRoot,
+    workspace.storeDir,
+    resolve(directory, ".."),
+  ]);
   await validateDeploymentTree(directory, version);
 }
 
@@ -366,6 +428,10 @@ export async function buildNodeDistribution(outputDirectory, version) {
       repository: "https://github.com/OKFred/one-fetch",
       commit,
       dirty: gitWorktreeStatus().length > 0,
+      lockfileSha256: await digestFile(
+        join(repositoryRoot, "pnpm-lock.yaml"),
+        "sha256",
+      ),
     },
     archive: {
       filename: filenames.archive,

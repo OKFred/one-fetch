@@ -1,28 +1,25 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import {
-  lstat,
   mkdtemp,
   mkdir,
   readFile,
-  readlink,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import process from "node:process";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
 
 import {
   nodeDistributionFilenames,
+  normalizeInternalRuntimeManifest,
   validateNodeOciConfiguration,
 } from "./build-node-distribution.mjs";
 import { createDeterministicTarGzip } from "./deterministic-tar.mjs";
 import { readJson, repositoryRoot } from "./lib.mjs";
-import { materializePortableNodeModules } from "./portable-node-modules.mjs";
 
 function tarText(header, offset, length) {
   const field = header.subarray(offset, offset + length);
@@ -69,6 +66,37 @@ test("Node distribution filenames are versioned and path-safe", () => {
   assert.throws(
     () => nodeDistributionFilenames("../0.1.0"),
     /Invalid release/u,
+  );
+});
+
+test("internal runtime manifests discard development-only metadata", () => {
+  assert.deepEqual(
+    normalizeInternalRuntimeManifest(
+      {
+        name: "@one-fetch/core",
+        version: "0.0.0",
+        license: "MIT",
+        exports: {
+          ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+        },
+        dependencies: { "@one-fetch/protocol": "workspace:*" },
+        devDependencies: { typescript: "5.9.2" },
+        packageManager: "pnpm@11.25.0",
+        scripts: { test: "vitest" },
+      },
+      "0.1.0",
+    ),
+    {
+      name: "@one-fetch/core",
+      version: "0.1.0",
+      private: true,
+      type: "module",
+      license: "MIT",
+      exports: {
+        ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      },
+      dependencies: { "@one-fetch/protocol": "0.1.0" },
+    },
   );
 });
 
@@ -154,73 +182,6 @@ test("deterministic tar refuses unsafe roots and escaping symlinks", async () =>
       }),
       /symlink escapes/u,
     );
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
-});
-
-test("portable node_modules materializes pnpm packages without links", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "one-fetch-modules-test-"));
-  try {
-    const modules = join(temporary, "node_modules");
-    const store = join(modules, ".pnpm");
-    const aggregate = join(store, "node_modules");
-    const plain = join(store, "plain@1.0.0", "node_modules", "plain");
-    const scoped = join(
-      store,
-      "@scope+tool@1.0.0",
-      "node_modules",
-      "@scope",
-      "tool",
-    );
-    await mkdir(join(aggregate, "@scope"), { recursive: true });
-    await mkdir(plain, { recursive: true });
-    await mkdir(scoped, { recursive: true });
-    await writeFile(join(plain, "index.js"), "export default 'plain';\n");
-    await writeFile(join(scoped, "index.js"), "export default 'tool';\n");
-    const linkType = process.platform === "win32" ? "junction" : "dir";
-    await symlink(plain, join(aggregate, "plain"), linkType);
-    await symlink(scoped, join(aggregate, "@scope", "tool"), linkType);
-
-    assert.deepEqual(await materializePortableNodeModules(modules), [
-      "@scope/tool",
-      "plain",
-    ]);
-    assert.equal(
-      await readFile(join(modules, "plain", "index.js"), "utf8"),
-      "export default 'plain';\n",
-    );
-    assert.equal(
-      await readFile(join(modules, "@scope", "tool", "index.js"), "utf8"),
-      "export default 'tool';\n",
-    );
-    await assert.rejects(readlink(join(modules, "plain")));
-    await assert.rejects(lstat(join(modules, ".pnpm")));
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
-});
-
-test("portable node_modules rejects dependencies outside its deployment", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "one-fetch-modules-safety-"));
-  try {
-    const modules = join(temporary, "node_modules");
-    const aggregate = join(modules, ".pnpm", "node_modules");
-    const outside = join(temporary, "outside");
-    await mkdir(aggregate, { recursive: true });
-    await mkdir(outside);
-    await writeFile(join(outside, "secret.txt"), "not a dependency\n");
-    await symlink(
-      outside,
-      join(aggregate, "escape"),
-      process.platform === "win32" ? "junction" : "dir",
-    );
-    await assert.rejects(
-      materializePortableNodeModules(modules),
-      /escapes node_modules/u,
-    );
-    assert.ok(await lstat(join(modules, ".pnpm")));
-    await assert.rejects(lstat(`${modules}.portable`));
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
