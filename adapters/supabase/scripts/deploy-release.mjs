@@ -188,7 +188,6 @@ class StateRecorder {
     await handle.close();
     return new StateRecorder(path, state);
   }
-
 }
 
 function defaultStatePath(projectRef, buildId) {
