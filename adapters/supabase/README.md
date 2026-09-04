@@ -83,19 +83,37 @@ Generate a new secrets file outside the repository:
 node scripts/generate-env.mjs --out /secure/path/one-fetch.env --project-ref abcdefghijklmnopqrst --extension-id aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --admin-origin https://admin.example
 ```
 
-The command creates the file exclusively and refuses to overwrite it. It includes the one-time bootstrap secret, token pepper, and an Ed25519 audit key pair. Do not print, upload, or commit it. Delete it after setting Supabase secrets, while retaining a protected disaster-recovery copy if desired.
+The command creates the file exclusively and refuses to overwrite it. It includes the one-time bootstrap secret, token pepper, and an Ed25519 audit key pair. Do not print, upload, or commit it. A protected disaster-recovery copy is mandatory: losing the pepper or signing key breaks account/token validation or audit-chain continuity.
 
-Deployment scripts are dry-run by default and require `--apply`/`-Apply`:
+The 0.1 Preview deployment scripts are read-only planners:
 
 ```bash
-./scripts/deploy.sh --project-ref abcdefghijklmnopqrst --env-file /secure/path/one-fetch.env --apply
+./scripts/deploy.sh --project-ref abcdefghijklmnopqrst \
+  --env-file /secure/path/one-fetch.env \
+  --expected-current-build 0.1.0+supabase.g0123456789ab
 ```
 
 ```powershell
-./scripts/deploy.ps1 -ProjectRef abcdefghijklmnopqrst -EnvFile C:\secure\one-fetch.env -Apply
+./scripts/deploy.ps1 -ProjectRef abcdefghijklmnopqrst `
+  -EnvFile C:\secure\one-fetch.env `
+  -ExpectedCurrentBuild 0.1.0+supabase.g0123456789ab
 ```
 
-Before any remote mutation, the scripts verify canonical and embedded OpenAPI freshness, run both Deno typechecks and test suites, run deployment-script tests, and stage clean self-contained bundles for both functions. Deployment rejects a dirty Git tree: the scripts inject `ONE_FETCH_BUILD_VERSION` as `package-version+supabase.g<12-character-commit>`, then verify Control health/capabilities and issue a metadata-free Gateway request that cannot reach an upstream target. The final checks require the expected instance pair/build and the Gateway's application-level `invalid_metadata` rejection. The scripts link the explicit project, push migrations, set secrets, and deploy Control before Gateway. They do not create a project, publish a Release, or modify xPanel.
+For a first deployment pass `none`; it is accepted only when neither Function
+exists. The planner validates the complete environment-file schema without
+printing values, runs the full local gate, embeds the exact commit build ID in
+both self-contained bundles, records their SHA-256 values, strictly inventories
+the project and current pair, runs `db push --dry-run --skip-vault`, and records
+the provider backup summary. It rejects a dirty Git tree.
+
+The secret-free plan is created with exclusive permissions under the ignored
+`artifacts/supabase-deployments/` directory. Passing `--apply`/`-Apply` still
+produces that plan, then fails before any database, Secret, or Function mutation.
+Apply remains intentionally unavailable until one-fetch has a remote
+compare-and-swap deployment lease plus an immutable backup ID and verified
+restore evidence. Supabase cannot atomically switch Control and Gateway, so a
+local state file alone is not a safe deployment lock. Build identity is embedded
+in each bundle and is never assigned afterward through a mutable project Secret.
 
 ## Operational boundaries
 
@@ -103,4 +121,4 @@ Before any remote mutation, the scripts verify canonical and embedded OpenAPI fr
 - Supabase platform logs may still observe the outer Gateway path/query before application redaction. Operators must configure platform retention accordingly and disclose this to users.
 - Authentication source throttles use the first `X-Forwarded-For` value supplied by the managed Supabase edge. A self-hosted proxy chain must overwrite client-supplied forwarding headers and preserve that same client-first contract; otherwise the adapter's source-rate-limit boundary is not supported.
 - Data forwarding continues if only the audit append fails and the response is marked degraded. Authentication, configuration, policy, or quota storage failures fail closed.
-- Execution reports expire after ten minutes. Burst and instance-wide aggregate quotas, scheduled cleanup, daily Merkle sealing, Webhook outbox delivery, TOTP enrollment/recovery, backup/restore, and tunnel enablement are subsequent Preview milestones and must not be represented as complete by this adapter yet.
+- Execution reports expire after ten minutes. Burst and instance-wide aggregate quotas, scheduled cleanup, daily Merkle sealing, Webhook outbox delivery, TOTP enrollment/recovery, backup/restore, safe hosted apply, and tunnel enablement are subsequent Preview milestones and must not be represented as complete by this adapter yet.

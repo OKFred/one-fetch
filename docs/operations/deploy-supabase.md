@@ -32,22 +32,44 @@ different source graphs.
 Use only synthetic data. Confirm the local stack is stopped even after a failed
 test.
 
-## Hosted Preview
+## Hosted Preview preflight
 
 Generate the environment file outside the repository with the adapter helper.
 It refuses overwrite and does not print secrets. Inspect the generated public
-URLs and explicit project ref before applying.
+URLs and explicit project ref before planning.
 
 ```bash
 cd adapters/supabase
-./scripts/deploy.sh --project-ref <exact-ref> --env-file <secure-path>
-./scripts/deploy.sh --project-ref <exact-ref> --env-file <secure-path> --apply
+./scripts/deploy.sh --project-ref <exact-ref> --env-file <secure-path> \
+  --expected-current-build <deployed-build-or-none>
 ```
 
 PowerShell uses `scripts/deploy.ps1` with `-ProjectRef`, `-EnvFile`, and
-`-Apply`. The first command is a dry-run; review it before the second. The apply
-path links the explicit project, applies migrations, sets secrets, then deploys
-Control before Gateway. It does not create a project or modify xPanel.
+`-ExpectedCurrentBuild`. Use `none` only when neither Function exists. The command
+runs all local checks, embeds the exact commit build ID into both bundles,
+records bundle digests, strictly inventories the exact project and current
+pair/build, runs `db push --dry-run --skip-vault`, and records a non-secret backup
+summary. Every remote command carries the project ref; no linked-project state is
+written.
+
+`--apply`/`-Apply` is deliberately fail-closed in 0.1 Preview. It writes a blocked
+plan under `artifacts/supabase-deployments/` (or the explicit state path), then
+exits before any database, Secret, or Function mutation. Do not bypass this gate
+with manual commands. Safe apply requires all of the following first:
+
+- a remote deployment lease with transactional compare-and-swap, expiry and
+  deployment audit events;
+- an immutable backup ID bound to this project plus recorded restore-test
+  evidence;
+- a resumable plan that binds the exact commit and both bundle hashes;
+- final strict Function inventory and Control/Gateway runtime identity checks.
+
+Supabase deploys Control and Gateway independently; a local state file cannot
+prevent two machines from interleaving those operations. Build identity is
+embedded in each Function bundle rather than assigned later through a mutable
+project Secret. Preserve the original pepper and audit-key material in protected
+disaster-recovery storage; rotating it as part of an ordinary code deployment is
+not supported.
 
 ## Acceptance
 
@@ -61,6 +83,8 @@ Gateway path/query. A successful function deploy is not acceptance. Record the
 function deployment IDs, migration checksums, capabilities/config timestamp,
 synthetic evidence, and backup restore evidence.
 
-Rollback functions to prior immutable bundles. Restore data into a separate
-project/database, verify it, then switch configuration; do not apply reverse SQL
-to the active store.
+No hosted mutation is performed by the Preview planner. When apply is later
+enabled, recovery must prefer an audited roll-forward from the exact plan. If
+that is unsafe, restore the attested pre-deploy backup into a separate project,
+verify it, then switch configuration; never apply reverse SQL to the active
+store.

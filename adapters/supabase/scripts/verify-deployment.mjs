@@ -21,6 +21,17 @@ async function readJson(response, label) {
   return response.json();
 }
 
+async function fetchWithTimeout(request, input, label, timeoutMs = 10_000) {
+  try {
+    return await request(input, {
+      signal: globalThis.AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`${label} failed within ${timeoutMs} ms: ${detail}`);
+  }
+}
+
 export async function verifyDeployment({
   buildId,
   environment,
@@ -32,19 +43,28 @@ export async function verifyDeployment({
     projectRef,
   );
   const health = await readJson(
-    await request(new URL("api/v1/health", `${controlUrl}/`)),
+    await fetchWithTimeout(
+      request,
+      new URL("api/v1/health", `${controlUrl}/`),
+      "Control health",
+    ),
     "Control health",
   );
   if (
     health.instanceId !== instanceId ||
     health.service !== "one-fetch-control" ||
+    health.status !== "ok" ||
     health.version !== buildId
   ) {
     throw new Error("Control health does not match the deployed pair/build");
   }
 
   const capabilities = await readJson(
-    await request(new URL("api/v1/capabilities", `${controlUrl}/`)),
+    await fetchWithTimeout(
+      request,
+      new URL("api/v1/capabilities", `${controlUrl}/`),
+      "Control capabilities",
+    ),
     "Control capabilities",
   );
   if (
@@ -58,7 +78,11 @@ export async function verifyDeployment({
   }
 
   const openApi = await readJson(
-    await request(new URL("api/v1/openapi.json", `${controlUrl}/`)),
+    await fetchWithTimeout(
+      request,
+      new URL("api/v1/openapi.json", `${controlUrl}/`),
+      "Control OpenAPI",
+    ),
     "Control OpenAPI",
   );
   const prepareResponses =
@@ -75,14 +99,20 @@ export async function verifyDeployment({
     throw new Error("Control OpenAPI runtime overlay is not current");
   }
 
-  const probe = await request(
+  const probe = await fetchWithTimeout(
+    request,
     new URL(
       `__one_fetch_deploy_probe__?nonce=${randomUUID()}`,
       `${gatewayUrl}/`,
     ),
+    "Gateway build probe",
   );
   const probeBody = await probe.json().catch(() => undefined);
-  if (probe.status !== 400 || probeBody?.error !== "invalid_metadata") {
+  if (
+    probe.status !== 400 ||
+    probeBody?.error !== "invalid_metadata" ||
+    probe.headers.get("one-fetch-build-version") !== buildId
+  ) {
     throw new Error(
       "Gateway did not return the expected safe protocol rejection",
     );
