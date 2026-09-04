@@ -38,7 +38,9 @@
     "verify": "pnpm typecheck && pnpm test"
   },
   "devDependencies": {
+    "@one-fetch/conformance": "workspace:*",
     "deno": "2.9.6",
+    "pnpm": "11.25.0",
     "supabase": "2.116.0",
     "vitest": "4.1.11"
   }
