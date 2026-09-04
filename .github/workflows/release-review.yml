@@ -29,7 +29,7 @@ jobs:
   bundle:
     name: build-attest-review-only
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 75
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_CHANNEL: ${{ inputs.channel }}
@@ -93,7 +93,28 @@ jobs:
       - name: Verify checks did not rewrite tracked inputs
         run: git diff --exit-code
       - run: node tools/release/build-review-bundle.mjs --version "$RELEASE_VERSION"
-      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - name: Set up QEMU for multi-platform OCI builds
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
+        with:
+          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          version: v0.37.0
+      - name: Build linux/amd64 and linux/arm64 Node OCI archive
+        shell: bash
+        working-directory: artifacts/release/${{ inputs.version }}
+        run: |
+          docker buildx build \
+            --file "one-fetch-node-${RELEASE_VERSION}.Dockerfile" \
+            --build-arg "ONE_FETCH_VERSION=${RELEASE_VERSION}" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --platform linux/amd64,linux/arm64 \
+            --output "type=oci,dest=one-fetch-node-${RELEASE_VERSION}.oci.tar" \
+            .
+      - name: Generate source distribution SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           path: .
           format: cyclonedx-json
@@ -101,7 +122,16 @@ jobs:
           output-file: artifacts/release/${{ inputs.version }}/one-fetch-sbom-${{ inputs.version }}.cdx.json
           upload-artifact: false
           upload-release-assets: false
-      - run: node tools/release/finalize-review-bundle.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL" --require-sbom
+      - name: Generate Node OCI archive SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: oci-archive:artifacts/release/${{ inputs.version }}/one-fetch-node-${{ inputs.version }}.oci.tar
+          format: cyclonedx-json
+          syft-version: v1.51.1
+          output-file: artifacts/release/${{ inputs.version }}/one-fetch-node-oci-${{ inputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - run: node tools/release/finalize-review-bundle.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL" --require-sbom --require-oci --require-oci-sbom
       - id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
