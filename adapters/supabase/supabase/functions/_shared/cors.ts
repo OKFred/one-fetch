@@ -11,7 +11,7 @@ export function applyCors(
   headers.set("access-control-allow-credentials", "true");
   headers.set(
     "access-control-expose-headers",
-    "etag, one-fetch-response, server-timing",
+    "etag, one-fetch-build-version, one-fetch-response, server-timing",
   );
   headers.append("vary", "Origin");
   return new Response(response.body, {

@@ -55,7 +55,15 @@ export function createGatewayHandler(
     if (!encoded || !token) {
       return applyCors(
         request,
-        json({ error: "invalid_metadata" }, { status: 400 }),
+        json(
+          { error: "invalid_metadata" },
+          {
+            status: 400,
+            headers: {
+              "one-fetch-build-version": environment.buildVersion,
+            },
+          },
+        ),
         environment.allowedClientOrigins,
       );
     }

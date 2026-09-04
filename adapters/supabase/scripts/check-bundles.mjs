@@ -22,12 +22,47 @@ const adapterRoot = resolve(import.meta.dirname, "..");
 const functionsRoot = join(adapterRoot, "supabase", "functions");
 const functionNames = ["one-fetch-control", "one-fetch-gateway"];
 const maxBundleBytes = 10 * 1024 * 1024;
+const buildVersionMarker = "__ONE_FETCH_BUILD_VERSION__";
+const previewBuildVersion = "0.1.0-preview";
+
+export function parseBundleOptions(argv) {
+  const modeArgument = argv[0];
+  if (!["--check", "--stage"].includes(modeArgument)) {
+    throw new Error(
+      "Usage: node scripts/check-bundles.mjs --check|--stage [--build-id <id>]",
+    );
+  }
+  let buildVersion = previewBuildVersion;
+  if (argv.length > 1) {
+    if (
+      modeArgument !== "--stage" ||
+      argv.length !== 3 ||
+      argv[1] !== "--build-id" ||
+      !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+supabase\.g[a-f0-9]{12}$/u.test(
+        argv[2] ?? "",
+      )
+    ) {
+      throw new Error(
+        "Usage: node scripts/check-bundles.mjs --check|--stage [--build-id <id>]",
+      );
+    }
+    buildVersion = argv[2];
+  }
+  return { mode: modeArgument.slice(2), buildVersion };
+}
 
 export function parseMode(argv) {
-  if (argv.length !== 1 || !["--check", "--stage"].includes(argv[0])) {
-    throw new Error("Usage: node scripts/check-bundles.mjs --check|--stage");
+  return parseBundleOptions(argv).mode;
+}
+
+export function injectBuildVersion(source, buildVersion) {
+  const occurrences = source.split(buildVersionMarker).length - 1;
+  if (occurrences !== 1) {
+    throw new Error(
+      `Function bundle must contain exactly one build marker, found ${occurrences}`,
+    );
   }
-  return argv[0].slice(2);
+  return source.replace(buildVersionMarker, buildVersion);
 }
 
 export function inspectBundle(source, functionName) {
@@ -157,19 +192,23 @@ async function stageBundle(functionName, sourcePath, details) {
   );
 }
 
-export async function buildBundles(mode) {
+export async function buildBundles(mode, buildVersion = previewBuildVersion) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "one-fetch-supabase-"));
   try {
     const outputs = [];
     for (const functionName of functionNames) {
       const outputPath = join(temporaryRoot, `${functionName}.js`);
       bundleFunction(functionName, outputPath);
-      const source = await readFile(outputPath, "utf8");
+      const source = injectBuildVersion(
+        await readFile(outputPath, "utf8"),
+        buildVersion,
+      );
+      await writeFile(outputPath, source, "utf8");
       validateBundle(outputPath, functionName);
       outputs.push({
         functionName,
         outputPath,
-        details: inspectBundle(source, functionName),
+        details: { ...inspectBundle(source, functionName), buildVersion },
       });
     }
 
@@ -195,8 +234,8 @@ const entrypoint = process.argv[1]
   ? pathToFileURL(resolve(process.argv[1])).href
   : undefined;
 if (entrypoint === import.meta.url) {
-  const mode = parseMode(process.argv.slice(2));
-  const outputs = await buildBundles(mode);
+  const { mode, buildVersion } = parseBundleOptions(process.argv.slice(2));
+  const outputs = await buildBundles(mode, buildVersion);
   for (const output of outputs) {
     console.log(
       `${mode === "stage" ? "Staged" : "Checked"} ${output.functionName}: ${output.bytes} bytes, sha256 ${output.sha256}`,

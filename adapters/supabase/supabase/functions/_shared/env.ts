@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// The deployment bundler replaces this marker in each immutable Function
+// artifact. Source-mode tests never treat it as a deployed build identity.
+const embeddedBuildVersion = "__ONE_FETCH_BUILD_VERSION__";
+
 const HttpOriginSchema = z
   .string()
   .url()
@@ -115,7 +119,7 @@ export function getEnvironment(): SupabaseEnvironment {
       Deno.env.get("ONE_FETCH_ALLOWED_CLIENT_ORIGINS"),
       true,
     ),
-    buildVersion: Deno.env.get("ONE_FETCH_BUILD_VERSION") ?? "0.1.0-preview",
+    buildVersion: embeddedBuildVersion,
   };
   return cached;
 }
