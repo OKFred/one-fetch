@@ -2,6 +2,8 @@ import console from "node:console";
 import { copyFile } from "node:fs/promises";
 import process from "node:process";
 
+import { buildAdminDistribution } from "./build-admin-distribution.mjs";
+import { buildNodeDistribution } from "./build-node-distribution.mjs";
 import { buildReleasePackages } from "./build-packages.mjs";
 import { generateProtocolSchemas } from "./generate-schemas.mjs";
 import {
@@ -30,6 +32,8 @@ const outputDirectory = releaseDirectory(version, outputRoot);
 
 await resetDirectory(outputDirectory);
 const packageFiles = await buildReleasePackages(outputDirectory, version);
+const nodeFiles = await buildNodeDistribution(outputDirectory, version);
+const adminFiles = await buildAdminDistribution(outputDirectory, version);
 const schemaFile = await generateProtocolSchemas(outputDirectory, version);
 
 const openApi = await readJson(
@@ -50,6 +54,14 @@ if (
 }
 
 console.log(
-  `Built ${packageFiles.length + 2} review artifacts in ${outputDirectory}`,
+  `Built ${packageFiles.length + nodeFiles.length + adminFiles.length + 2} review artifacts in ${outputDirectory}`,
 );
-console.log([...packageFiles, schemaFile, openApiFilename].join("\n"));
+console.log(
+  [
+    ...packageFiles,
+    ...nodeFiles,
+    ...adminFiles,
+    schemaFile,
+    openApiFilename,
+  ].join("\n"),
+);
