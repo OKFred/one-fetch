@@ -40,7 +40,14 @@ an unknown database version or a checksum mismatch still prevents startup.
 The release builder creates `one-fetch-node-<version>.tar.gz` with the compiled
 ESM runtime, migrations, license, and all production dependencies. It does not
 need `pnpm install` after extraction and contains no adapter tests or TypeScript
-source. Build it only after the workspace build has completed:
+source. Build it only after `pnpm install --frozen-lockfile` and the workspace
+build have completed. Artifact assembly performs no dependency resolution or
+network access: it verifies that the installed virtual-store lock exactly
+matches `pnpm-lock.yaml`, then runs the installed, validated pnpm 11.25.0 with
+shared-lockfile deploy, frozen/offline/read-only-store mode, workspace
+injection, and scripts disabled. The validated content-store path is passed
+explicitly, so packaging does not depend on pnpm's registry metadata cache,
+modify the store, or silently select a store on another drive.
 
 ```bash
 node tools/release/build-node-distribution.mjs --version 0.1.0

@@ -37,10 +37,21 @@ invokes npm publish, a provider CLI deploy, Git tagging, or GitHub Release APIs.
 The protocol bundle derives JSON Schemas from the built Zod schemas. The Control
 OpenAPI document is version-checked before packaging.
 
-The portable Node archive is assembled offline from the frozen pnpm store. It
-contains compiled ESM, migrations and production dependencies, materializes a
-link-free dependency tree, removes adapter tests and package-manager state,
-normalizes tar metadata, and rejects paths that leave the staging tree. Its
+The portable Node archive is assembled without network access from the verified
+pnpm content store. Before deployment, the builder requires
+`node_modules/.pnpm/lock.yaml` to match the committed `pnpm-lock.yaml` byte for
+byte and validates the root modules state, content store, virtual store, pending
+builds, and installed pnpm 11.25.0 executable. That exact executable performs a
+shared-lockfile deploy with frozen/offline/read-only-store mode, workspace
+injection, production and optional dependencies, and lifecycle scripts
+disabled. An empty pnpm metadata cache is covered by regression testing.
+
+The materializer merges pnpm's direct and aggregate transitive package entries,
+then fails closed on package-name, version, canonical-target, or peer-context
+conflicts. The result contains compiled ESM, migrations and production
+dependencies, materializes a link-free dependency tree, removes adapter tests
+and package-manager state, normalizes tar metadata, and rejects native addons,
+platform-restricted packages, escaping paths, and build-machine absolute paths. Its
 versioned Dockerfile consumes only that archive, runs as a non-root user, and
 binds both the Dockerfile frontend and the Node 24 multi-platform base image to
 the exact index digests recorded in the accompanying OCI metadata. A
