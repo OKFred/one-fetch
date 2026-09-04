@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "archive": {
+    "filenameTemplate": "one-fetch-node-{version}.tar.gz",
+    "rootDirectory": "one-fetch"
+  },
+  "frontend": {
+    "tag": "docker/dockerfile:1.7",
+    "reference": "docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e",
+    "indexDigest": "sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e",
+    "verifiedAt": "2026-09-04"
+  },
+  "baseImage": {
+    "tag": "docker.io/library/node:24.20.0-bookworm-slim",
+    "reference": "docker.io/library/node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e",
+    "indexDigest": "sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e",
+    "verifiedAt": "2026-09-04",
+    "platformManifests": {
+      "linux/amd64": "sha256:6642ef280aebc09c4541bee0b15c9f89f0f3f3c247ddee79ae1d37eddfdcbbaa",
+      "linux/arm64": "sha256:e9b5516b06baeaea9a8e65a7aec6a85fbb960a30b52b66968f2c8092b3e2a3eb"
+    }
+  },
+  "build": {
+    "contextTemplate": "artifacts/release/{version}",
+    "dockerfileTemplate": "one-fetch-node-{version}.Dockerfile",
+    "platforms": ["linux/amd64", "linux/arm64"],
+    "requiredArguments": ["ONE_FETCH_VERSION", "VCS_REF"],
+    "recommendedOutput": "type=oci"
+  },
+  "runtime": {
+    "nodeVersion": "24.20.0",
+    "user": "node",
+    "entrypoint": ["node", "dist/cli.js"],
+    "dataDirectory": "/var/lib/one-fetch"
+  },
+  "verificationCommand": "docker buildx imagetools inspect node:24.20.0-bookworm-slim --format '{{json .Manifest}}'"
+}

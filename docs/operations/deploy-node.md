@@ -11,8 +11,10 @@ supported in 1.0.
 ## Prepare
 
 1. Create a non-root service account and a private data directory.
-2. Install the immutable source/artifact revision and Node 24 LTS.
-3. Run `corepack pnpm install --frozen-lockfile` and
+2. Install the immutable source revision and Node 24 LTS, or extract the
+   versioned portable Node archive. The archive already includes production
+   dependencies and must be verified against the release checksums/provenance.
+3. For a source installation, run `corepack pnpm install --frozen-lockfile` and
    `corepack pnpm --filter @one-fetch/adapter-node build`.
 4. Generate independent high-entropy instance pepper and protocol key, plus an
    Ed25519 PKCS#8 audit key. Put them in the service secret store.
@@ -66,3 +68,12 @@ Use service-manager restart limits, a read-only application directory, a private
 writable data directory, memory/CPU/file descriptor limits, egress firewall
 rules, and TLS timeouts. Container deployments should run a digest-pinned Node 24
 image as non-root and mount only the data directory and secrets.
+
+The release bundle supplies a Dockerfile and OCI metadata tied to the portable
+archive. Its build context is the release-version directory, not the repository
+root, so source, local dependencies, and secret files cannot enter the image
+context. Pass the exact version and source commit as build arguments, verify the
+recorded base-image index/platform digests, and create the OCI output without
+`--push` until the image has passed this runbook's acceptance checks. The
+Dockerfile-specific ignore file limits the build context to the named Node
+archive; keep it beside the versioned Dockerfile when building.

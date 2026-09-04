@@ -34,3 +34,35 @@ pnpm --filter @one-fetch/adapter-node migrations:check
 Generation refuses to change, rename, reorder, or delete any migration already
 recorded in the manifest. Migration files must be regular, BOM-free UTF-8 files;
 an unknown database version or a checksum mismatch still prevents startup.
+
+## Portable ESM archive and OCI image
+
+The release builder creates `one-fetch-node-<version>.tar.gz` with the compiled
+ESM runtime, migrations, license, and all production dependencies. It does not
+need `pnpm install` after extraction and contains no adapter tests or TypeScript
+source. Build it only after the workspace build has completed:
+
+```bash
+node tools/release/build-node-distribution.mjs --version 0.1.0
+```
+
+The same release directory contains a versioned Dockerfile and OCI build
+metadata. The Dockerfile consumes that exact archive, runs as the built-in
+`node` user, restricts its context with a Dockerfile-specific ignore file, and
+pins both its frontend and the multi-platform `node:24.20.0-bookworm-slim` image
+by OCI index digest. Build an OCI layout locally without pushing it:
+
+```bash
+cd artifacts/release/0.1.0
+docker buildx build \
+  --file one-fetch-node-0.1.0.Dockerfile \
+  --build-arg ONE_FETCH_VERSION=0.1.0 \
+  --build-arg VCS_REF="$(git rev-parse HEAD)" \
+  --platform linux/amd64,linux/arm64 \
+  --output type=oci,dest=one-fetch-node-0.1.0.oci.tar \
+  .
+```
+
+Mount `/var/lib/one-fetch` as the only writable data directory and inject all
+secrets at runtime. Never bake an `.env` file or plaintext secret into either
+artifact.

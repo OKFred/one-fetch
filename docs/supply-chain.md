@@ -37,6 +37,15 @@ invokes npm publish, a provider CLI deploy, Git tagging, or GitHub Release APIs.
 The protocol bundle derives JSON Schemas from the built Zod schemas. The Control
 OpenAPI document is version-checked before packaging.
 
+The portable Node archive is assembled offline from the frozen pnpm store. It
+contains compiled ESM, migrations and production dependencies, materializes a
+link-free dependency tree, removes adapter tests and package-manager state,
+normalizes tar metadata, and rejects paths that leave the staging tree. Its
+versioned Dockerfile consumes only that archive, runs as a non-root user, and
+binds both the Dockerfile frontend and the Node 24 multi-platform base image to
+the exact index digests recorded in the accompanying OCI metadata. A
+Dockerfile-specific ignore file restricts the build context to that archive.
+
 Syft generates CycloneDX JSON with an exact tool version. The finalizer records
 source commit/ref/dirty state, file sizes, SHA-256/SHA-512, package/protocol
 version, channel, and explicit non-deployment flags. GitHub's OIDC-backed

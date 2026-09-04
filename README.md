@@ -85,8 +85,9 @@ Adapter-specific checks and environment requirements are in the
 
 one-fetch packages are not published to npm. A reviewed GitHub Release will
 contain immutable protocol/client archives, JSON Schemas, Control OpenAPI,
-TypeScript declarations, checksums, an SBOM, and GitHub provenance. CI and the
-manual artifact workflow do not deploy an adapter or create a GitHub Release.
+TypeScript declarations, a portable Node ESM archive and digest-pinned OCI build
+inputs, checksums, an SBOM, and GitHub provenance. CI and the manual artifact
+workflow do not deploy an adapter, push an image, or create a GitHub Release.
 
 ## License
 
