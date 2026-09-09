@@ -28,6 +28,9 @@ export const declaredResponseExceedsLimit = (
   return Number.isSafeInteger(size) && size > limit;
 };
 
+export const responseBodyCompleted = (response: IncomingMessage): boolean =>
+  response.complete;
+
 export const auditAccepted = async (
   dependencies: GatewayDependencies,
   request: IncomingMessage,
@@ -104,6 +107,15 @@ export const streamTarget = async (
       hash.update(chunk);
       if (!response.write(chunk))
         await new Promise<void>((resolve) => response.once("drain", resolve));
+    }
+    if (!responseBodyCompleted(upstream.response)) {
+      outcome = "partial";
+      throw failure(
+        "upstream_network",
+        "upstream-body",
+        "Target response ended before its message completed",
+        502,
+      );
     }
     response.end();
   } catch (error) {

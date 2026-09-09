@@ -249,7 +249,11 @@ async function runCase(
   } catch (error) {
     observed.source = "client";
     observed.errorCode = errorName(error);
-    if (!acceptedClientFailure(fixture, error)) {
+    if (fixture.expected.incomplete !== undefined) {
+      failures.push(
+        "request failed before the incomplete outcome could be verified",
+      );
+    } else if (!acceptedClientFailure(fixture, error)) {
       failures.push(
         error instanceof Error
           ? `${error.name}: ${error.message}`

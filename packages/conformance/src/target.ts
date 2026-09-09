@@ -117,12 +117,13 @@ export async function handleConformanceTarget(
     let emitted = false;
     return new Response(
       new ReadableStream<Uint8Array>({
-        pull(controller) {
+        async pull(controller) {
           if (!emitted) {
             emitted = true;
             controller.enqueue(new TextEncoder().encode("partial"));
             return;
           }
+          await new Promise<void>((resolve) => setTimeout(resolve, 50));
           controller.error(new Error("synthetic target body failure"));
         },
       }),
