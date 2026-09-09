@@ -225,13 +225,15 @@ export function failedDeploymentState(state) {
 }
 
 export function resetDeploymentLifecycle(state) {
-  const {
-    failureAt: _failureAt,
-    verifiedAt: _verifiedAt,
-    rolledBackAt: _rolledBackAt,
-    cleanupFailures: _cleanupFailures,
-    cleanedAt: _cleanedAt,
-    ...current
-  } = state;
+  const current = { ...state };
+  for (const key of [
+    "failureAt",
+    "verifiedAt",
+    "rolledBackAt",
+    "cleanupFailures",
+    "cleanedAt",
+  ]) {
+    delete current[key];
+  }
   return current;
 }

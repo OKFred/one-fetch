@@ -124,7 +124,7 @@ describe("portable Gateway conformance suite", () => {
       }),
     );
     expect(response.status).toBe(404);
-    const payload = await response.json();
+    const payload = (await response.json()) as unknown;
     expect(payload).toEqual({
       error: "fixture-not-found",
       method: "POST",

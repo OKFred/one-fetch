@@ -10,6 +10,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.wrangler/**",
       "**/.one-fetch-bundle/**",
+      "**/.tools/**",
       "**/src/generated/**",
       "**/worker-configuration.d.ts",
     ],
