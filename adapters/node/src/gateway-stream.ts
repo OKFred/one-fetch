@@ -17,6 +17,17 @@ import type { QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
 import type { executeUpstream } from "./upstream.js";
 
+export const declaredResponseExceedsLimit = (
+  response: IncomingMessage,
+  limit: number,
+): boolean => {
+  const value = response.headers["content-length"];
+  if (typeof value !== "string" || !/^(?:0|[1-9][0-9]*)$/u.test(value))
+    return false;
+  const size = Number(value);
+  return Number.isSafeInteger(size) && size > limit;
+};
+
 export const auditAccepted = async (
   dependencies: GatewayDependencies,
   request: IncomingMessage,

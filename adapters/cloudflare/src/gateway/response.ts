@@ -41,9 +41,30 @@ export interface TargetResponseInput {
   cancellationReason?(): "timeout" | "cancelled" | undefined;
 }
 
+export function declaredResponseExceedsLimit(
+  headers: Headers,
+  limit: number,
+): boolean {
+  const value = headers.get("Content-Length");
+  if (value === null || !/^(?:0|[1-9][0-9]*)$/u.test(value)) return false;
+  const size = Number(value);
+  return Number.isSafeInteger(size) && size > limit;
+}
+
 export async function targetResponse(
   input: TargetResponseInput,
 ): Promise<Response> {
+  if (
+    declaredResponseExceedsLimit(input.response.headers, input.maxResponseBytes)
+  ) {
+    await input.response.body?.cancel("response_too_large");
+    throw problem(
+      "response_too_large",
+      "upstream-headers",
+      "Target declared a response body larger than the configured limit",
+      502,
+    );
+  }
   const targetHeaders = targetHeaderEntries(input.response.headers);
   const setCookie = getSetCookie(input.response.headers);
   const unsigned: OneFetchUnsignedResponseMetaV1 = {

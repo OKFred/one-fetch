@@ -35,7 +35,11 @@ import {
   setTargetResponseMetadata,
   type ResponseContext,
 } from "./gateway-response.js";
-import { auditAccepted, streamTarget } from "./gateway-stream.js";
+import {
+  auditAccepted,
+  declaredResponseExceedsLimit,
+  streamTarget,
+} from "./gateway-stream.js";
 import { setCookieValues, validateTargetHeaders } from "./headers.js";
 import type { QuotaCoordinator, QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
@@ -384,6 +388,20 @@ const handleGatewayRequest = async (
       signal: abort.signal,
       targetOrigin: metadata.targetOrigin!,
     });
+    if (
+      declaredResponseExceedsLimit(
+        upstream.response,
+        dependencies.config.responseBodyLimitBytes,
+      )
+    ) {
+      upstream.response.resume();
+      throw failure(
+        "response_too_large",
+        "upstream-headers",
+        "Target declared a response body larger than the configured limit",
+        502,
+      );
+    }
     const serverTiming = parseServerTiming(
       upstream.response.headers["server-timing"],
     );

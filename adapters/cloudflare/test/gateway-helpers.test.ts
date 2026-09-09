@@ -7,8 +7,24 @@ import {
   outerResponseHeaders,
 } from "../src/gateway/headers";
 import { evaluatePolicies } from "../src/gateway/policy";
+import { declaredResponseExceedsLimit } from "../src/gateway/response";
 
 describe("transparent Gateway helpers", () => {
+  it("rejects only declared response lengths above the configured limit", () => {
+    expect(
+      declaredResponseExceedsLimit(
+        new Headers({ "Content-Length": "20971521" }),
+        20_971_520,
+      ),
+    ).toBe(true);
+    expect(
+      declaredResponseExceedsLimit(
+        new Headers({ "Content-Length": "20971520" }),
+        20_971_520,
+      ),
+    ).toBe(false);
+  });
+
   it("keeps target headers separate and never applies Set-Cookie to the gateway", () => {
     const target = new Headers();
     target.append("Content-Type", "application/json");
