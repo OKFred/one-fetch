@@ -1,4 +1,4 @@
-import { handleConformanceTarget } from "@one-fetch/conformance";
+import { handleConformanceTarget } from "../../packages/conformance/dist/index.js";
 
 export default {
   fetch(request) {
