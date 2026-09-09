@@ -11,6 +11,7 @@
   },
   "scripts": {
     "acceptance:gateway": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/run-gateway-conformance.mjs",
+    "acceptance:finalize": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/finalize-report.mjs",
     "build": "pnpm -r --if-present build",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tools && pnpm build && pnpm check:openapi && pnpm check:security",
     "check:openapi": "node tools/release/generate-openapi.mjs --check",
@@ -28,7 +29,7 @@
     "release:finalize": "node tools/release/finalize-review-bundle.mjs",
     "release:verify": "node tools/release/verify-release-input.mjs",
     "test:release": "node --test tools/release/*.test.mjs",
-    "test:tools": "node --test tools/release/*.test.mjs tools/deploy/*.test.mjs"
+    "test:tools": "pnpm --filter @one-fetch/conformance build && node --test tools/release/*.test.mjs tools/deploy/*.test.mjs tools/acceptance/*.test.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.1",

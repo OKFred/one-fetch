@@ -43,3 +43,20 @@ report and refuses to overwrite an existing report.
 Only mark cleanup `verified` after a separate provider inventory confirms every
 recorded temporary resource is absent. A passing suite with `cleanup=pending`
 is not final release evidence.
+
+After that independent inventory, finalize into a new file. Every `--absent`
+value must exactly match a resource recorded in the pending report; the tool
+refuses missing, extra, duplicate, or changed identifiers and never overwrites
+the original evidence:
+
+```sh
+pnpm acceptance:finalize -- \
+  --input artifacts/acceptance/cloudflare-pending.json \
+  --output artifacts/acceptance/cloudflare.json \
+  --absent worker:one-fetch-preview-fixture-a1 \
+  --absent d1:one-fetch-preview-a1
+```
+
+For a local Node run that records no provider resources, pass
+`--not-applicable` instead. This flag is invalid when the report contains any
+resource identifiers.
