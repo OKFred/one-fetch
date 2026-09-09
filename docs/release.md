@@ -78,8 +78,9 @@ license before installing any archive.
 
 Use synthetic targets and an exact temporary environment on each platform:
 
-- Node 24 LTS and Node 26 test matrix, SQLite crash/recovery, DNS pinning,
-  proxies, CA/client certificate, timing, and every advertised tunnel.
+- Node 24.20.0 and Node 26 test matrix, SQLite crash/recovery, DNS pinning,
+  explicit proxy rejection, CA/client certificate, timing, and rejection of
+  every unsupported tunnel before upstream connection.
 - Cloudflare workerd tests plus a temporary real Control/Gateway/D1/DO stack,
   Service Binding, cancellation, limits, header mutation, and cleanup.
 - Supabase local Docker plus a temporary hosted project/functions/PostgreSQL

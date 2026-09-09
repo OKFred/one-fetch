@@ -45,7 +45,6 @@ import {
   resolveApprovedTarget,
   TargetPolicyDeniedError,
 } from "./upstream.js";
-import { attachTunnelServer } from "./tunnel-server.js";
 
 export interface GatewayDependencies {
   audit: AuditLedger;
@@ -468,6 +467,23 @@ export const createGatewayServer = (
   const server = createServer((request, response) => {
     void handleGatewayRequest(request, response, dependencies);
   });
-  attachTunnelServer(server, dependencies);
+  server.on("upgrade", (_request, socket) => {
+    socket.end(
+      "HTTP/1.1 501 Not Implemented\r\n" +
+        "Connection: close\r\n" +
+        "Cache-Control: no-store\r\n" +
+        "Content-Type: application/problem+json; charset=utf-8\r\n" +
+        "\r\n" +
+        JSON.stringify({
+          error: {
+            code: "protocol_unsupported",
+            message: "The 0.1 Preview runtime exposes only HTTP requests",
+            origin: "adapter",
+            retryable: false,
+            stage: "protocol",
+          },
+        }),
+    );
+  });
   return server;
 };

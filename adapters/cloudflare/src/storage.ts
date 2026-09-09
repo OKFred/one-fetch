@@ -149,17 +149,16 @@ export function createCapabilities(
     transports: {
       http: { state: "stable" },
       websocket: {
-        state: "experimental",
-        detail:
-          "Uses the signed first-frame one-fetch tunnel handshake; outer WebSocket subprotocol is fixed to one-fetch.v1.",
+        state: "unsupported",
+        detail: "The 0.1 Preview runtime exposes only the HTTP data plane.",
       },
       tcp: {
         state: "unsupported",
-        detail: "The 0.1 Cloudflare adapter currently exposes only HTTP/SSE.",
+        detail: "The 0.1 Preview runtime exposes only the HTTP data plane.",
       },
       tls: {
         state: "unsupported",
-        detail: "The 0.1 Cloudflare adapter currently exposes only HTTP/SSE.",
+        detail: "The 0.1 Preview runtime exposes only the HTTP data plane.",
       },
     },
     limits: {

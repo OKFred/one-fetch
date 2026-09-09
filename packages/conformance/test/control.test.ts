@@ -35,9 +35,9 @@ const capabilities = {
   policyMode: "allowlist",
   transports: {
     http: { state: "stable" },
-    websocket: { state: "experimental" },
-    tcp: { state: "experimental" },
-    tls: { state: "experimental" },
+    websocket: { state: "unsupported" },
+    tcp: { state: "unsupported" },
+    tls: { state: "unsupported" },
   },
   limits: {
     metadataBytes: 49_152,

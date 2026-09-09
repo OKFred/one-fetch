@@ -1,5 +1,24 @@
 import { handleGatewayRequest } from "./gateway-handler";
-import { handleGatewayTunnel } from "./gateway/tunnel";
+
+const rejectUpgrade = (): Response =>
+  Response.json(
+    {
+      error: {
+        code: "protocol_unsupported",
+        message: "The 0.1 Preview runtime exposes only HTTP requests",
+        origin: "adapter",
+        retryable: false,
+        stage: "protocol",
+      },
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/problem+json; charset=utf-8",
+      },
+      status: 501,
+    },
+  );
 
 export default {
   async fetch(
@@ -8,7 +27,7 @@ export default {
     ctx: ExecutionContext,
   ): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
-      return handleGatewayTunnel(request, env, ctx);
+      return rejectUpgrade();
     }
     return handleGatewayRequest(request, env, ctx);
   },

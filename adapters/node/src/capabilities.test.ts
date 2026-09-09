@@ -33,6 +33,13 @@ const unsupportedFetchOptions = [
 describe("Node fetch-option capabilities", () => {
   const capabilities = createCapabilities(testConfig(":memory:"), stored);
 
+  it("exposes HTTP as the only Preview transport", () => {
+    expect(capabilities.transports.http.state).toBe("stable");
+    expect(capabilities.transports.websocket.state).toBe("unsupported");
+    expect(capabilities.transports.tcp.state).toBe("unsupported");
+    expect(capabilities.transports.tls.state).toBe("unsupported");
+  });
+
   it("rejects proxy routing until approved-IP pinning can be preserved", () => {
     const result = classifyFetchOptions(
       {

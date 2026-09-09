@@ -69,6 +69,11 @@ redirect is returned for user confirmation.
 
 ## Tunnels and protocol upgrades
 
+All three `0.1 Preview` adapters expose only HTTP. WebSocket, TCP, and TLS are
+reported as unsupported, and upgrade attempts are rejected before an upstream
+connection is created. The following protocol shape is reserved for later
+versions and is not a shipped runtime path in `0.1`.
+
 The browser-facing WebSocket negotiates only `one-fetch.v1`. Before any upstream
 connection is opened, the first client text frame must be a valid
 `TunnelClientHelloV1` containing the execution token and request metadata. The

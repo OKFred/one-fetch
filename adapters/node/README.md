@@ -13,6 +13,11 @@ The initial process prints a one-time bootstrap token. The token is stored only 
 
 Target response headers, including repeated `Set-Cookie`, are transported inside signed one-fetch response metadata. They are never applied to the Gateway origin. DNS, TCP, TLS, TTFB and target-provided `Server-Timing` are reported when measurable; connection reuse or proxying can make individual phases unavailable.
 
+The `0.1 Preview` runtime exposes only HTTP. WebSocket, TCP, and TLS tunnel
+capabilities are reported as `unsupported`, and protocol upgrades are rejected
+before any target connection is opened. Dormant tunnel modules are retained for
+future conformance work but are not registered by the shipped server.
+
 ## SQLite migrations
 
 `migrations/` is the append-only source of the SQL executed by the database

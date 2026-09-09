@@ -23,6 +23,7 @@ import {
   testExecutionTokenRequest,
 } from "./test-helpers.js";
 import { tunnelDataToText } from "./tunnel-data.js";
+import { attachTunnelServer } from "./tunnel-server.js";
 
 type ClosableServer = Server | TcpServer;
 
@@ -139,11 +140,42 @@ const baseMetadata = (
 });
 
 const cleanups: Array<() => Promise<void>> = [];
+
+const createFutureTunnelTestServer = (
+  services: Awaited<ReturnType<typeof createTestServices>>,
+): Server => {
+  const server = createGatewayServer(services);
+  server.removeAllListeners("upgrade");
+  attachTunnelServer(server, services);
+  return server;
+};
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
 describe("Node tunnel gateway", () => {
+  it("keeps the shipped Preview server HTTP-only", async () => {
+    const services = await createTestServices();
+    cleanups.push(services.cleanup);
+    const gateway = createGatewayServer(services);
+    const gatewayPort = await listen(gateway);
+    cleanups.push(() => closeServer(gateway));
+
+    const status = await new Promise<number>((resolve, reject) => {
+      const socket = new WebSocket(`ws://127.0.0.1:${gatewayPort}/upgrade`);
+      socket.once("open", () =>
+        reject(new Error("Upgrade unexpectedly opened")),
+      );
+      socket.once("unexpected-response", (_request, response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      });
+      socket.once("error", reject);
+    });
+
+    expect(status).toBe(501);
+  });
+
   it("does not connect upstream before a valid authenticated hello", async () => {
     let connections = 0;
     const target = createTcpServer(() => {
@@ -153,7 +185,7 @@ describe("Node tunnel gateway", () => {
     cleanups.push(() => closeServer(target));
     const services = await createTestServices();
     cleanups.push(services.cleanup);
-    const gateway = createGatewayServer(services);
+    const gateway = createFutureTunnelTestServer(services);
     const gatewayPort = await listen(gateway);
     cleanups.push(() => closeServer(gateway));
 
@@ -202,7 +234,7 @@ describe("Node tunnel gateway", () => {
         name: "Allow TCP fixture",
       },
     ]);
-    const gateway = createGatewayServer(services);
+    const gateway = createFutureTunnelTestServer(services);
     const gatewayPort = await listen(gateway);
     cleanups.push(() => closeServer(gateway));
     const client = await openClient(gatewayPort, "/raw?trace=1");
@@ -289,7 +321,7 @@ describe("Node tunnel gateway", () => {
         name: "Allow WebSocket fixture",
       },
     ]);
-    const gateway = createGatewayServer(services);
+    const gateway = createFutureTunnelTestServer(services);
     const gatewayPort = await listen(gateway);
     cleanups.push(() => closeServer(gateway));
     const client = await openClient(gatewayPort, "/events?room=one");

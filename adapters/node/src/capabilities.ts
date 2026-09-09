@@ -94,9 +94,18 @@ export const createCapabilities = (
   },
   transports: {
     http: { state: "stable" },
-    websocket: { state: "experimental" },
-    tcp: { state: "experimental" },
-    tls: { state: "experimental" },
+    websocket: {
+      state: "unsupported",
+      detail: "The 0.1 Preview runtime exposes only the HTTP data plane",
+    },
+    tcp: {
+      state: "unsupported",
+      detail: "The 0.1 Preview runtime exposes only the HTTP data plane",
+    },
+    tls: {
+      state: "unsupported",
+      detail: "The 0.1 Preview runtime exposes only the HTTP data plane",
+    },
   },
   limits: {
     metadataBytes: ONE_FETCH_LIMITS_V1.metadataBytes,

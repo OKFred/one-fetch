@@ -9,15 +9,11 @@ This adapter deploys two independent Workers:
 
 ## Preview capability boundary
 
-HTTP is stable in the adapter and WebSocket is experimental. WebSocket clients
-must negotiate only `one-fetch.v1`, then send `TunnelClientHelloV1` as the first
-text frame. The Worker authenticates and evaluates policy before opening the
-target socket; its first response frame is the signed `TunnelServerHelloV1`.
-
-TCP and TLS tunnels remain `unsupported` in `0.1`. Cloudflare exposes outbound
-sockets, but these transports stay disabled until the adapter has runtime probes,
-DNS-rebinding coverage, byte-level backpressure tests, and real-environment
-conformance evidence. Capabilities must not be changed before that work exists.
+HTTP is stable in the adapter. WebSocket, TCP, and TLS tunnels are all
+`unsupported` in `0.1 Preview`; upgrade requests are rejected before any target
+connection. The shared tunnel protocol and dormant implementation remain future
+work only. Capabilities must not change until runtime probes, DNS-rebinding
+coverage, byte-level backpressure tests, and real-environment conformance exist.
 
 Cloudflare Fetch does not expose separate target DNS, TCP-connect, or TLS timing.
 Those phases are explicitly reported as unavailable. Gateway-observed auth,

@@ -2,8 +2,13 @@ import { classifyFetchOptions } from "@one-fetch/core";
 import type { FetchOptionsV1 } from "@one-fetch/protocol";
 import { describe, expect, it } from "vitest";
 
-import { CLOUDFLARE_FETCH_CAPABILITIES } from "../src/storage";
+import {
+  CLOUDFLARE_FETCH_CAPABILITIES,
+  createCapabilities,
+  type InstanceRecord,
+} from "../src/storage";
 import { buildUpstreamHeaders } from "../src/gateway/headers";
+import { DEFAULT_CONFIG } from "../src/types";
 
 const unsupportedFetchOptions = [
   ["cache", { cache: "no-store" }],
@@ -18,6 +23,24 @@ const unsupportedFetchOptions = [
 ] as const satisfies readonly (readonly [string, Partial<FetchOptionsV1>])[];
 
 describe("Cloudflare fetch-option capabilities", () => {
+  it("exposes HTTP as the only Preview transport", () => {
+    const instance: InstanceRecord = {
+      auditDegraded: false,
+      config: DEFAULT_CONFIG,
+      configRevision: 0,
+      configUpdatedAt: "2026-09-04T00:00:00.000Z",
+      configVersion: "preview:0",
+      gatewayPaused: false,
+      instanceId: "cloudflare-preview",
+    };
+
+    const transports = createCapabilities(instance, "0.1.0").transports;
+    expect(transports.http.state).toBe("stable");
+    expect(transports.websocket.state).toBe("unsupported");
+    expect(transports.tcp.state).toBe("unsupported");
+    expect(transports.tls.state).toBe("unsupported");
+  });
+
   it.each(unsupportedFetchOptions)(
     "rejects the unimplemented %s option instead of silently ignoring it",
     (option, value) => {
