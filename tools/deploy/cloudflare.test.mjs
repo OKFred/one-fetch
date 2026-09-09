@@ -92,6 +92,10 @@ test("Cloudflare generated config uses exact owned resources", () => {
     configs.gateway.compatibility_flags.includes("nodejs_compat"),
     false,
   );
+  assert.deepEqual(configs.gateway.compatibility_flags, [
+    "enable_request_signal",
+    "global_fetch_strictly_public",
+  ]);
   assert.deepEqual(configs.control.exports, {
     AuthDurableObject: { type: "durable-object", storage: "sqlite" },
     QuotaDurableObject: { type: "durable-object", storage: "sqlite" },

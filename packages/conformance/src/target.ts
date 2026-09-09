@@ -124,5 +124,13 @@ export async function handleConformanceTarget(
       { headers: { "Content-Type": "application/octet-stream" } },
     );
   }
-  return new Response("fixture-not-found", { status: 404 });
+  return json(
+    {
+      error: "fixture-not-found",
+      method: request.method,
+      path: url.pathname,
+      rawQuery: url.search.slice(1),
+    },
+    { status: 404 },
+  );
 }

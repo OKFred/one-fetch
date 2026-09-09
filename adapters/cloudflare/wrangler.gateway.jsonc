@@ -3,7 +3,10 @@
   "name": "one-fetch-gateway",
   "main": "src/gateway.ts",
   "compatibility_date": "2026-09-04",
-  "compatibility_flags": ["enable_request_signal"],
+  "compatibility_flags": [
+    "enable_request_signal",
+    "global_fetch_strictly_public",
+  ],
   "workers_dev": true,
   "vars": {
     "ADAPTER_NAME": "cloudflare",

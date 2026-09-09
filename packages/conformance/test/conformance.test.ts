@@ -114,4 +114,24 @@ describe("portable Gateway conformance suite", () => {
       { name: "app", durationMs: 2 },
     ]);
   });
+
+  it("makes unknown fixture routes diagnosable without echoing headers or body", async () => {
+    const response = await handleConformanceTarget(
+      new Request("https://target.test/unknown?trace=one", {
+        method: "POST",
+        headers: { Authorization: "fixture-secret" },
+        body: "private-body",
+      }),
+    );
+    expect(response.status).toBe(404);
+    const payload = await response.json();
+    expect(payload).toEqual({
+      error: "fixture-not-found",
+      method: "POST",
+      path: "/unknown",
+      rawQuery: "trace=one",
+    });
+    expect(JSON.stringify(payload)).not.toContain("fixture-secret");
+    expect(JSON.stringify(payload)).not.toContain("private-body");
+  });
 });

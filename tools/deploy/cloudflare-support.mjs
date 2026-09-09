@@ -126,7 +126,10 @@ export function createCloudflareConfigs(options) {
       ...common,
       name: names.gateway,
       main: options.gatewayMain,
-      compatibility_flags: ["enable_request_signal"],
+      compatibility_flags: [
+        "enable_request_signal",
+        "global_fetch_strictly_public",
+      ],
       vars: {
         ADAPTER_NAME: "cloudflare",
         ADAPTER_VERSION: validateBuildId(options.buildId),
