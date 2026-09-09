@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { RequestOptions as HttpsRequestOptions } from "node:https";
-import type { LookupFunction } from "node:net";
+import type { LookupFunction, Socket } from "node:net";
 import { performance } from "node:perf_hooks";
 
 import type {
@@ -68,6 +68,49 @@ export const pinnedLookup =
     }
     callback(null, resolution.address, resolution.family);
   };
+
+export function observeSocketTiming(
+  socket: Socket,
+  secure: boolean,
+  timing: TimingPhase[],
+  connectedAt = performance.now(),
+): void {
+  if (!socket.connecting) {
+    timing.push({
+      name: "connect",
+      source: "gateway",
+      state: "reused",
+      detail: "The upstream connection was reused.",
+    });
+    if (secure) {
+      timing.push({
+        name: "tls",
+        source: "gateway",
+        state: "reused",
+        detail: "The upstream TLS session was reused with the connection.",
+      });
+    }
+    return;
+  }
+  socket.once("connect", () => {
+    timing.push({
+      durationMs: performance.now() - connectedAt,
+      name: "connect",
+      source: "gateway",
+      state: "measured",
+    });
+  });
+  if (secure) {
+    socket.once("secureConnect", () => {
+      timing.push({
+        durationMs: performance.now() - connectedAt,
+        name: "tls",
+        source: "gateway",
+        state: "measured",
+      });
+    });
+  }
+}
 
 export class TargetPolicyDeniedError extends Error {
   constructor() {
@@ -152,23 +195,7 @@ const singleRequest = async (
   const response = await new Promise<IncomingMessage>((resolve, reject) => {
     const outgoing = factory(requestOptions);
     outgoing.once("socket", (socket) => {
-      const connectedAt = performance.now();
-      socket.once("connect", () => {
-        timing.push({
-          durationMs: performance.now() - connectedAt,
-          name: "connect",
-          source: "gateway",
-          state: "measured",
-        });
-      });
-      socket.once("secureConnect", () => {
-        timing.push({
-          durationMs: performance.now() - connectedAt,
-          name: "tls",
-          source: "gateway",
-          state: "measured",
-        });
-      });
+      observeSocketTiming(socket, url.protocol === "https:", timing);
     });
     outgoing.once("response", (incoming) => {
       timing.push({
