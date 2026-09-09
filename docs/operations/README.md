@@ -9,6 +9,7 @@ approval.
 - [Cloudflare Workers](deploy-cloudflare.md)
 - [Supabase Edge Functions](deploy-supabase.md)
 - [Backup, restore, and migration rehearsal](backup-restore.md)
+- [Cross-adapter acceptance](acceptance.md)
 
 Every production installation must use separate HTTPS Control and Gateway
 origins, a restricted Admin origin, an empty initial allowlist, independently

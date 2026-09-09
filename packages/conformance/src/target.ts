@@ -12,6 +12,38 @@ function json(value: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(value), { ...init, headers });
 }
 
+function byteStream(
+  size: number,
+  chunkSize: number,
+): ReadableStream<Uint8Array> {
+  let emitted = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (emitted >= size) {
+        controller.close();
+        return;
+      }
+      const length = Math.min(chunkSize, size - emitted);
+      const chunk = new Uint8Array(length);
+      for (let index = 0; index < length; index += 1) {
+        chunk[index] = (emitted + index) % 251;
+      }
+      emitted += length;
+      controller.enqueue(chunk);
+    },
+  });
+}
+
+const boundedInteger = (
+  value: string | undefined,
+  maximum: number,
+): number | undefined => {
+  if (value === undefined || !/^(?:0|[1-9][0-9]*)$/u.test(value))
+    return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed <= maximum ? parsed : undefined;
+};
+
 export async function handleConformanceTarget(
   request: Request,
 ): Promise<Response> {
@@ -24,6 +56,7 @@ export async function handleConformanceTarget(
       rawQuery: url.search.slice(1),
       query: Array.from(url.searchParams.entries()),
       headers: Array.from(request.headers.entries()),
+      contentType: request.headers.get("content-type"),
       bodyBase64: bytesToBase64(body),
     });
   }
@@ -51,8 +84,45 @@ export async function handleConformanceTarget(
   if (url.pathname === "/redirect") {
     return new Response(null, {
       status: 302,
-      headers: { Location: "/echo?redirected=1" },
+      headers: {
+        Location: url.searchParams.get("to") ?? "/echo?redirected=1",
+      },
     });
+  }
+  const bytesMatch = /^\/bytes\/(\d+)$/u.exec(url.pathname);
+  if (bytesMatch !== null) {
+    const size = boundedInteger(bytesMatch[1], 20_971_521);
+    const chunkSize = boundedInteger(
+      url.searchParams.get("chunk") ?? undefined,
+      1_048_576,
+    );
+    if (size === undefined)
+      return new Response("invalid byte count", { status: 400 });
+    return new Response(byteStream(size, chunkSize ?? 65_536), {
+      headers: {
+        "Content-Length": String(size),
+        "Content-Type": "application/octet-stream",
+      },
+    });
+  }
+  const delayMatch = /^\/delay\/(\d+)$/u.exec(url.pathname);
+  if (delayMatch !== null) {
+    const delayMs = boundedInteger(delayMatch[1], 60_000);
+    if (delayMs === undefined)
+      return new Response("invalid delay", { status: 400 });
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    return new Response("delayed");
+  }
+  if (url.pathname === "/truncated") {
+    return new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("partial"));
+          controller.error(new Error("synthetic target body failure"));
+        },
+      }),
+      { headers: { "Content-Type": "application/octet-stream" } },
+    );
   }
   return new Response("fixture-not-found", { status: 404 });
 }

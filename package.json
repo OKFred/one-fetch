@@ -10,6 +10,7 @@
     "node": ">=24.20.0 <27"
   },
   "scripts": {
+    "acceptance:gateway": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/run-gateway-conformance.mjs",
     "build": "pnpm -r --if-present build",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:openapi && pnpm check:security",
     "check:openapi": "node tools/release/generate-openapi.mjs --check",

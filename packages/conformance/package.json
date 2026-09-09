@@ -21,7 +21,8 @@
   "dependencies": {
     "@one-fetch/client": "workspace:*",
     "@one-fetch/core": "workspace:*",
-    "@one-fetch/protocol": "workspace:*"
+    "@one-fetch/protocol": "workspace:*",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "typescript": "5.9.2",

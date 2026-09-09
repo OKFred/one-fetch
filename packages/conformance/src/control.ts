@@ -35,14 +35,21 @@ async function capture(
   id: string,
   operation: () => Promise<string[]>,
 ): Promise<ConformanceCaseResult> {
+  const startedAt = performance.now();
   try {
     const failures = await operation();
-    return { id, passed: failures.length === 0, failures };
+    return {
+      id,
+      passed: failures.length === 0,
+      failures,
+      durationMs: performance.now() - startedAt,
+    };
   } catch (error) {
     return {
       id,
       passed: false,
       failures: [error instanceof Error ? error.message : String(error)],
+      durationMs: performance.now() - startedAt,
     };
   }
 }
