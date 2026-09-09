@@ -14,6 +14,7 @@ import {
 
 import {
   handleConformanceTarget,
+  HTTP_RESILIENCE_FIXTURES,
   parseServerTiming,
   runGatewayConformance,
 } from "../src/index.js";
@@ -54,6 +55,7 @@ function inMemoryGatewayFetch(): typeof fetch {
     });
     const startedAt = performance.now();
     const target = await handleConformanceTarget(upstream);
+    const incomplete = targetUrl.pathname === "/truncated";
     const serverTiming = parseServerTiming(target.headers.get("Server-Timing"));
     const timing: OneFetchTimingV1 = {
       phases: [
@@ -77,12 +79,13 @@ function inMemoryGatewayFetch(): typeof fetch {
         statusText: target.statusText,
         headers: targetHeaders(target.headers),
         setCookie: getSetCookie(target.headers),
-        bodyComplete: true,
+        bodyComplete: !incomplete,
       },
       timing,
       configVersionUsed: "conformance-v1",
       mutations: [],
       audit: { state: "recorded" },
+      ...(incomplete ? { reportId: "report-truncated" } : {}),
     };
     const signed = await createSignedResponseMetadata(unsigned, TOKEN);
     return new Response(target.body, {
@@ -113,6 +116,68 @@ describe("portable Gateway conformance suite", () => {
       { name: "db", durationMs: 1.5, description: "primary, replica" },
       { name: "app", durationMs: 2 },
     ]);
+  });
+
+  it("uses the terminal report when a client cannot observe a partial body", async () => {
+    const client = new OneFetchGatewayClient({
+      gatewayUrl: "https://gateway.test",
+      token: TOKEN,
+      fetch: inMemoryGatewayFetch(),
+    });
+    const fixture = HTTP_RESILIENCE_FIXTURES.find(
+      ({ id }) => id === "truncated-response",
+    );
+    expect(fixture).toBeDefined();
+    const report = await runGatewayConformance(
+      client,
+      "https://target.test",
+      [fixture!],
+      {
+        getExecutionReport: () =>
+          Promise.resolve({
+            schemaVersion: 1,
+            reportId: "report-truncated",
+            requestId: "request-truncated",
+            outcome: "partial",
+            source: "target",
+            status: 200,
+            responseBytes: 7,
+            bodyComplete: false,
+            finishedAt: new Date().toISOString(),
+            auditState: "recorded",
+            timing: { phases: [], serverTiming: [] },
+          }),
+      },
+    );
+    expect(report.results[0]).toMatchObject({
+      passed: true,
+      observed: { reportOutcome: "partial", bodyComplete: false },
+    });
+  });
+
+  it("records an explicit platform skip without executing the fixture", async () => {
+    const fixture = HTTP_RESILIENCE_FIXTURES.find(
+      ({ id }) => id === "truncated-response",
+    );
+    expect(fixture).toBeDefined();
+    const report = await runGatewayConformance(
+      {} as OneFetchGatewayClient,
+      "https://target.test",
+      [fixture!],
+      { skipFixtures: { "truncated-response": "not expressible" } },
+    );
+    expect(report).toEqual({
+      passed: true,
+      results: [
+        {
+          id: "truncated-response",
+          passed: true,
+          failures: [],
+          durationMs: 0,
+          skipped: "not expressible",
+        },
+      ],
+    });
   });
 
   it("makes unknown fixture routes diagnosable without echoing headers or body", async () => {

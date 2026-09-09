@@ -16,7 +16,7 @@ import {
 } from "../../packages/conformance/dist/index.js";
 
 function parseArguments(values) {
-  const options = { suite: "smoke", resources: [] };
+  const options = { suite: "smoke", resources: [], targetProfile: "standard" };
   for (let index = 0; index < values.length; index += 1) {
     const name = values[index];
     const value = values[index + 1];
@@ -40,12 +40,15 @@ function parseArguments(values) {
       "--output": "output",
       "--target-url": "targetUrl",
       "--token-file": "tokenFile",
+      "--target-profile": "targetProfile",
     }[name];
     if (key === undefined || value === undefined)
       throw new Error(`Unknown or incomplete argument: ${name ?? "<empty>"}`);
     options[key] = value;
     index += 1;
   }
+  if (!["standard", "cloudflare-worker"].includes(options.targetProfile))
+    throw new Error("--target-profile must be standard or cloudflare-worker");
   for (const key of [
     "controlUrl",
     "gatewayUrl",
@@ -90,7 +93,22 @@ const fixtures =
   options.suite === "full"
     ? ALL_HTTP_CONFORMANCE_FIXTURES
     : HTTP_CONFORMANCE_FIXTURES;
-const suite = await runGatewayConformance(gateway, options.targetUrl, fixtures);
+const suite = await runGatewayConformance(
+  gateway,
+  options.targetUrl,
+  fixtures,
+  {
+    getExecutionReport: (reportId) =>
+      control.getExecutionReport(reportId, token),
+    skipFixtures:
+      options.targetProfile === "cloudflare-worker"
+        ? {
+            "truncated-response":
+              "Cloudflare Workers normalizes a synthetic errored response stream to an empty completed response before the Gateway receives it.",
+          }
+        : {},
+  },
+);
 const report = await createAcceptanceReport({
   commit: currentCommit(),
   capabilities,

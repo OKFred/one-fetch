@@ -18,6 +18,9 @@ export interface HttpConformanceFixture {
     bodyIncludes?: string[];
     bodyBytes?: number;
     bodyReadError?: boolean;
+    incomplete?: {
+      relayErrorCodes: string[];
+    };
     setCookie?: string[];
     serverTimingNames?: string[];
     targetHeaders?: Array<{ name: string; value: string }>;
@@ -243,7 +246,7 @@ export const HTTP_LIMIT_FIXTURES: readonly HttpConformanceFixture[] =
         fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
       },
       expected: {
-        errorCode: "response_too_large",
+        incomplete: { relayErrorCodes: ["response_too_large"] },
         acceptedClientErrors: ["TypeError", "Error"],
       },
     },
@@ -291,7 +294,7 @@ export const HTTP_RESILIENCE_FIXTURES: readonly HttpConformanceFixture[] =
       },
       expected: {
         source: "target",
-        bodyReadError: true,
+        incomplete: { relayErrorCodes: [] },
         acceptedClientErrors: ["TypeError", "Error"],
       },
     },

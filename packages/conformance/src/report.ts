@@ -14,6 +14,17 @@ const observedSchema = z
     status: z.number().int().min(100).max(599).optional(),
     errorCode: identifier.optional(),
     responseBytes: z.number().int().nonnegative().optional(),
+    reportOutcome: z
+      .enum([
+        "completed",
+        "partial",
+        "timeout",
+        "cancelled",
+        "relay-error",
+        "orphaned",
+      ])
+      .optional(),
+    bodyComplete: z.boolean().optional(),
   })
   .strict();
 
@@ -46,6 +57,7 @@ export const AcceptanceReportV1Schema = z
                 passed: z.boolean(),
                 failures: z.array(z.string().max(2_048)).max(32),
                 durationMs: z.number().nonnegative(),
+                skipped: z.string().min(1).max(2_048).optional(),
                 observed: observedSchema.optional(),
               })
               .strict(),

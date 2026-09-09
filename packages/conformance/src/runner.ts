@@ -1,4 +1,5 @@
 import type { OneFetchGatewayClient } from "@one-fetch/client";
+import type { ExecutionReportV1 } from "@one-fetch/protocol";
 
 import {
   HTTP_CONFORMANCE_FIXTURES,
@@ -10,17 +11,25 @@ export interface ConformanceCaseResult {
   passed: boolean;
   failures: string[];
   durationMs: number;
+  skipped?: string;
   observed?: {
     source?: "target" | "relay" | "intermediary" | "client";
     status?: number;
     errorCode?: string;
     responseBytes?: number;
+    reportOutcome?: ExecutionReportV1["outcome"];
+    bodyComplete?: boolean;
   };
 }
 
 export interface ConformanceReport {
   passed: boolean;
   results: ConformanceCaseResult[];
+}
+
+export interface ConformanceRunOptions {
+  getExecutionReport?: (reportId: string) => Promise<ExecutionReportV1>;
+  skipFixtures?: Readonly<Record<string, string>>;
 }
 
 function targetUrl(origin: string, path: string): string {
@@ -64,6 +73,7 @@ async function runCase(
   client: OneFetchGatewayClient,
   origin: string,
   fixture: HttpConformanceFixture,
+  options: ConformanceRunOptions,
 ): Promise<ConformanceCaseResult> {
   const startedAt = performance.now();
   const { targetPath, ...request } = fixture.request;
@@ -104,7 +114,17 @@ async function runCase(
     }
     if (result.classification.source === "relay") {
       observed.errorCode = result.classification.error.code;
-      if (
+      if (fixture.expected.incomplete !== undefined) {
+        if (
+          !fixture.expected.incomplete.relayErrorCodes.includes(
+            result.classification.error.code,
+          )
+        ) {
+          failures.push(
+            `relay error ${result.classification.error.code} is not an accepted incomplete outcome`,
+          );
+        }
+      } else if (
         fixture.expected.errorCode !== undefined &&
         result.classification.error.code !== fixture.expected.errorCode
       ) {
@@ -177,10 +197,54 @@ async function runCase(
       observed.errorCode = errorName(error);
       if (
         fixture.expected.bodyReadError !== true &&
+        fixture.expected.incomplete === undefined &&
         !acceptedClientFailure(fixture, error)
       ) {
         failures.push(`response body failed with ${errorName(error)}`);
       }
+    }
+    if (
+      fixture.expected.incomplete !== undefined &&
+      result.classification.source === "target"
+    ) {
+      const reportId = result.classification.metadata.reportId;
+      if (reportId === undefined || options.getExecutionReport === undefined) {
+        failures.push(
+          "target incomplete outcome has no resolvable execution report",
+        );
+      } else {
+        let report: ExecutionReportV1 | undefined;
+        for (
+          let attempt = 0;
+          attempt < 10 && report === undefined;
+          attempt += 1
+        ) {
+          try {
+            report = await options.getExecutionReport(reportId);
+          } catch {
+            if (attempt < 9)
+              await new Promise<void>((resolve) => setTimeout(resolve, 100));
+          }
+        }
+        if (report === undefined) {
+          failures.push("target incomplete execution report was unavailable");
+        } else {
+          observed.reportOutcome = report.outcome;
+          observed.bodyComplete = report.bodyComplete;
+          if (report.outcome !== "partial" || report.bodyComplete) {
+            failures.push(
+              `expected an incomplete target report, received ${report.outcome}/${report.bodyComplete ? "complete" : "incomplete"}`,
+            );
+          }
+        }
+      }
+    } else if (
+      fixture.expected.incomplete !== undefined &&
+      result.classification.source !== "relay"
+    ) {
+      failures.push(
+        `incomplete outcome cannot be verified for ${result.classification.source} source`,
+      );
     }
   } catch (error) {
     observed.source = "client";
@@ -208,9 +272,22 @@ export async function runGatewayConformance(
   client: OneFetchGatewayClient,
   targetOrigin: string,
   fixtures: readonly HttpConformanceFixture[] = HTTP_CONFORMANCE_FIXTURES,
+  options: ConformanceRunOptions = {},
 ): Promise<ConformanceReport> {
   const results: ConformanceCaseResult[] = [];
-  for (const fixture of fixtures)
-    results.push(await runCase(client, targetOrigin, fixture));
+  for (const fixture of fixtures) {
+    const reason = options.skipFixtures?.[fixture.id];
+    if (reason !== undefined) {
+      results.push({
+        id: fixture.id,
+        passed: true,
+        failures: [],
+        durationMs: 0,
+        skipped: reason,
+      });
+    } else {
+      results.push(await runCase(client, targetOrigin, fixture, options));
+    }
+  }
   return { passed: results.every(({ passed }) => passed), results };
 }

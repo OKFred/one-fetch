@@ -51,6 +51,7 @@ describe("AcceptanceReportV1", () => {
             passed: true,
             failures: [],
             durationMs: 12,
+            skipped: "fixture transport cannot express this failure",
             observed: { source: "target", status: 503, responseBytes: 3 },
           },
         ],
