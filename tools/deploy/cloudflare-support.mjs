@@ -223,3 +223,15 @@ export function failedDeploymentState(state) {
     failureAt: new Date().toISOString(),
   };
 }
+
+export function resetDeploymentLifecycle(state) {
+  const {
+    failureAt: _failureAt,
+    verifiedAt: _verifiedAt,
+    rolledBackAt: _rolledBackAt,
+    cleanupFailures: _cleanupFailures,
+    cleanedAt: _cleanedAt,
+    ...current
+  } = state;
+  return current;
+}

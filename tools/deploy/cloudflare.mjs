@@ -10,6 +10,7 @@ import {
   parseD1CreateOutput,
   parseWorkersUrl,
   readDeploymentState,
+  resetDeploymentLifecycle,
   sha256File,
   stateDirectory,
   validateBuildId,
@@ -157,7 +158,8 @@ async function inventoryUpdate(plan, values, state) {
   const token = await readToken(required(values, "--admin-token-file"));
   await setPaused(state, token, true);
   const directory = stateDirectory(repositoryRoot, plan.deploymentId);
-  const pausedState = { ...state, gatewayPaused: true };
+  const currentState = resetDeploymentLifecycle(state);
+  const pausedState = { ...currentState, gatewayPaused: true };
   await writePrivateJson(join(directory, "state.json"), pausedState);
   const stamp = new Date().toISOString().replaceAll(":", "-");
   const backup = join(directory, `d1-${stamp}.sql`);
@@ -201,7 +203,7 @@ async function inventoryUpdate(plan, values, state) {
   await runWrangler(["deploy", "--config", configs.control]);
   await runWrangler(["deploy", "--config", configs.gateway]);
   return {
-    ...state,
+    ...currentState,
     buildId: plan.buildId,
     status: "awaiting-verification",
     gatewayPaused: true,
@@ -246,7 +248,7 @@ export async function applyCloudflareDeployment(values) {
 export async function verifyCloudflareDeployment(values) {
   const deploymentId = required(values, "--deployment-id");
   const expectedBuild = validateBuildId(required(values, "--expected-build"));
-  const state = await readDeploymentState(repositoryRoot, deploymentId);
+  let state = await readDeploymentState(repositoryRoot, deploymentId);
   assertExpectedBuild(state, expectedBuild);
   const [healthResponse, capabilitiesResponse] = await Promise.all([
     globalThis.fetch(new globalThis.URL("/api/v1/health", state.controlUrl), {
@@ -269,6 +271,7 @@ export async function verifyCloudflareDeployment(values) {
     await setPaused(state, token, false);
     state.gatewayPaused = false;
   }
+  state = resetDeploymentLifecycle(state);
   state.status = "verified";
   state.verifiedAt = new Date().toISOString();
   await writePrivateJson(

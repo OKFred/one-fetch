@@ -13,6 +13,7 @@ import {
   parseD1CreateOutput,
   parseWorkersUrl,
   readDeploymentState,
+  resetDeploymentLifecycle,
   stateDirectory,
   validateBuildId,
   validateSecretsFile,
@@ -177,4 +178,16 @@ test("failed deployment state never invents a successful pause", () => {
   assert.equal(paused.gatewayPaused, true);
   assert.equal(active.status, "failed");
   assert.match(active.failureAt, /^\d{4}-\d{2}-\d{2}T/u);
+});
+
+test("a new lifecycle removes stale terminal evidence", () => {
+  const current = resetDeploymentLifecycle({
+    buildId: "0.1.0",
+    failureAt: "old-failure",
+    verifiedAt: "old-verification",
+    rolledBackAt: "old-rollback",
+    cleanupFailures: ["old-cleanup"],
+    cleanedAt: "old-cleanup-time",
+  });
+  assert.deepEqual(current, { buildId: "0.1.0" });
 });
