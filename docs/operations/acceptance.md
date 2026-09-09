@@ -17,8 +17,41 @@ For hosted adapter acceptance, deploy the same `handleConformanceTarget`
 function as a randomly named temporary HTTPS fixture. Record its exact resource
 identifier and remove it after the report is complete.
 
+The Cloudflare fixture helper enforces the random acceptance-only name shape,
+checks that it does not already exist, verifies the deployed target, and
+requires the exact name again before deletion:
+
+```sh
+pnpm acceptance:cloudflare-fixture -- deploy \
+  --name one-fetch-fixture-a1b2c3d4
+
+pnpm acceptance:cloudflare-fixture -- cleanup \
+  --name one-fetch-fixture-a1b2c3d4 \
+  --confirm-name one-fetch-fixture-a1b2c3d4
+```
+
 Put the short-lived execution token in a private file. The runner accepts the
 file path, never a plaintext token argument:
+
+For a fresh temporary instance, the preparation helper verifies bootstrap,
+session listing, refresh, logout and login; publishes an exact-origin allow
+rule; resumes the Gateway; creates a two-hour execution token; and checks secret
+canaries against the returned audit page. It writes administrator credentials,
+the current administrator access token, and the execution token only into a new
+private directory:
+
+```sh
+pnpm acceptance:prepare -- \
+  --control-url https://control.example \
+  --target-url https://target.example \
+  --bootstrap-secret-file /restricted/bootstrap-or-adapter-secrets \
+  --output-directory .tools/acceptance/cloudflare-credentials
+```
+
+The bootstrap file can be the Cloudflare secrets JSON, a Supabase Function env
+file containing `ONE_FETCH_BOOTSTRAP_SECRET`, or a file containing only the
+secret. Delete the temporary credential directory after conformance and update
+verification.
 
 ```sh
 pnpm acceptance:gateway -- \

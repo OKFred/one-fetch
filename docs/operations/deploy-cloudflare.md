@@ -52,6 +52,15 @@ For a first install, create a mode-0600 JSON file containing exactly
 never put a secret value in an argument:
 
 ```sh
+pnpm deploy:cloudflare:secrets -- --output /restricted/cloudflare-secrets.json
+```
+
+The generator refuses to overwrite a file and does not print secret values.
+Pass the resulting path to deployment; delete it after the secrets have been
+set and retain the instance recovery material through the operator's secret
+manager when the deployment is not temporary.
+
+```sh
 pnpm deploy:cloudflare apply --deployment-id one-fetch-preview-a1 \
   --build-id 0.1.0+COMMIT --expected-build none \
   --secrets-file /restricted/cloudflare-secrets.json

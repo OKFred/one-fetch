@@ -12,6 +12,8 @@
   "scripts": {
     "acceptance:gateway": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/run-gateway-conformance.mjs",
     "acceptance:finalize": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/finalize-report.mjs",
+    "acceptance:cloudflare-fixture": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/cloudflare-fixture.mjs",
+    "acceptance:prepare": "pnpm --filter @one-fetch/client build && node tools/acceptance/prepare-instance.mjs",
     "build": "pnpm -r --if-present build",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tools && pnpm build && pnpm check:openapi && pnpm check:security",
     "check:openapi": "node tools/release/generate-openapi.mjs --check",
@@ -19,6 +21,7 @@
     "dev:admin": "pnpm --filter @one-fetch/admin dev",
     "dev:node": "pnpm --filter @one-fetch/adapter-node dev",
     "deploy:cloudflare": "node tools/deploy/cloudflare.mjs",
+    "deploy:cloudflare:secrets": "node tools/deploy/generate-cloudflare-secrets.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:openapi": "node tools/release/generate-openapi.mjs",
