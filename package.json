@@ -17,6 +17,7 @@
     "check:security": "node tools/release/check-import-boundaries.mjs && node tools/release/check-dependency-policy.mjs && node tools/release/check-source-size.mjs",
     "dev:admin": "pnpm --filter @one-fetch/admin dev",
     "dev:node": "pnpm --filter @one-fetch/adapter-node dev",
+    "deploy:cloudflare": "node tools/deploy/cloudflare.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:openapi": "node tools/release/generate-openapi.mjs",
