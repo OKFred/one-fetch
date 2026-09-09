@@ -97,12 +97,12 @@ test("a future migration appends without rewriting prior migrations", async () =
       prior.set(name, digest(await readFile(join(migrations, name))));
     }
     await writeFile(
-      join(migrations, "202609040010_future.sql"),
+      join(migrations, "202609040011_future.sql"),
       `begin;
 create table one_fetch.future_probe (id bigint primary key);
 -- one-fetch-self-checksum-v1: 0000000000000000000000000000000000000000000000000000000000000000
 insert into one_fetch.migration_history (version, checksum)
-values ('202609040010', '0000000000000000000000000000000000000000000000000000000000000000');
+values ('202609040011', '0000000000000000000000000000000000000000000000000000000000000000');
 commit;
 `,
     );
@@ -115,8 +115,8 @@ commit;
       assert.equal(digest(await readFile(join(migrations, name))), expected);
     }
     const generated = await readFile(manifest, "utf8");
-    const future = await readFile(join(migrations, "202609040010_future.sql"));
-    assert.match(generated, /202609040010_future\.sql/u);
+    const future = await readFile(join(migrations, "202609040011_future.sql"));
+    assert.match(generated, /202609040011_future\.sql/u);
     assert.match(generated, /self-zeroed-sha256-v1/u);
     assert.ok(generated.includes(digest(future)));
   });
@@ -138,7 +138,7 @@ test("a missing self-checksum marker is rejected without writing outputs", async
   await withFixture(async ({ root, migrations, manifest }) => {
     const before = await readFile(manifest);
     await writeFile(
-      join(migrations, "202609040010_missing_marker.sql"),
+      join(migrations, "202609040011_missing_marker.sql"),
       "begin; select 1; commit;\n",
     );
     const result = run(root, "--write");

@@ -83,4 +83,13 @@ export const SUPABASE_MIGRATION_HISTORY = [
       "94a79a843eb483f23126017cad307ee368ffe36b6df37dfc8c0af611bda7c94e",
     bytes: 762,
   },
+  {
+    version: "202609040010",
+    file: "202609040010_deployment_cas.sql",
+    checksum:
+      "beffe86cc7796d33d13f0584e467be0cfe243629f45b1aa3f806c159a36141e0",
+    artifactSha256:
+      "cb1ea059fbec30b2a969e4278d12f30d23a9d107a2a30caaea494ae27ada8a50",
+    bytes: 7125,
+  },
 ] as const;
