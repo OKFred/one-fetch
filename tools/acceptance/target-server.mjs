@@ -41,6 +41,7 @@ const server = createServer(async (incoming, outgoing) => {
     else {
       const bodyStream = Readable.fromWeb(response.body);
       bodyStream.once("error", (error) => outgoing.destroy(error));
+      outgoing.flushHeaders();
       bodyStream.pipe(outgoing);
     }
   } catch (error) {
