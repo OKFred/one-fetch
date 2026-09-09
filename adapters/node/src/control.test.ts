@@ -1,6 +1,5 @@
 import { decodeBase32, generateTotpCode } from "@one-fetch/core";
 import {
-  AlertsResponseV1Schema,
   AuditPageV1Schema,
   ControlFeatureStatusListV1Schema,
   ExecutionTokenListV1Schema,
@@ -232,10 +231,11 @@ describe("Node Control API", () => {
     expect(featurePayload.features).toContainEqual(
       expect.objectContaining({ feature: "totp", state: "supported" }),
     );
-    const alerts = AlertsResponseV1Schema.parse(
-      await (await app.request("/api/v1/alerts", { headers })).json(),
-    );
-    expect(alerts).toMatchObject({ feature: "alerts", state: "unsupported" });
+    const alerts = await app.request("/api/v1/alerts", { headers });
+    expect(alerts.status).toBe(501);
+    await expect(alerts.json()).resolves.toMatchObject({
+      error: { code: "feature_unsupported" },
+    });
 
     const created = await app.request("/api/v1/tokens/execution", {
       body: JSON.stringify(

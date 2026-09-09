@@ -19,6 +19,7 @@ must use it instead of assuming this table is current.
 | Strong DNS target pinning              | All A/AAAA checked, selected IP pinned             | Platform-constrained         | Platform-constrained         |
 | Durable storage                        | SQLite Worker Thread                               | D1 + Durable Objects         | PostgreSQL                   |
 | Automated backup Control endpoint      | Not yet available                                  | Not yet available            | Not yet available            |
+| Alerts, Webhook, and audit export      | Explicit 501 unsupported                           | Explicit 501 unsupported     | Explicit 501 unsupported     |
 
 “Platform-constrained” means the adapter applies URL, hostname, resolved-data
 available to it, recursion, and redirect checks but cannot prove the same socket
@@ -33,3 +34,9 @@ Capabilities include the adapter version, configuration version and
 `configUpdatedAt`. xPanel should display all three so users can tell whether an
 administrator's policy or runtime configuration has changed since a request was
 last run.
+
+The public feature-status endpoint describes unavailable management features;
+calling one of those operations returns the same canonical HTTP 501
+`feature_unsupported` response on every adapter. The administration site reads
+that status first, disables the affected actions, and shows the adapter's
+reason instead of treating an empty result as success.

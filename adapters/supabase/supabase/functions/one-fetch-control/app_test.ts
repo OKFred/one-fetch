@@ -329,10 +329,11 @@ Deno.test("Unimplemented management capabilities are explicit", async () => {
     }),
   );
   const body = (await response.json()) as {
-    feature?: string;
-    state?: string;
+    error?: { code?: string };
   };
-  assert(response.status === 200, `expected 200, got ${response.status}`);
-  assert(body.feature === "alerts", "wrong feature marker");
-  assert(body.state === "unsupported", "missing unsupported marker");
+  assert(response.status === 501, `expected 501, got ${response.status}`);
+  assert(
+    body.error?.code === "feature_unsupported",
+    "missing unsupported error code",
+  );
 });

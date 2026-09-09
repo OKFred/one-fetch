@@ -2837,219 +2837,47 @@
       "get": {
         "security": [{ "adminBearer": [] }],
         "responses": {
-          "200": {
-            "description": "Alert state",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
+                  "type": "object",
+                  "properties": {
+                    "error": {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["alerts"] },
-                        "alerts": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "schemaVersion": {
-                                "type": "number",
-                                "enum": [1]
-                              },
-                              "alertId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "instanceId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "occurredAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "severity": {
-                                "type": "string",
-                                "enum": ["warning", "error", "critical"]
-                              },
-                              "type": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "summary": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 1024
-                              },
-                              "correlationId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "configVersion": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 256
-                              },
-                              "counters": {
-                                "type": "object",
-                                "additionalProperties": { "type": "number" }
-                              }
-                            },
-                            "required": [
-                              "schemaVersion",
-                              "alertId",
-                              "instanceId",
-                              "occurredAt",
-                              "severity",
-                              "type",
-                              "summary"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "maxItems": 500
+                        "code": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-z0-9_]+$"
                         },
-                        "nextCursor": {
+                        "message": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": { "type": "string", "enum": ["supported"] }
-                      },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "alerts",
-                        "state"
-                      ],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["alerts"] },
-                        "alerts": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "schemaVersion": {
-                                "type": "number",
-                                "enum": [1]
-                              },
-                              "alertId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "instanceId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "occurredAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "severity": {
-                                "type": "string",
-                                "enum": ["warning", "error", "critical"]
-                              },
-                              "type": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "summary": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 1024
-                              },
-                              "correlationId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128
-                              },
-                              "configVersion": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 256
-                              },
-                              "counters": {
-                                "type": "object",
-                                "additionalProperties": { "type": "number" }
-                              }
-                            },
-                            "required": [
-                              "schemaVersion",
-                              "alertId",
-                              "instanceId",
-                              "occurredAt",
-                              "severity",
-                              "type",
-                              "summary"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "maxItems": 500
-                        },
-                        "nextCursor": {
+                        "retryable": { "type": "boolean" },
+                        "correlationId": {
                           "type": "string",
                           "minLength": 1,
-                          "maxLength": 1024
-                        },
-                        "state": { "type": "string", "enum": ["degraded"] },
-                        "reason": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 1024
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "alerts",
-                        "state",
-                        "reason"
-                      ],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["alerts"] },
-                        "state": { "type": "string", "enum": ["unsupported"] },
-                        "reason": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 1024
-                        }
-                      },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "state",
-                        "reason"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
-                  ]
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
                 }
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "501": {
+            "description": "Feature unsupported",
             "content": {
               "application/json": {
                 "schema": {
@@ -3094,181 +2922,47 @@
       "get": {
         "security": [{ "adminBearer": [] }],
         "responses": {
-          "200": {
-            "description": "Backup state",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
+                  "type": "object",
+                  "properties": {
+                    "error": {
                       "type": "object",
                       "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["backups"] },
-                        "backups": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "schemaVersion": {
-                                "type": "number",
-                                "enum": [1]
-                              },
-                              "backupId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "createdAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "kind": {
-                                "type": "string",
-                                "enum": ["manual", "scheduled"]
-                              },
-                              "state": {
-                                "type": "string",
-                                "enum": ["pending", "complete", "failed"]
-                              },
-                              "sizeBytes": { "type": "integer", "minimum": 0 },
-                              "sha256": {
-                                "type": "string",
-                                "pattern": "^[a-f0-9]{64}$"
-                              },
-                              "expiresAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              }
-                            },
-                            "required": [
-                              "schemaVersion",
-                              "backupId",
-                              "createdAt",
-                              "kind",
-                              "state"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "maxItems": 500
+                        "code": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-z0-9_]+$"
                         },
-                        "nextCursor": {
+                        "message": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 1024
                         },
-                        "state": { "type": "string", "enum": ["supported"] }
-                      },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "backups",
-                        "state"
-                      ],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["backups"] },
-                        "backups": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "schemaVersion": {
-                                "type": "number",
-                                "enum": [1]
-                              },
-                              "backupId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 128,
-                                "pattern": "^[A-Za-z0-9._:-]+$"
-                              },
-                              "createdAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "kind": {
-                                "type": "string",
-                                "enum": ["manual", "scheduled"]
-                              },
-                              "state": {
-                                "type": "string",
-                                "enum": ["pending", "complete", "failed"]
-                              },
-                              "sizeBytes": { "type": "integer", "minimum": 0 },
-                              "sha256": {
-                                "type": "string",
-                                "pattern": "^[a-f0-9]{64}$"
-                              },
-                              "expiresAt": {
-                                "type": "string",
-                                "format": "date-time"
-                              }
-                            },
-                            "required": [
-                              "schemaVersion",
-                              "backupId",
-                              "createdAt",
-                              "kind",
-                              "state"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "maxItems": 500
-                        },
-                        "nextCursor": {
+                        "retryable": { "type": "boolean" },
+                        "correlationId": {
                           "type": "string",
                           "minLength": 1,
-                          "maxLength": 1024
-                        },
-                        "state": { "type": "string", "enum": ["degraded"] },
-                        "reason": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 1024
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
                         }
                       },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "backups",
-                        "state",
-                        "reason"
-                      ],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "schemaVersion": { "type": "number", "enum": [1] },
-                        "feature": { "type": "string", "enum": ["backups"] },
-                        "state": { "type": "string", "enum": ["unsupported"] },
-                        "reason": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 1024
-                        }
-                      },
-                      "required": [
-                        "schemaVersion",
-                        "feature",
-                        "state",
-                        "reason"
-                      ],
+                      "required": ["code", "message"],
                       "additionalProperties": false
                     }
-                  ]
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
                 }
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "501": {
+            "description": "Feature unsupported",
             "content": {
               "application/json": {
                 "schema": {

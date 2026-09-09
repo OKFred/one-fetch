@@ -128,21 +128,29 @@ function referenceControlFetch(): {
         return Promise.resolve(Response.json({ schemaVersion: 1, events: [] }));
       case "/api/v1/alerts":
         return Promise.resolve(
-          Response.json({
-            schemaVersion: 1,
-            feature: "alerts",
-            state: "unsupported",
-            reason: "Not available in the reference adapter",
-          }),
+          Response.json(
+            {
+              error: {
+                code: "feature_unsupported",
+                message: "Not available in the reference adapter",
+                retryable: false,
+              },
+            },
+            { status: 501 },
+          ),
         );
       case "/api/v1/backups":
         return Promise.resolve(
-          Response.json({
-            schemaVersion: 1,
-            feature: "backups",
-            state: "unsupported",
-            reason: "Not available in the reference adapter",
-          }),
+          Response.json(
+            {
+              error: {
+                code: "feature_unsupported",
+                message: "Not available in the reference adapter",
+                retryable: false,
+              },
+            },
+            { status: 501 },
+          ),
         );
       case "/api/v1/reports/report-1":
         return Promise.resolve(

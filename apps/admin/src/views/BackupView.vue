@@ -41,12 +41,12 @@ function parseBackups(value: unknown): BackupRow[] {
 
 async function load(): Promise<void> {
   backups.value = parseBackups(
-    await store.invokeFeature("backup", "/api/v1/backups"),
+    await store.invokeFeature("backups", "/api/v1/backups"),
   );
 }
 
 async function createBackup(): Promise<void> {
-  const result = await store.invokeFeature("backup", "/api/v1/backups", {
+  const result = await store.invokeFeature("backups", "/api/v1/backups", {
     method: "POST",
   });
   if (result !== null) await load();
@@ -62,7 +62,7 @@ async function restore(): Promise<void> {
   const document: unknown = JSON.parse(source);
   if (!confirm(t("backupUi.confirm"))) return;
   const result = await store.invokeFeature(
-    "backup",
+    "backups",
     "/api/v1/backups/restore",
     {
       method: "POST",
@@ -89,14 +89,20 @@ onMounted(async () => {
         <article class="panel">
           <h3><DatabaseBackup :size="18" /> {{ $t("backupUi.create") }}</h3>
           <p>{{ $t("backupUi.createHint") }}</p>
-          <button class="primary" :disabled="store.busy" @click="createBackup">
+          <button
+            class="primary"
+            :disabled="
+              store.busy || store.features.backups?.available === false
+            "
+            @click="createBackup"
+          >
             {{ $t("backupUi.serverCreate") }}
           </button>
           <div
-            v-if="store.features.backup?.available === false"
+            v-if="store.features.backups?.available === false"
             class="unsupported-box"
           >
-            {{ store.features.backup.detail }}
+            {{ store.features.backups.detail }}
           </div>
           <div class="event-list">
             <div v-for="item in backups" :key="item.id" class="event-row">
@@ -129,6 +135,7 @@ onMounted(async () => {
             }}<input
               type="file"
               accept="application/json,.json"
+              :disabled="store.features.backups?.available === false"
               @change="chooseFile"
           /></label>
           <p v-if="restoreFile" class="hint">
@@ -137,7 +144,11 @@ onMounted(async () => {
           </p>
           <button
             class="danger primary"
-            :disabled="!restoreFile || store.busy"
+            :disabled="
+              !restoreFile ||
+              store.busy ||
+              store.features.backups?.available === false
+            "
             @click="restore"
           >
             {{ $t("backupUi.review") }}

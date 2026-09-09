@@ -101,4 +101,16 @@ describe("control session storage", () => {
       pair.refreshToken,
     );
   });
+
+  it("does not invoke an endpoint declared unsupported by capabilities", async () => {
+    const fetchMock = mockControl();
+    const store = useControlStore();
+    store.saveProfile({ name: "Test", controlUrl: "https://control.example" });
+    store.features.backups = {
+      available: false,
+      detail: "Use the operator backup runbook",
+    };
+    expect(await store.invokeFeature("backups", "/api/v1/backups")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -1,9 +1,7 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 
 import {
-  AlertsResponseV1Schema,
   AuditPageV1Schema,
-  BackupsResponseV1Schema,
   ControlErrorV1Schema,
   ControlFeatureStatusListV1Schema,
   ControlFeatureStatusV1Schema,
@@ -403,8 +401,8 @@ export const registerControlManagementRoutes = (
       path: "/api/v1/alerts",
       security: [{ adminBearer: [] }],
       responses: {
-        200: jsonResponse(AlertsResponseV1Schema, "Alert state"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
+        501: jsonResponse(ControlErrorV1Schema, "Feature unsupported"),
       },
     }),
     async (context) => {
@@ -414,13 +412,11 @@ export const registerControlManagementRoutes = (
         return context.json(controlError("unauthorized", "Unauthorized"), 401);
       }
       return context.json(
-        {
-          feature: "alerts" as const,
-          reason: "Signed Webhook alerts are not available in the Node Preview",
-          schemaVersion: 1 as const,
-          state: "unsupported" as const,
-        },
-        200,
+        controlError(
+          "feature_unsupported",
+          "Signed Webhook alerts are not available in the Node Preview",
+        ),
+        501,
       );
     },
   );
@@ -431,8 +427,8 @@ export const registerControlManagementRoutes = (
       path: "/api/v1/backups",
       security: [{ adminBearer: [] }],
       responses: {
-        200: jsonResponse(BackupsResponseV1Schema, "Backup state"),
         401: jsonResponse(ControlErrorV1Schema, "Unauthorized"),
+        501: jsonResponse(ControlErrorV1Schema, "Feature unsupported"),
       },
     }),
     async (context) => {
@@ -442,16 +438,35 @@ export const registerControlManagementRoutes = (
         return context.json(controlError("unauthorized", "Unauthorized"), 401);
       }
       return context.json(
-        {
-          feature: "backups" as const,
-          reason: "Use the documented SQLite backup runbook during Preview",
-          schemaVersion: 1 as const,
-          state: "unsupported" as const,
-        },
-        200,
+        controlError(
+          "feature_unsupported",
+          "Use the documented SQLite backup runbook during Preview",
+        ),
+        501,
       );
     },
   );
+
+  for (const path of [
+    "/api/v1/backups/restore",
+    "/api/v1/webhooks",
+    "/api/v1/webhooks/*",
+  ]) {
+    app.all(path, async (context) => {
+      if (
+        !(await requireAdmin(dependencies, context.req.header("Authorization")))
+      ) {
+        return context.json(controlError("unauthorized", "Unauthorized"), 401);
+      }
+      return context.json(
+        controlError(
+          "feature_unsupported",
+          "This management feature is not available in the Node Preview",
+        ),
+        501,
+      );
+    });
+  }
 
   app.openapi(
     createRoute({

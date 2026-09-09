@@ -1,9 +1,7 @@
 import {
-  AlertsResponseV1Schema,
   AuditEventV1Schema,
   AuditPageQueryV1Schema,
   AuditPageV1Schema,
-  BackupsResponseV1Schema,
   ControlFeatureStatusListV1Schema,
   ControlFeatureStatusV1Schema,
   ControlFeatureV1Schema,
@@ -19,7 +17,6 @@ import {
   type ControlApp,
   type ControlContext,
 } from "./control-support";
-import { ensureInstance } from "./storage";
 
 const FEATURE_STATUSES = ControlFeatureStatusListV1Schema.parse({
   schemaVersion: 1,
@@ -31,9 +28,8 @@ const FEATURE_STATUSES = ControlFeatureStatusListV1Schema.parse({
     {
       schemaVersion: 1,
       feature: "alerts",
-      state: "degraded",
-      reason:
-        "Preview returns current built-in safety states but does not retain alert history.",
+      state: "unsupported",
+      reason: "Signed Webhook alert delivery is not implemented in Preview.",
     },
     {
       schemaVersion: 1,
@@ -71,16 +67,18 @@ export function registerObservabilityRoutes(app: ControlApp): void {
       ? context.json(ControlFeatureStatusV1Schema.parse(status))
       : controlError(404, "not_found", "The feature was not found");
   });
-  app.get("/api/v1/alerts", listAlerts);
-  app.get("/api/v1/backups", (context) =>
-    context.json(
-      BackupsResponseV1Schema.parse({
-        schemaVersion: 1,
-        feature: "backups",
-        state: "unsupported",
-        reason:
-          "Preview relies on operator-managed D1 export and has no in-app restore transaction.",
-      }),
+  app.get("/api/v1/alerts", () =>
+    controlError(
+      501,
+      "feature_unsupported",
+      "Signed Webhook alert delivery is not implemented in Preview",
+    ),
+  );
+  app.get("/api/v1/backups", () =>
+    controlError(
+      501,
+      "feature_unsupported",
+      "Preview relies on operator-managed D1 export",
     ),
   );
   app.get("/api/v1/audit/export", () =>
@@ -97,6 +95,19 @@ export function registerObservabilityRoutes(app: ControlApp): void {
       "In-app backup restore is not implemented in Preview",
     ),
   );
+  for (const path of [
+    "/api/v1/backups/restore",
+    "/api/v1/webhooks",
+    "/api/v1/webhooks/*",
+  ]) {
+    app.all(path, () =>
+      controlError(
+        501,
+        "feature_unsupported",
+        "This management feature is not implemented in Preview",
+      ),
+    );
+  }
 }
 
 export function registerExecutionReportRoute(app: ControlApp): void {
@@ -176,49 +187,6 @@ async function listAudit(context: ControlContext): Promise<Response> {
               eventId: String(last.event_id),
             }),
           }),
-    }),
-  );
-}
-
-async function listAlerts(context: ControlContext): Promise<Response> {
-  const cursor = context.req.query("cursor");
-  if (cursor !== undefined && (cursor.length === 0 || cursor.length > 1_024))
-    throw new Error("invalid_cursor");
-  const instance = await ensureInstance(context.env.DB);
-  const occurredAt = new Date().toISOString();
-  const alerts = [];
-  if (instance.auditDegraded) {
-    alerts.push({
-      schemaVersion: 1,
-      alertId: "audit_degraded",
-      instanceId: instance.instanceId,
-      occurredAt,
-      severity: "critical",
-      type: "audit_degraded",
-      summary: "The application audit ledger is degraded.",
-      configVersion: instance.configVersion,
-    });
-  }
-  if (instance.gatewayPaused) {
-    alerts.push({
-      schemaVersion: 1,
-      alertId: "gateway_paused",
-      instanceId: instance.instanceId,
-      occurredAt,
-      severity: "warning",
-      type: "gateway_paused",
-      summary: "The Gateway is paused.",
-      configVersion: instance.configVersion,
-    });
-  }
-  return context.json(
-    AlertsResponseV1Schema.parse({
-      schemaVersion: 1,
-      feature: "alerts",
-      state: "degraded",
-      reason:
-        "Preview returns current built-in safety states but does not retain alert history.",
-      alerts,
     }),
   );
 }

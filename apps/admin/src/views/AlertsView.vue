@@ -99,7 +99,15 @@ onMounted(async () => {
               <h3><BellRing :size="18" /> {{ $t("alertUi.title") }}</h3>
               <p>{{ $t("alertUi.hint") }}</p>
             </div>
-            <button class="ghost" @click="load">
+            <button
+              class="ghost"
+              :disabled="
+                store.busy ||
+                (store.features.alerts?.available === false &&
+                  store.features.webhooks?.available === false)
+              "
+              @click="load"
+            >
               {{ $t("common.reload") }}
             </button>
           </div>
@@ -145,6 +153,7 @@ onMounted(async () => {
               }}<input
                 v-model="url"
                 type="url"
+                :disabled="store.features.webhooks?.available === false"
                 required
                 placeholder="https://alerts.example.com/one-fetch" /></label
             ><label
@@ -152,10 +161,16 @@ onMounted(async () => {
               }}<input
                 v-model="secret"
                 type="password"
+                :disabled="store.features.webhooks?.available === false"
                 minlength="32"
                 autocomplete="new-password"
                 required /></label
-            ><button class="primary" :disabled="store.busy">
+            ><button
+              class="primary"
+              :disabled="
+                store.busy || store.features.webhooks?.available === false
+              "
+            >
               {{ $t("alertUi.add") }}
             </button>
           </form>
@@ -166,7 +181,13 @@ onMounted(async () => {
                 <strong>{{ item.url }}</strong
                 ><small>{{ item.lastDeliveryAt ?? "—" }}</small>
               </div>
-              <button class="ghost" @click="testWebhook(item.id)">
+              <button
+                class="ghost"
+                :disabled="
+                  store.busy || store.features.webhooks?.available === false
+                "
+                @click="testWebhook(item.id)"
+              >
                 <Send :size="14" />{{ $t("alertUi.test") }}
               </button>
             </div>

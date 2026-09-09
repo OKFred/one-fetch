@@ -40,6 +40,8 @@ for (const path of [
   "/api/v1/alerts",
   "/api/v1/backups",
   "/api/v1/backups/*",
+  "/api/v1/webhooks",
+  "/api/v1/webhooks/*",
 ]) {
   controlApp.use(path, requireAdmin);
 }

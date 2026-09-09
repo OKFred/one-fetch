@@ -1,8 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import {
-  AlertsResponseV1Schema,
   AuditPageV1Schema,
-  BackupsResponseV1Schema,
   BootstrapRequestV1Schema,
   BootstrapStatusV1Schema,
   ChangePasswordRequestV1Schema,
@@ -288,18 +286,23 @@ function registerManagementPaths(register: RegisterPath): void {
 }
 
 function registerReadPaths(register: RegisterPath): void {
-  for (const [path, schema, description] of [
-    ["/api/v1/audit", AuditPageV1Schema, "Audit events"],
-    ["/api/v1/alerts", AlertsResponseV1Schema, "Alert state"],
-    ["/api/v1/backups", BackupsResponseV1Schema, "Backup state"],
-  ] as const) {
+  register({
+    method: "get",
+    path: "/api/v1/audit",
+    security: [{ adminBearer: [] }],
+    responses: {
+      200: jsonResponse(AuditPageV1Schema, "Audit events"),
+      401: protectedErrors[401],
+    },
+  });
+  for (const path of ["/api/v1/alerts", "/api/v1/backups"] as const) {
     register({
       method: "get",
       path,
       security: [{ adminBearer: [] }],
       responses: {
-        200: jsonResponse(schema, description),
         401: protectedErrors[401],
+        501: jsonResponse(ControlErrorV1Schema, "Feature unsupported"),
       },
     });
   }

@@ -140,6 +140,20 @@ export const useControlStore = defineStore("control", () => {
       async () => {
         const client = api.value ?? activateClient();
         capabilities.value = await client.capabilities();
+        const statuses = await client.featureStatuses();
+        features.value = Object.fromEntries(
+          statuses.features.map((feature) => [
+            feature.feature,
+            {
+              available: feature.state === "supported",
+              ...("reason" in feature
+                ? { detail: feature.reason }
+                : feature.detail
+                  ? { detail: feature.detail }
+                  : {}),
+            },
+          ]),
+        );
         bootstrap.value = await client.bootstrapStatus();
         if (authenticated.value) await loadConfiguration();
       },
@@ -427,6 +441,7 @@ export const useControlStore = defineStore("control", () => {
     feature: string,
     task: () => Promise<void>,
   ): Promise<boolean> {
+    if (features.value[feature]?.available === false) return false;
     const result = await run(
       async () => {
         try {

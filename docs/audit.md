@@ -80,6 +80,7 @@ Alert classes include audit degradation/integrity, storage at 70/85/95 percent,
 quota at 80/100 percent, login attack/refresh reuse, token and policy changes,
 Gateway pause, adapter degradation, and Control/Gateway version mismatch.
 
-Preview adapters may expose an explicit unsupported response for alerts, backup,
-or sealing work that is not complete. An empty response must not be presented as
-a successful configuration.
+Preview adapters expose unavailable management work through `/api/v1/features`.
+Invoking alerts, backup, Webhook, audit-export, or sealing operations that are
+not implemented returns HTTP 501 with the canonical `feature_unsupported` code.
+An empty response must not be presented as a successful configuration.

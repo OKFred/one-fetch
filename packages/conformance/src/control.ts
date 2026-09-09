@@ -63,6 +63,24 @@ function missingFeatures(
     .map((feature) => `missing ${feature} feature status`);
 }
 
+async function expectUnsupported(
+  operation: () => Promise<unknown>,
+): Promise<string[]> {
+  try {
+    await operation();
+    return ["unsupported feature endpoint returned a success response"];
+  } catch (error) {
+    if (!isCanonicalControlError(error))
+      return ["unsupported feature endpoint returned a non-canonical error"];
+    const failures: string[] = [];
+    if (error.status !== 501)
+      failures.push("unsupported feature status was not 501");
+    if (error.code !== "feature_unsupported")
+      failures.push("unsupported feature used a different error code");
+    return failures;
+  }
+}
+
 export async function runControlConformance(
   client: OneFetchControlClient,
   options: ControlConformanceOptions = {},
@@ -156,20 +174,14 @@ export async function runControlConformance(
       }),
     );
     results.push(
-      await capture("control-alert-status", async () => {
-        const response = await client.getAlerts();
-        return response.feature === "alerts"
-          ? []
-          : ["alerts endpoint returned a different feature"];
-      }),
+      await capture("control-alert-status", () =>
+        expectUnsupported(() => client.getAlerts()),
+      ),
     );
     results.push(
-      await capture("control-backup-status", async () => {
-        const response = await client.getBackups();
-        return response.feature === "backups"
-          ? []
-          : ["backups endpoint returned a different feature"];
-      }),
+      await capture("control-backup-status", () =>
+        expectUnsupported(() => client.getBackups()),
+      ),
     );
   }
 

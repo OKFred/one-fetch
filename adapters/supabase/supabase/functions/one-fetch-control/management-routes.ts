@@ -1,10 +1,8 @@
 import type { Hono } from "hono";
 import {
-  AlertsResponseV1Schema,
   AuditEventV1Schema,
   AuditPageQueryV1Schema,
   AuditPageV1Schema,
-  BackupsResponseV1Schema,
   ControlFeatureV1Schema,
   CreatedExecutionTokenV1Schema,
   ExecutionReportV1Schema,
@@ -309,14 +307,10 @@ function registerFeatureRoutes(
       environment,
     );
     if (principal instanceof Response) return principal;
-    return context.json(
-      AlertsResponseV1Schema.parse({
-        schemaVersion: 1,
-        feature: "alerts",
-        state: "unsupported",
-        reason:
-          "Signed Webhook alerts are not available in the Supabase Preview",
-      }),
+    return controlError(
+      "feature_unsupported",
+      "Signed Webhook alerts are not available in the Supabase Preview",
+      501,
     );
   });
   app.get("/api/v1/backups", async (context) => {
@@ -326,16 +320,31 @@ function registerFeatureRoutes(
       environment,
     );
     if (principal instanceof Response) return principal;
-    return context.json(
-      BackupsResponseV1Schema.parse({
-        schemaVersion: 1,
-        feature: "backups",
-        state: "unsupported",
-        reason:
-          "Managed backup orchestration is not available in the Supabase Preview",
-      }),
+    return controlError(
+      "feature_unsupported",
+      "Managed backup orchestration is not available in the Supabase Preview",
+      501,
     );
   });
+  for (const path of [
+    "/api/v1/backups/restore",
+    "/api/v1/webhooks",
+    "/api/v1/webhooks/*",
+  ]) {
+    app.all(path, async (context) => {
+      const principal = await requireAdmin(
+        context.req.raw,
+        database,
+        environment,
+      );
+      if (principal instanceof Response) return principal;
+      return controlError(
+        "feature_unsupported",
+        "This management feature is not available in the Supabase Preview",
+        501,
+      );
+    });
+  }
 }
 
 function registerReportRoute(

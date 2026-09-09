@@ -69,6 +69,14 @@ export class AdminControlApi {
     }
   }
 
+  async featureStatuses() {
+    try {
+      return await this.client.getFeatureStatuses();
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
   async bootstrapStatus(): Promise<BootstrapState> {
     try {
       const status = await this.client.getBootstrapStatus();

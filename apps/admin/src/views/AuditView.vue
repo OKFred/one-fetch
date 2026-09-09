@@ -41,7 +41,10 @@ async function downloadExport(): Promise<void> {
               <RefreshCw :size="15" />{{ $t("common.reload") }}</button
             ><button
               class="ghost"
-              :disabled="store.busy"
+              :disabled="
+                store.busy ||
+                store.features['audit-export']?.available === false
+              "
               @click="downloadExport"
             >
               <Download :size="15" />{{ $t("auditUi.export") }}

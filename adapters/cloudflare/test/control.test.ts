@@ -1,8 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import {
-  AlertsResponseV1Schema,
   AuditPageV1Schema,
-  BackupsResponseV1Schema,
   BootstrapStatusV1Schema,
   ControlFeatureStatusListV1Schema,
   CreatedExecutionTokenV1Schema,
@@ -49,7 +47,7 @@ describe("Cloudflare canonical Control API", () => {
       ).json(),
     );
     expect(featureState(features, "totp")).toBe("supported");
-    expect(featureState(features, "alerts")).toBe("degraded");
+    expect(featureState(features, "alerts")).toBe("unsupported");
     expect(featureState(features, "backups")).toBe("unsupported");
 
     expect(
@@ -263,23 +261,19 @@ describe("Cloudflare canonical Control API", () => {
         .gatewayPaused,
     ).toBe(true);
 
-    const alerts = AlertsResponseV1Schema.parse(
-      await (
-        await authorizedRequest(pair.accessToken, "/api/v1/alerts")
-      ).json(),
+    const alerts = await authorizedRequest(pair.accessToken, "/api/v1/alerts");
+    expect(alerts.status).toBe(501);
+    await expect(alerts.json()).resolves.toMatchObject({
+      error: { code: "feature_unsupported" },
+    });
+    const backups = await authorizedRequest(
+      pair.accessToken,
+      "/api/v1/backups",
     );
-    expect(alerts.state).toBe("degraded");
-    if (alerts.state !== "unsupported") {
-      expect(alerts.alerts.some(({ type }) => type === "gateway_paused")).toBe(
-        true,
-      );
-    }
-    const backups = BackupsResponseV1Schema.parse(
-      await (
-        await authorizedRequest(pair.accessToken, "/api/v1/backups")
-      ).json(),
-    );
-    expect(backups.state).toBe("unsupported");
+    expect(backups.status).toBe(501);
+    await expect(backups.json()).resolves.toMatchObject({
+      error: { code: "feature_unsupported" },
+    });
   });
 
   it("commits only one success audit for concurrent configuration CAS", async () => {
