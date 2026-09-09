@@ -115,6 +115,13 @@ audit, report expiry, cancellation, large streaming body, redirect, WebSocket
 DNS/TCP/TLS phases are unavailable rather than zero and inspect advertised
 header mutations.
 
+When the synthetic target is itself a Cloudflare Worker, pass `--target-profile
+cloudflare-worker` to the conformance runner. Workers normalize a deliberately
+errored response stream before another Worker receives it, so that single
+failure-injection case is recorded as an explicit platform skip. Unknown-length
+response overflow is still required to produce a signed `partial` execution
+report even when the outer client receives a cleanly ended stream.
+
 Temporary fixture Workers use random names. After testing, delete exactly those
 fixtures and verify routes, service bindings, secrets, D1 databases, and Durable
 Object namespaces that were created for the fixture. Never delete by prefix or

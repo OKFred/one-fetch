@@ -104,7 +104,7 @@ const suite = await runGatewayConformance(
       options.targetProfile === "cloudflare-worker"
         ? {
             "truncated-response":
-              "Cloudflare Workers normalizes a synthetic errored response stream to an empty completed response before the Gateway receives it.",
+              "Cloudflare Workers normalizes a synthetic errored response stream to a completed response before the Gateway receives it.",
           }
         : {},
   },
