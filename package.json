@@ -27,6 +27,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:openapi": "node tools/release/generate-openapi.mjs",
+    "prelint": "pnpm --filter @one-fetch/conformance... build",
     "lint": "eslint .",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
