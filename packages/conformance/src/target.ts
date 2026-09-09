@@ -127,7 +127,12 @@ export async function handleConformanceTarget(
           controller.error(new Error("synthetic target body failure"));
         },
       }),
-      { headers: { "Content-Type": "application/octet-stream" } },
+      {
+        headers: {
+          "Content-Length": "14",
+          "Content-Type": "application/octet-stream",
+        },
+      },
     );
   }
   return json(

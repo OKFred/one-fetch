@@ -31,6 +31,10 @@ export const declaredResponseExceedsLimit = (
 export const responseBodyCompleted = (response: IncomingMessage): boolean =>
   response.complete;
 
+export const interruptedResponseOutcome = (
+  downstreamDestroyed: boolean,
+): "partial" | "cancelled" => (downstreamDestroyed ? "cancelled" : "partial");
+
 export const auditAccepted = async (
   dependencies: GatewayDependencies,
   request: IncomingMessage,
@@ -119,7 +123,7 @@ export const streamTarget = async (
     }
     response.end();
   } catch (error) {
-    if (response.destroyed) outcome = "cancelled";
+    outcome = interruptedResponseOutcome(response.destroyed);
     response.destroy(error instanceof Error ? error : undefined);
   } finally {
     const report: ExecutionReportV1 = {
