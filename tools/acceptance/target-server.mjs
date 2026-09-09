@@ -38,7 +38,11 @@ const server = createServer(async (incoming, outgoing) => {
     const cookies = response.headers.getSetCookie();
     if (cookies.length > 0) outgoing.setHeader("Set-Cookie", cookies);
     if (response.body === null) outgoing.end();
-    else Readable.fromWeb(response.body).pipe(outgoing);
+    else {
+      const bodyStream = Readable.fromWeb(response.body);
+      bodyStream.once("error", (error) => outgoing.destroy(error));
+      bodyStream.pipe(outgoing);
+    }
   } catch (error) {
     if (!outgoing.headersSent) outgoing.writeHead(500);
     outgoing.destroy(

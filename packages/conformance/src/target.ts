@@ -114,10 +114,15 @@ export async function handleConformanceTarget(
     return new Response("delayed");
   }
   if (url.pathname === "/truncated") {
+    let emitted = false;
     return new Response(
       new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode("partial"));
+        pull(controller) {
+          if (!emitted) {
+            emitted = true;
+            controller.enqueue(new TextEncoder().encode("partial"));
+            return;
+          }
           controller.error(new Error("synthetic target body failure"));
         },
       }),
