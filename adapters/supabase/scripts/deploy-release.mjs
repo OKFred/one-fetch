@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -15,6 +15,7 @@ import {
   readDeploymentEnvironment,
   serializableFunctionList,
 } from "./deploy-support.mjs";
+import { applyHostedDeployment } from "./supabase-apply.mjs";
 
 const adapterRoot = resolve(import.meta.dirname, "..");
 const repositoryRoot = resolve(adapterRoot, "../..");
@@ -28,15 +29,18 @@ export function parseOptions(argumentsList) {
   const options = { apply: false };
   for (let index = 0; index < argumentsList.length; index += 1) {
     const argument = argumentsList[index];
-    if (argument === "--apply") {
-      options.apply = true;
+    if (argument === "--apply" || argument === "--resume") {
+      options[argument === "--apply" ? "apply" : "resume"] = true;
       continue;
     }
     if (
       argument === "--project-ref" ||
       argument === "--env-file" ||
       argument === "--expected-current-build" ||
-      argument === "--state-file"
+      argument === "--state-file" ||
+      argument === "--service-role-key-file" ||
+      argument === "--db-password-file" ||
+      argument === "--admin-token-file"
     ) {
       const value = argumentsList[index + 1];
       if (!value || value.startsWith("--")) {
@@ -48,6 +52,9 @@ export function parseOptions(argumentsList) {
           "--env-file": "envFile",
           "--expected-current-build": "expectedCurrentBuild",
           "--state-file": "stateFile",
+          "--service-role-key-file": "serviceRoleKeyFile",
+          "--db-password-file": "dbPasswordFile",
+          "--admin-token-file": "adminTokenFile",
         }[argument]
       ] = value;
       index += 1;
@@ -61,10 +68,23 @@ export function parseOptions(argumentsList) {
     !options.expectedCurrentBuild
   ) {
     throw new Error(
-      "Usage: deploy-release.mjs --project-ref <ref> --env-file <path> --expected-current-build <id|none> [--state-file <path>] [--apply]",
+      "Usage: deploy-release.mjs --project-ref <ref> --env-file <path> --expected-current-build <id|none> [--state-file <path>] [--apply --service-role-key-file <path> --db-password-file <path> [--admin-token-file <path>] [--resume]]",
     );
   }
   assertExpectedCurrentBuild(options.expectedCurrentBuild);
+  if (options.resume && !options.apply) {
+    throw new Error("--resume requires --apply");
+  }
+  if (
+    options.apply &&
+    (!options.serviceRoleKeyFile ||
+      !options.dbPasswordFile ||
+      (options.expectedCurrentBuild !== "none" && !options.adminTokenFile))
+  ) {
+    throw new Error(
+      "--apply requires service-role and database-password files; updates also require an admin-token file",
+    );
+  }
   return options;
 }
 
@@ -72,14 +92,12 @@ function commandText(file, args) {
   return [file, ...args].join(" ");
 }
 
-function runCommand(
-  file,
-  args,
-  { capture = false, label = commandText(file, args) } = {},
-) {
+function runCommand(file, args, options = {}) {
+  const { capture = false, label = commandText(file, args) } = options;
   const result = spawnSync(file, args, {
-    cwd: adapterRoot,
+    cwd: options.cwd ?? adapterRoot,
     encoding: "utf8",
+    env: { ...process.env, ...(options.environment ?? {}) },
     stdio: capture ? ["inherit", "pipe", "pipe"] : "inherit",
   });
   if (result.error) throw new Error(`${label} failed: ${result.error.message}`);
@@ -187,6 +205,22 @@ class StateRecorder {
     await handle.sync();
     await handle.close();
     return new StateRecorder(path, state);
+  }
+
+  async update(patch) {
+    this.state = {
+      ...this.state,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    const temporary = `${this.path}.${process.pid}.${Date.now()}.tmp`;
+    await writeFile(temporary, `${JSON.stringify(this.state, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    await rename(temporary, this.path);
+    return this.state;
   }
 }
 
@@ -378,7 +412,7 @@ export async function runDeployment({
     desiredBuildId,
     expectedCurrentBuild: options.expectedCurrentBuild,
     environmentSha256: envDigest,
-    status: options.apply ? "blocked" : "ready",
+    status: "ready",
     phase: "preflight",
     bundles,
     backups,
@@ -387,17 +421,32 @@ export async function runDeployment({
       runtime: currentRuntime,
     },
     apply: {
-      available: false,
-      blockers: [
-        "A remote deployment lease with compare-and-swap is not implemented.",
-        "An immutable backup ID and verified restore evidence are not available.",
-      ],
+      available: true,
+      databaseRestoreAutomatic: false,
+      requiresServiceRoleKeyFile: true,
+      requiresDatabasePasswordFile: true,
     },
   });
   if (options.apply) {
-    throw new Error(
-      `Hosted Supabase apply is disabled in 0.1 Preview; review the blocked plan at ${statePath}`,
-    );
+    return applyHostedDeployment({
+      adapterRoot,
+      options,
+      environment,
+      desiredBuildId,
+      recorder,
+      beforeFunctions,
+      command,
+      runPnpm: (arguments_, commandOptions) =>
+        runPnpm(command, arguments_, commandOptions),
+      functionList: () => functionList(command, options.projectRef),
+      inspectCurrent: () =>
+        inspectCurrentDeployment({
+          environment,
+          projectRef: options.projectRef,
+          fetch: request,
+        }),
+      fetch: request,
+    });
   }
   process.stdout.write(`Read-only preflight passed. State: ${statePath}\n`);
   return recorder.state;

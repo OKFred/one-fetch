@@ -25,10 +25,15 @@ Requirements: pnpm 11.25, Docker, Deno 2.9.6, and the pinned Supabase CLI 2.116.
 
 ```bash
 pnpm install --frozen-lockfile
+node adapters/supabase/scripts/generate-env.mjs \
+  --out adapters/supabase/supabase/functions/.env \
+  --base-url http://127.0.0.1:54321/functions/v1
 pnpm --filter @one-fetch/adapter-supabase start
-cp adapters/supabase/supabase/.env.example adapters/supabase/supabase/.env.local
-pnpm --filter @one-fetch/adapter-supabase functions:serve
 ```
+
+`supabase start` automatically loads `supabase/functions/.env`. The generated
+file is ignored and contains local secrets; remove it after testing. The checked
+in `.env.example` documents names only and is not a valid cryptographic fixture.
 
 Use the pnpm wrappers rather than invoking `supabase start` or
 `supabase functions serve` directly. The wrappers first build each Function as
@@ -85,7 +90,8 @@ node scripts/generate-env.mjs --out /secure/path/one-fetch.env --project-ref abc
 
 The command creates the file exclusively and refuses to overwrite it. It includes the one-time bootstrap secret, token pepper, and an Ed25519 audit key pair. Do not print, upload, or commit it. A protected disaster-recovery copy is mandatory: losing the pepper or signing key breaks account/token validation or audit-chain continuity.
 
-The 0.1 Preview deployment scripts are read-only planners:
+The 0.1 Preview deployment script is read-only unless `--apply`/`-Apply` is
+explicit:
 
 ```bash
 ./scripts/deploy.sh --project-ref abcdefghijklmnopqrst \
@@ -107,13 +113,14 @@ the project and current pair, runs `db push --dry-run --skip-vault`, and records
 the provider backup summary. It rejects a dirty Git tree.
 
 The secret-free plan is created with exclusive permissions under the ignored
-`artifacts/supabase-deployments/` directory. Passing `--apply`/`-Apply` still
-produces that plan, then fails before any database, Secret, or Function mutation.
-Apply remains intentionally unavailable until one-fetch has a remote
-compare-and-swap deployment lease plus an immutable backup ID and verified
-restore evidence. Supabase cannot atomically switch Control and Gateway, so a
-local state file alone is not a safe deployment lock. Build identity is embedded
-in each bundle and is never assigned afterward through a mutable project Secret.
+`artifacts/supabase-deployments/` directory. The guarded apply additionally
+requires restricted service-role-key and database-password files. Updates also
+require an admin-token file to pause Gateway. PostgreSQL owns the expiring
+compare-and-swap lease; the tool creates and hashes a logical backup, applies
+forward migrations, deploys Control and Gateway one at a time, verifies each
+version transition and the running pair, then completes the lease. `--resume`
+is a separate explicit choice. Build identity is embedded in each bundle and is
+never assigned afterward through a mutable project Secret.
 
 ## Operational boundaries
 
@@ -121,4 +128,4 @@ in each bundle and is never assigned afterward through a mutable project Secret.
 - Supabase platform logs may still observe the outer Gateway path/query before application redaction. Operators must configure platform retention accordingly and disclose this to users.
 - Authentication source throttles use the first `X-Forwarded-For` value supplied by the managed Supabase edge. A self-hosted proxy chain must overwrite client-supplied forwarding headers and preserve that same client-first contract; otherwise the adapter's source-rate-limit boundary is not supported.
 - Data forwarding continues if only the audit append fails and the response is marked degraded. Authentication, configuration, policy, or quota storage failures fail closed.
-- Execution reports expire after ten minutes. Burst and instance-wide aggregate quotas, scheduled cleanup, daily Merkle sealing, Webhook outbox delivery, TOTP enrollment/recovery, backup/restore, safe hosted apply, and tunnel enablement are subsequent Preview milestones and must not be represented as complete by this adapter yet.
+- Execution reports expire after ten minutes. Burst and instance-wide aggregate quotas, scheduled cleanup, daily Merkle sealing, Webhook outbox delivery, TOTP enrollment/recovery, automated in-place database restore, and tunnel enablement are subsequent Preview milestones and must not be represented as complete by this adapter yet.

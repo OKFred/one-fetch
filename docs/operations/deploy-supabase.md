@@ -52,17 +52,45 @@ pair/build, runs `db push --dry-run --skip-vault`, and records a non-secret back
 summary. Every remote command carries the project ref; no linked-project state is
 written.
 
-`--apply`/`-Apply` is deliberately fail-closed in 0.1 Preview. It writes a blocked
-plan under `artifacts/supabase-deployments/` (or the explicit state path), then
-exits before any database, Secret, or Function mutation. Do not bypass this gate
-with manual commands. Safe apply requires all of the following first:
+The read-only command writes a ready plan under
+`artifacts/supabase-deployments/` (or the explicit state path). Inspect its exact
+project, desired/current builds, Function inventory, bundle hashes and backup
+summary before adding `--apply`/`-Apply`.
 
-- a remote deployment lease with transactional compare-and-swap, expiry and
-  deployment audit events;
-- an immutable backup ID bound to this project plus recorded restore-test
-  evidence;
-- a resumable plan that binds the exact commit and both bundle hashes;
-- final strict Function inventory and Control/Gateway runtime identity checks.
+Hosted apply accepts secrets only by restricted file path. It requires the
+project service-role key and database password; an update also requires a current
+one-fetch admin access token so Gateway can be paused. On Bash:
+
+```bash
+./scripts/deploy.sh --project-ref <exact-ref> --env-file <secure-env> \
+  --expected-current-build <deployed-build-or-none> --apply \
+  --service-role-key-file <secure-service-role-key> \
+  --db-password-file <secure-database-password> \
+  [--admin-token-file <secure-admin-token>] [--resume]
+```
+
+PowerShell exposes the matching `-ServiceRoleKeyFile`,
+`-DatabasePasswordFile`, `-AdminTokenFile`, `-Apply`, and `-Resume` parameters.
+No secret value is placed in a command argument, state record, report, or log.
+
+The apply sequence is fail-closed:
+
+1. pause Gateway for an update and download the two currently deployed Function
+   sources as exact recovery inputs;
+2. create a logical database dump, require it to be non-empty, and record SHA-256;
+3. for updates, acquire the database CAS lease before migration; for a first
+   install, require the dump to contain no `one_fetch` schema, apply the initial
+   migration, then acquire the `expectedBuild=none` lease;
+4. apply only forward migrations, set secrets from the supplied env file, and
+   deploy Control then Gateway, verifying each Function version transition;
+5. renew the lease around remote steps, verify the running pair/build, complete
+   the lease transaction, and resume only when `--resume` is explicit.
+
+The lease and its lifecycle events live in PostgreSQL, so two deployment clients
+cannot interleave based on local state alone. A stale expected build or active
+lease is rejected transactionally. A failed update redeploys the captured prior
+Function sources and remains paused. A failed first install deletes only the
+Functions created by that run. Forward SQL is never reversed automatically.
 
 Supabase deploys Control and Gateway independently; a local state file cannot
 prevent two machines from interleaving those operations. Build identity is
@@ -83,8 +111,8 @@ Gateway path/query. A successful function deploy is not acceptance. Record the
 function deployment IDs, migration checksums, capabilities/config timestamp,
 synthetic evidence, and backup restore evidence.
 
-No hosted mutation is performed by the Preview planner. When apply is later
-enabled, recovery must prefer an audited roll-forward from the exact plan. If
-that is unsafe, restore the attested pre-deploy backup into a separate project,
+Recovery should prefer an audited roll-forward from the exact state record. If
+that is unsafe, restore the hashed pre-deploy dump into a separate project,
 verify it, then switch configuration; never apply reverse SQL to the active
-store.
+store. A created checksum proves backup integrity, not restore viability: the
+release acceptance report must separately record an isolated restore test.

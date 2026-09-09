@@ -3,7 +3,11 @@ param(
   [Parameter(Mandatory = $true)][string]$EnvFile,
   [Parameter(Mandatory = $true)][string]$ExpectedCurrentBuild,
   [string]$StateFile,
-  [switch]$Apply
+  [string]$ServiceRoleKeyFile,
+  [string]$DatabasePasswordFile,
+  [string]$AdminTokenFile,
+  [switch]$Apply,
+  [switch]$Resume
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,7 +18,11 @@ $Arguments = @(
   '--expected-current-build', $ExpectedCurrentBuild
 )
 if ($StateFile) { $Arguments += @('--state-file', $StateFile) }
+if ($ServiceRoleKeyFile) { $Arguments += @('--service-role-key-file', (Resolve-Path -LiteralPath $ServiceRoleKeyFile).Path) }
+if ($DatabasePasswordFile) { $Arguments += @('--db-password-file', (Resolve-Path -LiteralPath $DatabasePasswordFile).Path) }
+if ($AdminTokenFile) { $Arguments += @('--admin-token-file', (Resolve-Path -LiteralPath $AdminTokenFile).Path) }
 if ($Apply) { $Arguments += '--apply' }
+if ($Resume) { $Arguments += '--resume' }
 
 & node @Arguments
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

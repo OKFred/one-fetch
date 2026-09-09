@@ -335,7 +335,7 @@ test("pnpm preflight launcher works without a command shell", () => {
   assert.match(result.stdout, /^11\.25\.0\s*$/u);
 });
 
-test("Preview apply writes a blocked plan without remote mutation", async () => {
+test("Preview preflight writes an executable plan without remote mutation", async () => {
   const directory = await mkdtemp(join(tmpdir(), "one-fetch-deploy-test-"));
   const envFile = join(directory, "deployment.env");
   const stateFile = join(directory, "state.json");
@@ -389,35 +389,33 @@ test("Preview apply writes a blocked plan without remote mutation", async () => 
     );
   };
   try {
-    await assert.rejects(
-      runDeployment({
-        options: {
-          apply: true,
-          projectRef,
-          envFile,
-          expectedCurrentBuild: currentBuild,
-          stateFile,
+    await runDeployment({
+      options: {
+        apply: false,
+        projectRef,
+        envFile,
+        expectedCurrentBuild: currentBuild,
+        stateFile,
+      },
+      command,
+      fetch: request,
+      readBundles: async () => [
+        {
+          functionName: "one-fetch-control",
+          bytes: 100,
+          sha256: "c".repeat(64),
         },
-        command,
-        fetch: request,
-        readBundles: async () => [
-          {
-            functionName: "one-fetch-control",
-            bytes: 100,
-            sha256: "c".repeat(64),
-          },
-          {
-            functionName: "one-fetch-gateway",
-            bytes: 200,
-            sha256: "d".repeat(64),
-          },
-        ],
-      }),
-      /apply is disabled in 0\.1 Preview/u,
-    );
+        {
+          functionName: "one-fetch-gateway",
+          bytes: 200,
+          sha256: "d".repeat(64),
+        },
+      ],
+    });
     const state = JSON.parse(await readFile(stateFile, "utf8"));
-    assert.equal(state.status, "blocked");
-    assert.equal(state.apply.available, false);
+    assert.equal(state.status, "ready");
+    assert.equal(state.apply.available, true);
+    assert.equal(state.apply.databaseRestoreAutomatic, false);
     assert.equal(state.bundles.length, 2);
     assert.equal(state.backups.restoreTestVerified, false);
     const dryRun = commands.find(
