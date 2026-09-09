@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import {
+  assertHttpPreviewCapabilities,
   assertExpectedBuild,
   deploymentNames,
   parseD1CreateOutput,
@@ -262,17 +263,7 @@ export async function verifyCloudflareDeployment(values) {
     healthResponse.json(),
     capabilitiesResponse.json(),
   ]);
-  if (
-    capabilities.provider !== "cloudflare" ||
-    capabilities.buildVersion !== expectedBuild ||
-    capabilities.transports?.http !== "stable" ||
-    capabilities.transports?.websocket !== "unsupported" ||
-    capabilities.transports?.tcp !== "unsupported" ||
-    capabilities.transports?.tls !== "unsupported"
-  )
-    throw new Error(
-      "Cloudflare capabilities do not match the HTTP Preview contract",
-    );
+  assertHttpPreviewCapabilities(capabilities, expectedBuild);
   if (values.get("--resume") === true) {
     const token = await readToken(required(values, "--admin-token-file"));
     await setPaused(state, token, false);

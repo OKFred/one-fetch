@@ -30,6 +30,22 @@ export function validateBuildId(buildId) {
   return buildId;
 }
 
+export function assertHttpPreviewCapabilities(capabilities, buildId) {
+  if (
+    capabilities?.provider !== "cloudflare" ||
+    capabilities.buildVersion !== buildId ||
+    capabilities.transports?.http?.state !== "stable" ||
+    capabilities.transports?.websocket?.state !== "unsupported" ||
+    capabilities.transports?.tcp?.state !== "unsupported" ||
+    capabilities.transports?.tls?.state !== "unsupported"
+  ) {
+    throw new Error(
+      "Cloudflare capabilities do not match the HTTP Preview contract",
+    );
+  }
+  return capabilities;
+}
+
 export function parseD1CreateOutput(output) {
   const id = output.match(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/iu)?.[0];
   if (!id) throw new Error("Wrangler did not return a D1 database ID");

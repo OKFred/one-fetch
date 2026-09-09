@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  assertHttpPreviewCapabilities,
   assertExpectedBuild,
   createCloudflareConfigs,
   deploymentNames,
@@ -16,6 +17,35 @@ import {
   validateSecretsFile,
   writePrivateJson,
 } from "./cloudflare-support.mjs";
+
+test("Cloudflare verification accepts only nested HTTP Preview states", () => {
+  const buildId = "0.1.0+cloudflare.g1234567";
+  const capabilities = {
+    provider: "cloudflare",
+    buildVersion: buildId,
+    transports: {
+      http: { state: "stable" },
+      websocket: { state: "unsupported" },
+      tcp: { state: "unsupported" },
+      tls: { state: "unsupported" },
+    },
+  };
+  assert.equal(
+    assertHttpPreviewCapabilities(capabilities, buildId),
+    capabilities,
+  );
+  assert.throws(
+    () =>
+      assertHttpPreviewCapabilities(
+        {
+          ...capabilities,
+          transports: { ...capabilities.transports, tcp: { state: "stable" } },
+        },
+        buildId,
+      ),
+    /HTTP Preview contract/u,
+  );
+});
 
 test("Cloudflare deployment names are exact and bounded", () => {
   assert.deepEqual(deploymentNames("preview-a1"), {
