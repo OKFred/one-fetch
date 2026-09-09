@@ -23,6 +23,7 @@
     "dev:node": "pnpm --filter @one-fetch/adapter-node dev",
     "deploy:cloudflare": "node tools/deploy/cloudflare.mjs",
     "deploy:cloudflare:secrets": "node tools/deploy/generate-cloudflare-secrets.mjs",
+    "deploy:node:secrets": "node tools/deploy/generate-node-secrets.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:openapi": "node tools/release/generate-openapi.mjs",

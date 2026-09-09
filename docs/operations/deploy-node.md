@@ -17,7 +17,10 @@ supported in 1.0.
 3. For a source installation, run `corepack pnpm install --frozen-lockfile` and
    `corepack pnpm --filter @one-fetch/adapter-node build`.
 4. Generate independent high-entropy instance pepper and protocol key, plus an
-   Ed25519 PKCS#8 audit key. Put them in the service secret store.
+   Ed25519 PKCS#8 audit key. `pnpm deploy:node:secrets -- --output
+/run/secrets/one-fetch-node.json` creates a non-overwriting private JSON file
+   with the required environment-variable names. Import it into the service
+   secret store and retain the same values for restarts and disaster recovery.
 5. Set the variables documented in `adapters/node/.env.example`. Keep Control
    and Gateway on separate loopback ports behind separate TLS virtual hosts.
 6. Restrict `ONE_FETCH_CONTROL_ALLOWED_ORIGINS` to the deployed Admin origin.
