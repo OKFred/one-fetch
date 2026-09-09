@@ -29,6 +29,12 @@ import { runSharedPnpmDeploy } from "./pnpm-shared-deploy.mjs";
 const adapterDirectory = join(repositoryRoot, "adapters", "node");
 const dockerfilePath = join(adapterDirectory, "Dockerfile");
 const ociConfigurationPath = join(adapterDirectory, "oci-build.json");
+const deploymentScriptPath = join(
+  repositoryRoot,
+  "tools",
+  "deploy",
+  "node.mjs",
+);
 const archiveRoot = "one-fetch";
 
 export function nodeDistributionFilenames(version) {
@@ -37,6 +43,7 @@ export function nodeDistributionFilenames(version) {
     archive: `one-fetch-node-${checkedVersion}.tar.gz`,
     dockerfile: `one-fetch-node-${checkedVersion}.Dockerfile`,
     dockerignore: `one-fetch-node-${checkedVersion}.Dockerfile.dockerignore`,
+    deploy: `one-fetch-node-deploy-${checkedVersion}.mjs`,
     metadata: `one-fetch-node-oci-${checkedVersion}.json`,
   };
 }
@@ -307,6 +314,9 @@ async function validateDeploymentTree(directory, version) {
 
 async function stageNodeDeployment(directory, version) {
   const source = await readJson(join(adapterDirectory, "package.json"));
+  const migrationManifest = await readJson(
+    join(adapterDirectory, "migration-manifest.json"),
+  );
   const workspace = await runSharedPnpmDeploy({
     destinationDirectory: directory,
     workspaceDirectory: repositoryRoot,
@@ -357,6 +367,7 @@ async function stageNodeDeployment(directory, version) {
     format: "portable-node-esm",
     node: source.engines.node,
     entrypoint: "dist/cli.js",
+    databaseSchemaVersion: migrationManifest.migrations.length,
     dependenciesIncluded: true,
     lockfileSha256: await digestFile(
       join(repositoryRoot, "pnpm-lock.yaml"),
@@ -420,6 +431,8 @@ export async function buildNodeDistribution(outputDirectory, version) {
     filenames.dockerignore,
   );
   await writeFile(versionedDockerignore, `*\n!${filenames.archive}\n`, "utf8");
+  const versionedDeploy = join(safeOutputDirectory, filenames.deploy);
+  await copyFile(deploymentScriptPath, versionedDeploy);
   const commit = git("rev-parse", "HEAD");
   await writeJson(join(safeOutputDirectory, filenames.metadata), {
     schemaVersion: 1,
@@ -449,6 +462,10 @@ export async function buildNodeDistribution(outputDirectory, version) {
       filename: filenames.dockerignore,
       sha256: await digestFile(versionedDockerignore, "sha256"),
     },
+    deploymentHelper: {
+      filename: filenames.deploy,
+      sha256: await digestFile(versionedDeploy, "sha256"),
+    },
     frontend: configuration.frontend,
     baseImage: configuration.baseImage,
     build: {
@@ -463,6 +480,7 @@ export async function buildNodeDistribution(outputDirectory, version) {
     filenames.archive,
     filenames.dockerfile,
     filenames.dockerignore,
+    filenames.deploy,
     filenames.metadata,
   ];
 }

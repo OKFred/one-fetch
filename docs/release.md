@@ -25,6 +25,7 @@ For version `<version>`, the review bundle contains:
 - `one-fetch-node-<version>.tar.gz` (portable ESM runtime and production dependencies);
 - `one-fetch-node-<version>.Dockerfile`;
 - `one-fetch-node-<version>.Dockerfile.dockerignore` (minimal OCI build context);
+- `one-fetch-node-deploy-<version>.mjs` (versioned install/update/verify helper);
 - `one-fetch-node-oci-<version>.json` (archive, Dockerfile, base-image and build metadata);
 - `one-fetch-node-<version>.oci.tar` (unpublished `linux/amd64` and `linux/arm64` OCI image layout);
 - `one-fetch-admin-<version>.zip` (self-hosted static management site);

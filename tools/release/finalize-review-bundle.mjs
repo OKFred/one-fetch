@@ -37,6 +37,7 @@ export function requiredReviewArtifactFilenames(
     nodeFiles.archive,
     nodeFiles.dockerfile,
     nodeFiles.dockerignore,
+    nodeFiles.deploy,
     nodeFiles.metadata,
     `one-fetch-admin-${version}.zip`,
   ];

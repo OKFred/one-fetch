@@ -61,6 +61,7 @@ test("Node distribution filenames are versioned and path-safe", () => {
     archive: "one-fetch-node-0.1.0.tar.gz",
     dockerfile: "one-fetch-node-0.1.0.Dockerfile",
     dockerignore: "one-fetch-node-0.1.0.Dockerfile.dockerignore",
+    deploy: "one-fetch-node-deploy-0.1.0.mjs",
     metadata: "one-fetch-node-oci-0.1.0.json",
   });
   assert.throws(

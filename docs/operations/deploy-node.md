@@ -26,6 +26,52 @@ The public URLs must be the externally visible HTTPS origins, not loopback. Do
 not expose the SQLite file, environment, debug endpoint, or source maps through
 the reverse proxy.
 
+## Versioned install and update helper
+
+Verify the release checksums, then run the version-matched deployment helper in
+plan mode. A first install must explicitly state that no version is expected:
+
+```sh
+node one-fetch-node-deploy-0.1.0.mjs \
+  --mode plan \
+  --root /opt/one-fetch \
+  --archive one-fetch-node-0.1.0.tar.gz \
+  --sha256 <archive-sha256> \
+  --expected-version none
+```
+
+Repeat with `--mode apply` after reviewing the plan. The helper validates the
+archive digest and paths, installs under `versions/<version>`, and atomically
+writes `current.json`. Start the selected build through the same helper:
+
+```sh
+node one-fetch-node-deploy-0.1.0.mjs --mode launch --root /opt/one-fetch
+```
+
+For an update, pass the exact active version plus the Control URL and a private
+administrator-token file. The helper pauses Gateway through Control, makes and
+integrity-checks a live SQLite backup, retains the previous artifact, switches
+the pointer, and writes a restricted deployment journal. It never restores a
+database automatically.
+
+```sh
+node one-fetch-node-deploy-0.1.0.mjs \
+  --mode apply \
+  --root /opt/one-fetch \
+  --archive one-fetch-node-0.1.0.tar.gz \
+  --sha256 <archive-sha256> \
+  --expected-version <active-version> \
+  --control-url https://control.example \
+  --admin-token-file /run/secrets/one-fetch-admin
+```
+
+Restart the service, then run `--mode verify` with the Control URL. Add
+`--resume` and the token file only after the running build matches
+`current.json`. Binary rollback uses `--mode rollback --expected-version
+<active-version>` and keeps Gateway paused. It refuses rollback when the older
+artifact cannot read the current schema; restore the recorded backup into a new
+database path and verify it separately instead.
+
 ## Start and bootstrap
 
 ```bash

@@ -53,6 +53,7 @@ test("review bundles require every baseline distribution", () => {
     "one-fetch-node-0.1.0.tar.gz",
     "one-fetch-node-0.1.0.Dockerfile",
     "one-fetch-node-0.1.0.Dockerfile.dockerignore",
+    "one-fetch-node-deploy-0.1.0.mjs",
     "one-fetch-node-oci-0.1.0.json",
     "one-fetch-admin-0.1.0.zip",
   ]);
