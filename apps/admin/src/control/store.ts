@@ -6,6 +6,7 @@ import {
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { AdminControlApi, UnsupportedControlFeatureError } from "./api";
+import { mapFeatureStatuses } from "./feature-status";
 import {
   clearRefreshToken,
   persistProfiles,
@@ -141,19 +142,7 @@ export const useControlStore = defineStore("control", () => {
         const client = api.value ?? activateClient();
         capabilities.value = await client.capabilities();
         const statuses = await client.featureStatuses();
-        features.value = Object.fromEntries(
-          statuses.features.map((feature) => [
-            feature.feature,
-            {
-              available: feature.state === "supported",
-              ...("reason" in feature
-                ? { detail: feature.reason }
-                : feature.detail
-                  ? { detail: feature.detail }
-                  : {}),
-            },
-          ]),
-        );
+        features.value = mapFeatureStatuses(statuses.features);
         bootstrap.value = await client.bootstrapStatus();
         if (authenticated.value) await loadConfiguration();
       },
