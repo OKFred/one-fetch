@@ -2,6 +2,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { RequestOptions as HttpsRequestOptions } from "node:https";
+import type { LookupFunction } from "node:net";
 import { performance } from "node:perf_hooks";
 
 import type {
@@ -55,6 +56,18 @@ export interface ResolvedTarget {
 }
 
 type TargetApprover = ExecuteUpstreamOptions["approveTarget"];
+
+export const pinnedLookup =
+  (resolution: ResolvedTarget): LookupFunction =>
+  (_hostname, options, callback) => {
+    if (options.all) {
+      callback(null, [
+        { address: resolution.address, family: resolution.family },
+      ]);
+      return;
+    }
+    callback(null, resolution.address, resolution.family);
+  };
 
 export class TargetPolicyDeniedError extends Error {
   constructor() {
@@ -127,8 +140,7 @@ const singleRequest = async (
       typeof tls.clientPrivateKeyPem === "string"
         ? tls.clientPrivateKeyPem
         : undefined,
-    lookup: (_hostname, _options, callback) =>
-      callback(null, resolution.address, resolution.family),
+    lookup: pinnedLookup(resolution),
     method,
     path: `${url.pathname}${url.search}`,
     port: url.port || undefined,
