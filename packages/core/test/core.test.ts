@@ -44,6 +44,10 @@ describe("core utilities", () => {
     const encoded = encodeBase32(secret);
     expect(encoded).toBe("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
     expect(decodeBase32(encoded)).toEqual(secret);
+    expect(decodeBase32(`${encoded}====`)).toEqual(secret);
+    expect(() => decodeBase32(`${encoded}=invalid`)).toThrow(
+      "Expected an unpadded Base32 value",
+    );
 
     const sealed = await sealSecret(secret, "instance-pepper", "totp:admin");
     await expect(

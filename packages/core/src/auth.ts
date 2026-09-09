@@ -25,7 +25,15 @@ export function encodeBase32(bytes: Uint8Array): string {
 }
 
 export function decodeBase32(value: string): Uint8Array {
-  const normalized = value.toUpperCase().replace(/=+$/u, "");
+  const uppercase = value.toUpperCase();
+  let unpaddedLength = uppercase.length;
+  while (
+    unpaddedLength > 0 &&
+    uppercase.charCodeAt(unpaddedLength - 1) === 61
+  ) {
+    unpaddedLength -= 1;
+  }
+  const normalized = uppercase.slice(0, unpaddedLength);
   if (!/^[A-Z2-7]+$/u.test(normalized))
     throw new TypeError("Expected an unpadded Base32 value");
   let accumulator = 0;

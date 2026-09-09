@@ -204,10 +204,6 @@ export function defaultConfig(): z.infer<typeof ConfigSchema> {
 }
 
 export function configVersion(now: Date, hash: string): string {
-  const stamp = now
-    .toISOString()
-    .replaceAll("-", "")
-    .replaceAll(":", "")
-    .replace(".000", ".000");
+  const stamp = now.toISOString().replaceAll("-", "").replaceAll(":", "");
   return `${stamp}-${hash.slice(0, 8)}`;
 }

@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 
-import { hmacSha256Hex } from "./crypto.js";
+import { bytesToHex, hmacBytes } from "@one-fetch/core";
 
 const PASSWORD_COST = 12;
 
@@ -11,15 +11,18 @@ const validatePassword = (password: string): void => {
   }
 };
 
-const prehash = (password: string, pepper: string): string =>
-  hmacSha256Hex(pepper, password);
+const prehashPassword = async (
+  password: string,
+  pepper: string,
+): Promise<string> => bytesToHex(await hmacBytes(pepper, password));
 
 export const hashPassword = async (
   password: string,
   pepper: string,
 ): Promise<string> => {
   validatePassword(password);
-  return bcrypt.hash(prehash(password, pepper), PASSWORD_COST);
+  const prehash = await prehashPassword(password, pepper);
+  return bcrypt.hash(prehash, PASSWORD_COST);
 };
 
 export const verifyPassword = async (
@@ -28,5 +31,6 @@ export const verifyPassword = async (
   expectedHash: string,
 ): Promise<boolean> => {
   if (Buffer.byteLength(password, "utf8") > 1_024) return false;
-  return bcrypt.compare(prehash(password, pepper), expectedHash);
+  const prehash = await prehashPassword(password, pepper);
+  return bcrypt.compare(prehash, expectedHash);
 };
