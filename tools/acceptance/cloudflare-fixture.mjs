@@ -19,6 +19,20 @@ export function validateFixtureName(name) {
   return name;
 }
 
+async function verifyFixture(origin, fetch, wait) {
+  let status = 0;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await fetch(new globalThis.URL("/status/200", origin), {
+      cache: "no-store",
+      signal: globalThis.AbortSignal.timeout(15_000),
+    });
+    status = response.status;
+    if (status === 200) return;
+    if (attempt < 9) await wait(1_000);
+  }
+  throw new Error(`Fixture verification returned ${status}`);
+}
+
 function valueAfter(values, name) {
   const index = values.indexOf(name);
   const value = index < 0 ? undefined : values[index + 1];
@@ -30,6 +44,12 @@ export async function deployCloudflareFixture(name, dependencies = {}) {
   const run = dependencies.runWrangler ?? runWrangler;
   const exists = dependencies.workerExists ?? workerExists;
   const fetch = dependencies.fetch ?? globalThis.fetch;
+  const wait =
+    dependencies.wait ??
+    ((milliseconds) =>
+      new Promise((resolveWait) =>
+        globalThis.setTimeout(resolveWait, milliseconds),
+      ));
   const checked = validateFixtureName(name);
   if (await exists(checked)) throw new Error("Fixture Worker already exists");
   const source = resolve(
@@ -49,12 +69,7 @@ export async function deployCloudflareFixture(name, dependencies = {}) {
     "enable_request_signal",
   ]);
   const origin = parseWorkersUrl(output);
-  const response = await fetch(new globalThis.URL("/status/200", origin), {
-    cache: "no-store",
-    signal: globalThis.AbortSignal.timeout(15_000),
-  });
-  if (response.status !== 200)
-    throw new Error(`Fixture verification returned ${response.status}`);
+  await verifyFixture(origin, fetch, wait);
   return { name: checked, origin };
 }
 

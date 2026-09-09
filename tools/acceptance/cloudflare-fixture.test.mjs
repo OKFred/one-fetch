@@ -10,6 +10,7 @@ import {
 test("fixture lifecycle uses one exact random Worker name", async () => {
   const name = validateFixtureName("one-fetch-fixture-a1b2c3d4");
   let present = false;
+  let probes = 0;
   const calls = [];
   const dependencies = {
     workerExists: () => Promise.resolve(present),
@@ -21,11 +22,19 @@ test("fixture lifecycle uses one exact random Worker name", async () => {
         "https://one-fetch-fixture-a1b2c3d4.example.workers.dev",
       );
     },
-    fetch: () =>
-      Promise.resolve(new globalThis.Response("fixture", { status: 200 })),
+    fetch: () => {
+      probes += 1;
+      return Promise.resolve(
+        new globalThis.Response(probes === 1 ? "pending" : "fixture", {
+          status: probes === 1 ? 404 : 200,
+        }),
+      );
+    },
+    wait: () => Promise.resolve(),
   };
   const deployed = await deployCloudflareFixture(name, dependencies);
   assert.equal(deployed.name, name);
+  assert.equal(probes, 2);
   await assert.rejects(
     cleanupCloudflareFixture(name, "different", dependencies),
     /confirmation mismatch/u,
