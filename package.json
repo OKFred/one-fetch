@@ -11,6 +11,7 @@
   },
   "scripts": {
     "acceptance:gateway": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/run-gateway-conformance.mjs",
+    "acceptance:refresh-admin": "pnpm --filter @one-fetch/client build && node tools/acceptance/refresh-admin-session.mjs",
     "acceptance:finalize": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/finalize-report.mjs",
     "acceptance:cloudflare-fixture": "pnpm --filter @one-fetch/conformance build && node tools/acceptance/cloudflare-fixture.mjs",
     "acceptance:prepare": "pnpm --filter @one-fetch/client build && node tools/acceptance/prepare-instance.mjs",

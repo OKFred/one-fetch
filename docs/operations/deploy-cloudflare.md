@@ -75,6 +75,17 @@ pnpm deploy:cloudflare verify --deployment-id one-fetch-preview-a1 \
   --admin-token-file /restricted/admin-token
 ```
 
+Access tokens expire after 15 minutes. For a long update or acceptance run,
+refresh the restricted token file from the separately protected administrator
+credential file without printing either secret:
+
+```sh
+pnpm acceptance:refresh-admin -- \
+  --control-url https://CONTROL.example \
+  --administrator-file /restricted/administrator.json \
+  --token-file /restricted/admin-token
+```
+
 An update changes `--expected-build` to the currently deployed build and requires
 `--admin-token-file`. The tool pauses Gateway, captures the current Worker version
 IDs, D1 Time Travel bookmark, a SQL export, and its SHA-256 before migrations or

@@ -8,6 +8,7 @@ import {
   assertExpectedBuild,
   createCloudflareConfigs,
   deploymentNames,
+  failedDeploymentState,
   latestVersionId,
   parseD1CreateOutput,
   parseWorkersUrl,
@@ -167,4 +168,13 @@ test("Cloudflare update compare-and-swap is explicit", () => {
   assert.doesNotThrow(() => assertExpectedBuild({ buildId: "0.1.0" }, "0.1.0"));
   assert.throws(() => assertExpectedBuild({ buildId: "0.1.0" }, "none"));
   assert.throws(() => assertExpectedBuild({ buildId: "0.1.0" }, "0.1.1"));
+});
+
+test("failed deployment state never invents a successful pause", () => {
+  const active = failedDeploymentState({ gatewayPaused: false });
+  const paused = failedDeploymentState({ gatewayPaused: true });
+  assert.equal(active.gatewayPaused, false);
+  assert.equal(paused.gatewayPaused, true);
+  assert.equal(active.status, "failed");
+  assert.match(active.failureAt, /^\d{4}-\d{2}-\d{2}T/u);
 });

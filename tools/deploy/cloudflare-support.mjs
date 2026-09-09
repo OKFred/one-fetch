@@ -215,3 +215,11 @@ export function assertExpectedBuild(state, expectedBuild) {
     );
   }
 }
+
+export function failedDeploymentState(state) {
+  return {
+    ...state,
+    status: "failed",
+    failureAt: new Date().toISOString(),
+  };
+}

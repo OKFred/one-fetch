@@ -6,6 +6,7 @@ import {
   assertHttpPreviewCapabilities,
   assertExpectedBuild,
   deploymentNames,
+  failedDeploymentState,
   parseD1CreateOutput,
   parseWorkersUrl,
   readDeploymentState,
@@ -156,6 +157,8 @@ async function inventoryUpdate(plan, values, state) {
   const token = await readToken(required(values, "--admin-token-file"));
   await setPaused(state, token, true);
   const directory = stateDirectory(repositoryRoot, plan.deploymentId);
+  const pausedState = { ...state, gatewayPaused: true };
+  await writePrivateJson(join(directory, "state.json"), pausedState);
   const stamp = new Date().toISOString().replaceAll(":", "-");
   const backup = join(directory, `d1-${stamp}.sql`);
   const bookmark = await runWrangler(
@@ -232,10 +235,7 @@ export async function applyCloudflareDeployment(values) {
       await writePrivateJson(
         join(stateDirectory(repositoryRoot, plan.deploymentId), "state.json"),
         {
-          ...partial,
-          status: "failed",
-          gatewayPaused: true,
-          failureAt: new Date().toISOString(),
+          ...failedDeploymentState(partial),
         },
       );
     }
