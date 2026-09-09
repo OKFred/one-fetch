@@ -22,7 +22,7 @@ test("fixture lifecycle uses one exact random Worker name", async () => {
       );
     },
     fetch: () =>
-      Promise.resolve(new globalThis.Response(null, { status: 204 })),
+      Promise.resolve(new globalThis.Response("fixture", { status: 200 })),
   };
   const deployed = await deployCloudflareFixture(name, dependencies);
   assert.equal(deployed.name, name);

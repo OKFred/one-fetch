@@ -49,11 +49,11 @@ export async function deployCloudflareFixture(name, dependencies = {}) {
     "enable_request_signal",
   ]);
   const origin = parseWorkersUrl(output);
-  const response = await fetch(new globalThis.URL("/status/204", origin), {
+  const response = await fetch(new globalThis.URL("/status/200", origin), {
     cache: "no-store",
     signal: globalThis.AbortSignal.timeout(15_000),
   });
-  if (response.status !== 204)
+  if (response.status !== 200)
     throw new Error(`Fixture verification returned ${response.status}`);
   return { name: checked, origin };
 }
