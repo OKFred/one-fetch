@@ -60,7 +60,22 @@ export function parseWorkersUrl(output) {
 
 export function latestVersionId(value) {
   const list = Array.isArray(value) ? value : value?.items;
-  const candidate = Array.isArray(list) ? list[0] : undefined;
+  const candidates = Array.isArray(list)
+    ? list.filter(
+        (item) =>
+          typeof (item?.id ?? item?.version_id) === "string" &&
+          (item.id ?? item.version_id).length > 0,
+      )
+    : [];
+  const numbered = candidates.filter(({ number }) => Number.isInteger(number));
+  const candidate =
+    numbered.length === candidates.length && numbered.length > 0
+      ? numbered.reduce((latest, item) =>
+          item.number > latest.number ? item : latest,
+        )
+      : candidates.length === 1
+        ? candidates[0]
+        : undefined;
   const id = candidate?.id ?? candidate?.version_id;
   if (typeof id !== "string" || id.length === 0)
     throw new Error("Wrangler did not return a Worker version ID");

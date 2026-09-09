@@ -107,6 +107,13 @@ test("Wrangler output parsers reject ambiguous results", () => {
   );
   assert.equal(latestVersionId([{ id: "version-one" }]), "version-one");
   assert.equal(
+    latestVersionId([
+      { id: "old-version", number: 1 },
+      { id: "new-version", number: 2 },
+    ]),
+    "new-version",
+  );
+  assert.equal(
     latestVersionId({ items: [{ version_id: "version-two" }] }),
     "version-two",
   );
