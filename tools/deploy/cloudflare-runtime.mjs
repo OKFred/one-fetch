@@ -54,8 +54,34 @@ export async function readToken(path) {
   return token;
 }
 
-export async function setPaused(state, token, paused) {
-  const response = await globalThis.fetch(
+export async function setPaused(
+  state,
+  token,
+  paused,
+  fetch = globalThis.fetch,
+) {
+  const configurationUrl = new globalThis.URL(
+    "/api/v1/config",
+    state.controlUrl,
+  );
+  const currentResponse = await fetch(configurationUrl, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!currentResponse.ok)
+    throw new Error(
+      `Control configuration failed with ${currentResponse.status}`,
+    );
+  const current = await currentResponse.json();
+  if (current.gatewayPaused === paused) return current;
+  if (
+    typeof current.version !== "string" ||
+    current.version.length === 0 ||
+    /["\r\n]/u.test(current.version)
+  ) {
+    throw new Error("Control returned an invalid configuration version");
+  }
+  const response = await fetch(
     new globalThis.URL("/api/v1/config/gateway-paused", state.controlUrl),
     {
       method: "PUT",
@@ -63,6 +89,7 @@ export async function setPaused(state, token, paused) {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        "If-Match": `"${current.version}"`,
       },
       body: JSON.stringify({ schemaVersion: 1, paused }),
       cache: "no-store",

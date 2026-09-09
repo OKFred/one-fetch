@@ -42,16 +42,36 @@ export async function deploymentRpc(
 }
 
 async function setPaused(fetch, environment, token, paused) {
+  const controlBase = `${environment.get("ONE_FETCH_CONTROL_BASE_URL")}/`;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+  const currentResponse = await fetch(
+    new globalThis.URL("api/v1/config", controlBase),
+    {
+      headers,
+      signal: globalThis.AbortSignal.timeout(15_000),
+    },
+  );
+  if (!currentResponse.ok)
+    throw new Error(`Configuration read failed with ${currentResponse.status}`);
+  const current = await currentResponse.json();
+  if (current.gatewayPaused === paused) return current;
+  if (
+    typeof current.version !== "string" ||
+    current.version.length === 0 ||
+    /["\r\n]/u.test(current.version)
+  ) {
+    throw new Error("Control returned an invalid configuration version");
+  }
   const response = await fetch(
-    new globalThis.URL(
-      "api/v1/config/gateway-paused",
-      `${environment.get("ONE_FETCH_CONTROL_BASE_URL")}/`,
-    ),
+    new globalThis.URL("api/v1/config/gateway-paused", controlBase),
     {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        ...headers,
+        "If-Match": `"${current.version}"`,
       },
       body: JSON.stringify({ schemaVersion: 1, paused }),
       signal: globalThis.AbortSignal.timeout(15_000),

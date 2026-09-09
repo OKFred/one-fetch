@@ -215,9 +215,20 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
     };
     const request = (url, init) => {
       const parsed = new globalThis.URL(url);
+      if (parsed.pathname.endsWith("/api/v1/config")) {
+        events.push("http:config");
+        assert.match(init.headers.Authorization, /^Bearer a+$/u);
+        return Promise.resolve(
+          globalThis.Response.json({
+            version: "config-1",
+            gatewayPaused: false,
+          }),
+        );
+      }
       if (parsed.pathname.endsWith("/api/v1/config/gateway-paused")) {
         events.push("http:pause");
         assert.match(init.headers.Authorization, /^Bearer a+$/u);
+        assert.equal(init.headers["If-Match"], '"config-1"');
         return Promise.resolve(
           globalThis.Response.json({ gatewayPaused: true }),
         );
