@@ -4,6 +4,7 @@ coverage/
 .cache/
 .turbo/
 .wrangler/
+adapters/supabase/supabase/functions/*/.one-fetch-bundle/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
@@ -15,6 +16,9 @@ artifacts/
 playwright-report/
 test-results/
 *.log
+*.cpuprofile
+*.sarif
+*.tsbuildinfo
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
@@ -22,4 +26,3 @@ test-results/
 *.key
 .DS_Store
 Thumbs.db
-

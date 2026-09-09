@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - adapters/*
+  - packages/*
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - miniflare@5.20260831.0-alpha
+  - sharp@0.35.4
+  - wrangler@4.128.0
+
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+strictDepBuilds: true
+overrides:
+  sharp: 0.35.4
+allowBuilds:
+  deno: true
+  esbuild: true
+  supabase: true
+  vue-demi: true
+  workerd: true

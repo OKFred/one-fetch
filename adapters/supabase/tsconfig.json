@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@one-fetch/client": ["../../packages/client/src/index.ts"],
+      "@one-fetch/conformance": ["../../packages/conformance/src/index.ts"],
+      "@one-fetch/core": ["../../packages/core/src/index.ts"],
+      "@one-fetch/protocol": ["../../packages/protocol/src/index.ts"]
+    }
+  },
+  "include": ["supabase/functions/**/*.ts", "supabase/functions/**/*.d.ts"]
+}

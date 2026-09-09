@@ -1,0 +1,218 @@
+import { createHash } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { performance } from "node:perf_hooks";
+
+import type {
+  ExecutionReportV1,
+  OneFetchRequestMetaV1,
+} from "@one-fetch/protocol";
+
+import type { ExecutionCredential } from "./auth.js";
+import type { BodySpool } from "./body-spool.js";
+import type { StoredConfiguration } from "./configuration.js";
+import { failure } from "./gateway-error.js";
+import type { ResponseContext } from "./gateway-response.js";
+import type { GatewayDependencies } from "./gateway.js";
+import type { QuotaLease } from "./quota.js";
+import { parseServerTiming } from "./server-timing.js";
+import type { executeUpstream } from "./upstream.js";
+
+export const declaredResponseExceedsLimit = (
+  response: IncomingMessage,
+  limit: number,
+): boolean => {
+  const value = response.headers["content-length"];
+  if (typeof value !== "string" || !/^(?:0|[1-9][0-9]*)$/u.test(value))
+    return false;
+  const size = Number(value);
+  return Number.isSafeInteger(size) && size > limit;
+};
+
+export const responseBodyCompleted = (response: IncomingMessage): boolean =>
+  response.complete;
+
+export const interruptedResponseOutcome = (
+  downstreamDestroyed: boolean,
+): "partial" | "cancelled" => (downstreamDestroyed ? "cancelled" : "partial");
+
+export const auditAccepted = async (
+  dependencies: GatewayDependencies,
+  request: IncomingMessage,
+  metadata: OneFetchRequestMetaV1,
+  credential: ExecutionCredential,
+  configuration: StoredConfiguration,
+  body: BodySpool,
+): Promise<"recorded" | "degraded"> => {
+  try {
+    const url = new URL(request.url ?? "/", metadata.targetOrigin);
+    await dependencies.audit.append({
+      action: "request.accepted",
+      actor: {
+        actorId: credential.id,
+        credentialId: credential.id,
+        type: "execution-token",
+      },
+      category: "execution",
+      correlation: {
+        configVersion: configuration.version,
+        requestId: metadata.requestId,
+      },
+      metrics: { requestBytes: body.sizeBytes },
+      outcome: "success",
+      request: {
+        headers: metadata.targetHeaders,
+        method: request.method,
+        origin: url.origin,
+        path: url.pathname,
+        query: [...url.searchParams.entries()],
+        transport: "http",
+      },
+      severity: "info",
+    });
+    return "recorded";
+  } catch (error) {
+    console.error("Audit write degraded", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return "degraded";
+  }
+};
+
+export const streamTarget = async (
+  upstream: Awaited<ReturnType<typeof executeUpstream>>,
+  response: ServerResponse,
+  dependencies: GatewayDependencies,
+  context: ResponseContext,
+  credential: ExecutionCredential,
+  startedAt: number,
+  quota: QuotaLease,
+): Promise<void> => {
+  const hash = createHash("sha256");
+  const downloadStarted = performance.now();
+  let bytes = 0;
+  let outcome: "completed" | "partial" | "cancelled" = "completed";
+  try {
+    for await (const value of upstream.response as AsyncIterable<Uint8Array>) {
+      const chunk = Buffer.from(value);
+      if (
+        bytes + chunk.byteLength >
+        dependencies.config.responseBodyLimitBytes
+      ) {
+        outcome = "partial";
+        throw failure(
+          "response_too_large",
+          "upstream-body",
+          "Target response exceeded the configured limit",
+          502,
+        );
+      }
+      await quota.chargeBytes(chunk.byteLength);
+      bytes += chunk.byteLength;
+      hash.update(chunk);
+      if (!response.write(chunk))
+        await new Promise<void>((resolve) => response.once("drain", resolve));
+    }
+    if (!responseBodyCompleted(upstream.response)) {
+      outcome = "partial";
+      throw failure(
+        "upstream_network",
+        "upstream-body",
+        "Target response ended before its message completed",
+        502,
+      );
+    }
+    response.end();
+  } catch (error) {
+    outcome = interruptedResponseOutcome(response.destroyed);
+    response.destroy(error instanceof Error ? error : undefined);
+  } finally {
+    const report: ExecutionReportV1 = {
+      auditState: context.auditState,
+      bodyComplete: outcome === "completed",
+      ...(bytes > 0 ? { bodySha256: hash.digest("hex") } : {}),
+      finishedAt: new Date().toISOString(),
+      outcome,
+      reportId: context.reportId ?? context.metadata.requestId,
+      requestId: context.metadata.requestId,
+      responseBytes: bytes,
+      schemaVersion: 1,
+      source: "target",
+      status: upstream.status,
+      timing: {
+        phases: [
+          ...upstream.timing,
+          {
+            durationMs: performance.now() - downloadStarted,
+            name: "download",
+            source: "gateway",
+            state: "measured",
+          },
+          {
+            durationMs: performance.now() - startedAt,
+            name: "total",
+            source: "gateway",
+            state: "measured",
+          },
+        ],
+        serverTiming: parseServerTiming(
+          upstream.response.headers["server-timing"],
+        ),
+      },
+    };
+    let reportSaved = false;
+    try {
+      await dependencies.reports.save(report, credential.id);
+      reportSaved = true;
+    } catch (error) {
+      console.error("Final execution recording degraded", {
+        message: error instanceof Error ? error.message : "unknown",
+      });
+    }
+    if (reportSaved) {
+      try {
+        await dependencies.audit.append({
+          action: `request.${outcome}`,
+          actor: {
+            actorId: credential.id,
+            credentialId: credential.id,
+            type: "execution-token",
+          },
+          category: "execution",
+          correlation: {
+            requestId: context.metadata.requestId,
+            reportId: context.reportId,
+          },
+          metrics: {
+            durationMs:
+              report.timing.phases.find(({ name }) => name === "total")
+                ?.durationMs ?? 0,
+            responseBytes: bytes,
+            redirects: upstream.redirects,
+          },
+          outcome: outcome === "completed" ? "success" : "partial",
+          result: { source: "target", status: upstream.status },
+          severity: outcome === "completed" ? "info" : "warning",
+        });
+      } catch (error) {
+        console.error("Final execution audit degraded", {
+          message: error instanceof Error ? error.message : "unknown",
+          reportId: report.reportId,
+        });
+        try {
+          await dependencies.reports.recordAuditDegradation(
+            report,
+            credential.id,
+          );
+        } catch (persistenceError) {
+          console.error("Audit degradation persistence failed", {
+            message:
+              persistenceError instanceof Error
+                ? persistenceError.message
+                : "unknown",
+            reportId: report.reportId,
+          });
+        }
+      }
+    }
+  }
+};

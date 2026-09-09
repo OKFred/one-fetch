@@ -1,0 +1,40 @@
+{
+  "name": "@one-fetch/adapter-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run migrations:check && pnpm run types:check && pnpm run build:control && pnpm run build:gateway",
+    "build:control": "wrangler deploy --dry-run --config wrangler.control.jsonc --outdir dist/control",
+    "build:gateway": "wrangler deploy --dry-run --config wrangler.gateway.jsonc --outdir dist/gateway",
+    "check:startup": "pnpm run migrations:check && pnpm run check:startup:control && pnpm run check:startup:gateway",
+    "check:startup:control": "wrangler deploy --dry-run --config wrangler.control.jsonc --compatibility-date 2026-08-22 --outfile dist/control-startup.bundle && wrangler check startup --worker dist/control-startup.bundle --outfile dist/control-startup.cpuprofile",
+    "check:startup:gateway": "wrangler deploy --dry-run --config wrangler.gateway.jsonc --compatibility-date 2026-08-22 --outfile dist/gateway-startup.bundle && wrangler check startup --worker dist/gateway-startup.bundle --outfile dist/gateway-startup.cpuprofile",
+    "dev:control": "pnpm run migrations:check && wrangler dev --config wrangler.control.jsonc --port 8787",
+    "dev:gateway": "pnpm run migrations:check && wrangler dev --config wrangler.gateway.jsonc --port 8788",
+    "migrations:apply:local": "pnpm run migrations:check && wrangler d1 migrations apply DB --config wrangler.control.jsonc --local",
+    "migrations:apply:remote": "pnpm run migrations:check && wrangler d1 migrations apply DB --config wrangler.control.jsonc --remote",
+    "migrations:check": "node scripts/migration-integrity.mjs --check",
+    "migrations:generate": "node scripts/migration-integrity.mjs --write",
+    "migrations:test": "node --test scripts/migration-integrity.test.mjs",
+    "test": "pnpm run migrations:check && pnpm run migrations:test && vitest run",
+    "typecheck": "pnpm run types:check && tsc -b --pretty false",
+    "types:check": "wrangler types src/generated/control-env.d.ts --config wrangler.control.jsonc --env-interface CloudflareControlEnv --check && wrangler types src/generated/gateway-env.d.ts --config wrangler.gateway.jsonc --config wrangler.control.jsonc --env-interface CloudflareGatewayEnv --include-runtime false --check",
+    "types:generate": "pnpm run types:generate:control && pnpm run types:generate:gateway",
+    "types:generate:control": "wrangler types src/generated/control-env.d.ts --config wrangler.control.jsonc --env-interface CloudflareControlEnv",
+    "types:generate:gateway": "wrangler types src/generated/gateway-env.d.ts --config wrangler.gateway.jsonc --config wrangler.control.jsonc --env-interface CloudflareGatewayEnv --include-runtime false"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "1.6.2",
+    "@one-fetch/core": "workspace:*",
+    "@one-fetch/protocol": "workspace:*",
+    "bcryptjs": "3.0.3",
+    "hono": "4.13.5",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "vitest": "4.1.11",
+    "wrangler": "4.128.0"
+  }
+}

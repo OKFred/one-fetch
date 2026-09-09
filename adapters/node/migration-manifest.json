@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "sha256",
+  "migrationsDirectory": "migrations",
+  "migrations": [
+    {
+      "version": 1,
+      "file": "0001_initial.sql",
+      "bytes": 3610,
+      "artifactSha256": "5da4b822723172e7c5d35b7c2f302224d2e7d24a7d71ef949082f74471612fb3"
+    },
+    {
+      "version": 2,
+      "file": "0002_auth_sessions.sql",
+      "bytes": 197,
+      "artifactSha256": "4bc6c3cf124d9bf83380a418648a9250a58f498c1d12a7127f963487b4b0f78c"
+    },
+    {
+      "version": 3,
+      "file": "0003_device_fingerprint.sql",
+      "bytes": 71,
+      "artifactSha256": "d1e8d70c19372103dc0016570cbbf30a1f66dec5d48f870fce1098429db13213"
+    },
+    {
+      "version": 4,
+      "file": "0004_quota.sql",
+      "bytes": 542,
+      "artifactSha256": "c6dcb15f82cc519225eec69e65a14509b0f9a106b75e7b7da0997d771392c5d2"
+    },
+    {
+      "version": 5,
+      "file": "0005_totp_recovery.sql",
+      "bytes": 514,
+      "artifactSha256": "2ffab6963b937a07d0ba60ac88372f7a8a16abef907fc0e1df5ba4ccabcde57b"
+    },
+    {
+      "version": 6,
+      "file": "0006_operational_alerts.sql",
+      "bytes": 481,
+      "artifactSha256": "27a9a1ffc8590cbd7c45fa987e0494b20b88df40773b4dadb4cd58c2d0cc6991"
+    },
+    {
+      "version": 7,
+      "file": "0007_single_administrator.sql",
+      "bytes": 93,
+      "artifactSha256": "3d5e3a368b864625408360cbe8b54def73b34b94935cd56d751328753cad07ad"
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+name: Release review bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact workspace version to package
+        required: true
+        default: 0.1.0
+        type: string
+      channel:
+        description: Review channel; neither option creates a Release
+        required: true
+        default: preview
+        type: choice
+        options: [preview, stable]
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-review-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: build-attest-review-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Require reviewed main branch
+        shell: bash
+        run: test "$GITHUB_REF" = "refs/heads/main"
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - name: Require successful CI and CodeQL for this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          node tools/release/verify-github-checks.mjs
+          --repository "$GITHUB_REPOSITORY"
+          --sha "$GITHUB_SHA"
+      - run: pnpm install --frozen-lockfile
+      - name: Audit locked dependencies with OSV
+        uses: google/osv-scanner-action/osv-scanner-action@0c58c542420dfd23fcac08dd9c8ca3cca9c36f1a # v2.5.0
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+      - run: node tools/release/verify-release-input.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL"
+      - run: pnpm check
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "26.x"
+          cache: pnpm
+      - run: pnpm --filter @one-fetch/adapter-node... typecheck
+      - run: pnpm --filter @one-fetch/adapter-node test
+      - run: pnpm --filter @one-fetch/adapter-node build
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+      - run: pnpm --filter @one-fetch/adapter-cloudflare check:startup
+      - name: Generate ephemeral local Function secrets
+        run: >-
+          node adapters/supabase/scripts/generate-env.mjs
+          --out adapters/supabase/supabase/functions/.env
+          --base-url http://127.0.0.1:54321/functions/v1
+      - name: Start local Supabase
+        run: pnpm --filter @one-fetch/adapter-supabase start
+      - name: Database and Function integration
+        run: pnpm --filter @one-fetch/adapter-supabase test:integration
+      - name: Remove ephemeral local Function secrets
+        if: always()
+        run: rm -f adapters/supabase/supabase/functions/.env
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm --filter @one-fetch/adapter-supabase exec supabase stop --no-backup
+      - name: Verify checks did not rewrite tracked inputs
+        run: git diff --exit-code
+      - run: node tools/release/build-review-bundle.mjs --version "$RELEASE_VERSION"
+      - name: Set up QEMU for multi-platform OCI builds
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
+        with:
+          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          version: v0.37.0
+      - name: Build linux/amd64 and linux/arm64 Node OCI archive
+        shell: bash
+        working-directory: artifacts/release/${{ inputs.version }}
+        run: |
+          docker buildx build \
+            --file "one-fetch-node-${RELEASE_VERSION}.Dockerfile" \
+            --build-arg "ONE_FETCH_VERSION=${RELEASE_VERSION}" \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --platform linux/amd64,linux/arm64 \
+            --output "type=oci,dest=one-fetch-node-${RELEASE_VERSION}.oci.tar" \
+            .
+      - name: Generate source distribution SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: cyclonedx-json
+          syft-version: v1.51.1
+          output-file: artifacts/release/${{ inputs.version }}/one-fetch-sbom-${{ inputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Generate Node OCI archive SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: oci-archive:artifacts/release/${{ inputs.version }}/one-fetch-node-${{ inputs.version }}.oci.tar
+          format: cyclonedx-json
+          syft-version: v1.51.1
+          output-file: artifacts/release/${{ inputs.version }}/one-fetch-node-oci-${{ inputs.version }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - run: node tools/release/finalize-review-bundle.mjs --version "$RELEASE_VERSION" --channel "$RELEASE_CHANNEL" --require-sbom --require-oci --require-oci-sbom
+      - id: attest
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-checksums: artifacts/release/${{ inputs.version }}/SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: one-fetch-${{ inputs.version }}-${{ inputs.channel }}-review
+          path: |
+            artifacts/release/${{ inputs.version }}
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 30

@@ -5,4 +5,4 @@
 *.ico binary
 *.zip binary
 *.tgz binary
-
+adapters/node/migrations/*.sql text eol=lf whitespace=-trailing-space

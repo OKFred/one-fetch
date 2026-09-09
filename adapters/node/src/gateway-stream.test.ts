@@ -1,0 +1,44 @@
+import type { IncomingMessage } from "node:http";
+import { describe, expect, it } from "vitest";
+
+import {
+  declaredResponseExceedsLimit,
+  interruptedResponseOutcome,
+  responseBodyCompleted,
+} from "./gateway-stream.js";
+
+const responseWithLength = (value: string): IncomingMessage =>
+  ({ headers: { "content-length": value } }) as unknown as IncomingMessage;
+
+describe("declared response limits", () => {
+  it("rejects a known body above the configured limit", () => {
+    expect(
+      declaredResponseExceedsLimit(responseWithLength("20971521"), 20_971_520),
+    ).toBe(true);
+  });
+
+  it("allows the exact boundary and treats invalid lengths as unknown", () => {
+    expect(
+      declaredResponseExceedsLimit(responseWithLength("20971520"), 20_971_520),
+    ).toBe(false);
+    expect(
+      declaredResponseExceedsLimit(responseWithLength("invalid"), 20_971_520),
+    ).toBe(false);
+  });
+});
+
+describe("target response completion", () => {
+  it("distinguishes a clean message from a prematurely closed body", () => {
+    expect(responseBodyCompleted({ complete: true } as IncomingMessage)).toBe(
+      true,
+    );
+    expect(responseBodyCompleted({ complete: false } as IncomingMessage)).toBe(
+      false,
+    );
+  });
+
+  it("records upstream failures as partial unless the client cancelled", () => {
+    expect(interruptedResponseOutcome(false)).toBe("partial");
+    expect(interruptedResponseOutcome(true)).toBe("cancelled");
+  });
+});

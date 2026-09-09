@@ -1,0 +1,47 @@
+{
+  "name": "@one-fetch/adapter-supabase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Supabase Edge Functions adapter for one-fetch.",
+  "dependencies": {
+    "@one-fetch/client": "workspace:*",
+    "@one-fetch/core": "workspace:*",
+    "@one-fetch/protocol": "workspace:*",
+    "bcryptjs": "3.0.3",
+    "hono": "4.13.5",
+    "zod": "4.5.4"
+  },
+  "scripts": {
+    "build": "pnpm run typecheck",
+    "bundle:check": "node scripts/check-bundles.mjs --check",
+    "bundle:stage": "node scripts/check-bundles.mjs --stage",
+    "check:embedded-openapi": "node scripts/sync-openapi.mjs --check",
+    "check:migrations": "node scripts/sync-migrations.mjs --check",
+    "check:openapi": "pnpm --workspace-root check:openapi && node scripts/sync-openapi.mjs --check",
+    "db:lint": "pnpm run bundle:stage && supabase db lint --local --level warning",
+    "dev": "pnpm run functions:serve",
+    "functions:serve": "pnpm run shared:build && pnpm run bundle:stage && supabase functions serve --env-file supabase/functions/.env",
+    "shared:build": "pnpm --filter @one-fetch/conformance build && pnpm run check:embedded-openapi && pnpm run check:migrations",
+    "start": "pnpm run shared:build && pnpm run bundle:stage && supabase start",
+    "stop": "supabase stop",
+    "sync:migrations": "node scripts/sync-migrations.mjs --write",
+    "sync:openapi": "node scripts/sync-openapi.mjs",
+    "predeploy": "pnpm run check:openapi && pnpm run check:migrations && pnpm --filter @one-fetch/conformance build && pnpm run typecheck:adapter && pnpm run test:adapter && pnpm run test:scripts && pnpm run bundle:stage",
+    "runtime:smoke": "node scripts/runtime-smoke.mjs --base-url http://127.0.0.1:54321/functions/v1",
+    "test": "pnpm run shared:build && pnpm run test:adapter && pnpm run test:scripts",
+    "test:adapter": "deno test --frozen --allow-env --allow-net --config supabase/functions/one-fetch-control/deno.json supabase/functions/one-fetch-control && deno test --frozen --allow-env --allow-net --config supabase/functions/one-fetch-gateway/deno.json supabase/functions/one-fetch-gateway",
+    "test:integration": "pnpm run shared:build && supabase test db && pnpm run test:adapter && pnpm run runtime:smoke",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "typecheck": "pnpm run shared:build && pnpm run typecheck:adapter",
+    "typecheck:adapter": "deno check --frozen --config supabase/functions/one-fetch-control/deno.json supabase/functions/one-fetch-control/index.ts && deno check --frozen --config supabase/functions/one-fetch-gateway/deno.json supabase/functions/one-fetch-gateway/index.ts",
+    "verify": "pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@one-fetch/conformance": "workspace:*",
+    "deno": "2.9.6",
+    "pnpm": "11.25.0",
+    "supabase": "2.116.0",
+    "vitest": "4.1.11"
+  }
+}

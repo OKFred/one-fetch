@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.wrangler
+**/.one-fetch-bundle
+artifacts
+pnpm-lock.yaml
+*.sarif
+adapters/cloudflare/src/generated
+adapters/supabase/**/deno.lock
