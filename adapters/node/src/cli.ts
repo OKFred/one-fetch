@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { startOneFetchNode } from "./server.js";
+import { emitBootstrapToken } from "./bootstrap-output.js";
 
 const server = await startOneFetchNode();
 
 console.log(`one-fetch Control listening at ${server.config.publicControlUrl}`);
 console.log(`one-fetch Gateway listening at ${server.config.publicGatewayUrl}`);
 if (server.bootstrapToken) {
-  console.log("One-time bootstrap token (not recoverable after this output):");
-  console.log(server.bootstrapToken);
+  await emitBootstrapToken(server.bootstrapToken);
 }
 
 let fatalFailure = false;

@@ -83,6 +83,11 @@ administrator over the Control HTTPS origin, enroll MFA when supported by the
 active capabilities, and destroy the plaintext bootstrap copy. The initial
 empty allowlist should make a synthetic target request fail closed.
 
+For supervised or acceptance starts, set `ONE_FETCH_BOOTSTRAP_TOKEN_FILE` to a
+new path in the private data directory. The CLI creates that file with private
+permissions, refuses to overwrite it, and logs only its path. If the variable
+is omitted, the token is printed for an attended interactive bootstrap.
+
 ## Acceptance
 
 Verify both externally and from the service network:
