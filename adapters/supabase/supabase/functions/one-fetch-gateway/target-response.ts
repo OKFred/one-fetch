@@ -23,8 +23,12 @@ import {
   problem,
   signedError,
 } from "./foundation.ts";
-import { finalize, finalizeRelayError } from "./recording.ts";
-import { background, monitoredBody } from "./stream.ts";
+import {
+  finalize,
+  finalizeRelayError,
+  type FinalizeOptions,
+} from "./recording.ts";
+import { background, monitoredBody, type StreamFailure } from "./stream.ts";
 
 const EMPTY_BODY_SHA256 = new IncrementalSha256().digestHex();
 
@@ -38,6 +42,27 @@ interface TargetResponseOptions {
   timeout: ReturnType<typeof setTimeout>;
   auditState: AuditState;
   ttfbMs: number;
+}
+
+export function streamTerminalRecord(
+  complete: boolean,
+  timedOut: boolean,
+  failure: StreamFailure | undefined,
+  aborted: boolean,
+): Pick<FinalizeOptions, "outcome" | "source"> {
+  const outcome = complete
+    ? "completed"
+    : timedOut
+      ? "timeout"
+      : failure === "response_too_large"
+        ? "partial"
+        : aborted
+          ? "cancelled"
+          : "partial";
+  return {
+    outcome,
+    source: complete || outcome === "partial" ? "target" : "relay",
+  };
 }
 
 export async function createTargetResponse({
@@ -193,15 +218,12 @@ export async function createTargetResponse({
     abortController,
     async (bytes, complete, bodySha256, failure) => {
       clearTimeout(timeout);
-      const outcome = complete
-        ? "completed"
-        : didTimeOut()
-          ? "timeout"
-          : failure === "response_too_large"
-            ? "relay-error"
-            : abortController.signal.aborted
-              ? "cancelled"
-              : "partial";
+      const terminal = streamTerminalRecord(
+        complete,
+        didTimeOut(),
+        failure,
+        abortController.signal.aborted,
+      );
       const terminalProblem = complete
         ? undefined
         : didTimeOut()
@@ -229,8 +251,8 @@ export async function createTargetResponse({
         reportId,
         targetStatus: upstream.status,
         responseBytes: bytes,
-        outcome,
-        source: complete || outcome === "partial" ? "target" : "relay",
+        outcome: terminal.outcome,
+        source: terminal.source,
         timing,
         auditState,
         downloadMs: milliseconds(downloadStarted),

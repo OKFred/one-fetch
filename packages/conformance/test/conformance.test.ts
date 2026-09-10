@@ -88,10 +88,14 @@ function inMemoryGatewayFetch(): typeof fetch {
       ...(incomplete ? { reportId: "report-truncated" } : {}),
     };
     const signed = await createSignedResponseMetadata(unsigned, TOKEN);
+    const outerHeaders = new Headers({
+      [ONE_FETCH_RESPONSE_HEADER]: encodeResponseMetadata(signed),
+    });
+    outerHeaders.append("Set-Cookie", "__cf_bm=vendor; Path=/; HttpOnly");
     return new Response(target.body, {
       status: target.status,
       statusText: target.statusText,
-      headers: { [ONE_FETCH_RESPONSE_HEADER]: encodeResponseMetadata(signed) },
+      headers: outerHeaders,
     });
   };
 }

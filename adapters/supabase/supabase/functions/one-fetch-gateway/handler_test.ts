@@ -331,6 +331,10 @@ Deno.test(
         "repeated Set-Cookie values were not preserved in metadata",
       );
       assert(
+        !response.headers.has("set-cookie"),
+        "target Set-Cookie escaped onto the Gateway origin",
+      );
+      assert(
         signed.timing.serverTiming[0]?.name === "app",
         "target Server-Timing was not preserved",
       );
