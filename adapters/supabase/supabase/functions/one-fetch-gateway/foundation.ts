@@ -1,5 +1,6 @@
 import {
   encodeResponseMetadata,
+  IsoDateTimeSchema,
   ONE_FETCH_LIMITS_V1,
   ONE_FETCH_RESPONSE_HEADER,
   PolicySetV1Schema,
@@ -24,7 +25,9 @@ export const ActiveConfigSchema = z
     instanceId: z.string().uuid().optional(),
     initialized: z.boolean(),
     gatewayPaused: z.boolean().optional(),
+    revision: z.number().int().nonnegative().optional(),
     version: z.string().min(1).optional(),
+    updatedAt: IsoDateTimeSchema.optional(),
     auditDegraded: z.boolean().optional(),
     config: z
       .object({
