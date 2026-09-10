@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -205,7 +205,7 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
         const workdir = arguments_[arguments_.indexOf("--workdir") + 1];
         const directory = join(workdir, "supabase", "functions", slug);
         mkdirSync(directory, { recursive: true });
-        writeFileSync(join(directory, "index.ts"), `// prior ${slug}\n`);
+        writeFileSync(join(directory, "index.js"), `// prior ${slug}\n`);
       }
       if (arguments_.includes("dump")) {
         const output = arguments_[arguments_.indexOf("--file") + 1];
@@ -290,6 +290,18 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
     assert.equal(
       events.filter((event) => event.startsWith("cli:restore prior")).length,
       2,
+    );
+    const recoveryConfig = await readFile(
+      join(recorder.state.recovery.root, "supabase", "config.toml"),
+      "utf8",
+    );
+    assert.match(
+      recoveryConfig,
+      /entrypoint = "\.\/functions\/one-fetch-control\/index\.js"/u,
+    );
+    assert.match(
+      recoveryConfig,
+      /entrypoint = "\.\/functions\/one-fetch-gateway\/index\.js"/u,
     );
     assert(
       events.indexOf("rpc:of_acquire_deployment_lease") <
