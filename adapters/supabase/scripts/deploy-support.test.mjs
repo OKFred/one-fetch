@@ -335,7 +335,7 @@ test("pnpm preflight launcher works without a command shell", () => {
   assert.match(result.stdout, /^11\.25\.0\s*$/u);
 });
 
-test("Preview preflight writes an executable plan without remote mutation", async () => {
+test("Preview orchestration keeps the transient link until apply settles", async () => {
   const directory = await mkdtemp(join(tmpdir(), "one-fetch-deploy-test-"));
   const envFile = join(directory, "deployment.env");
   const databasePasswordFile = join(directory, "database.secret");
@@ -349,6 +349,9 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
     functionRecord("one-fetch-gateway", 7),
   ];
   const commands = [];
+  let cleanupCalled = false;
+  let releaseApply;
+  const applyStarted = Promise.withResolvers();
   const command = (file, args) => {
     commands.push([file, ...args]);
     if (args.some((argument) => argument.endsWith("build-id.mjs"))) {
@@ -391,9 +394,9 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
     );
   };
   try {
-    await runDeployment({
+    const deployment = runDeployment({
       options: {
-        apply: false,
+        apply: true,
         projectRef,
         envFile,
         dbPasswordFile: databasePasswordFile,
@@ -410,8 +413,18 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
         assert.equal(linkedRef, projectRef);
         return {
           workdir: join(directory, "database-link"),
-          cleanup: async () => undefined,
+          cleanup: async () => {
+            cleanupCalled = true;
+          },
         };
+      },
+      applyDeployment: async () => {
+        applyStarted.resolve();
+        await new Promise((resolve) => {
+          releaseApply = resolve;
+        });
+        assert.equal(cleanupCalled, false);
+        return { status: "verified" };
       },
       readBundles: async () => [
         {
@@ -426,6 +439,12 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
         },
       ],
     });
+    await applyStarted.promise;
+    assert.equal(cleanupCalled, false);
+    releaseApply();
+    const result = await deployment;
+    assert.equal(result.status, "verified");
+    assert.equal(cleanupCalled, true);
     const state = JSON.parse(await readFile(stateFile, "utf8"));
     assert.equal(state.status, "ready");
     assert.equal(state.apply.available, true);

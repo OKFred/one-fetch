@@ -316,6 +316,7 @@ export async function runDeployment({
   fetch: request = globalThis.fetch,
   readBundles = bundleEvidence,
   createDatabaseLink = createTransientDatabaseLink,
+  applyDeployment = applyHostedDeployment,
 }) {
   const envFile = resolve(options.envFile);
   const environment = await readDeploymentEnvironment(envFile);
@@ -453,7 +454,7 @@ export async function runDeployment({
       },
     });
     if (options.apply) {
-      return applyHostedDeployment({
+      return await applyDeployment({
         adapterRoot,
         options,
         environment,
