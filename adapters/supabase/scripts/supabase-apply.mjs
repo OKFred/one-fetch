@@ -204,7 +204,7 @@ async function createLogicalBackup(
   };
 }
 
-function deployFunction(runPnpm, projectRef, slug) {
+function deployFunction(runPnpm, projectRef, workdir, slug) {
   runPnpm(
     [
       "exec",
@@ -214,6 +214,8 @@ function deployFunction(runPnpm, projectRef, slug) {
       slug,
       "--project-ref",
       projectRef,
+      "--workdir",
+      workdir,
       "--no-verify-jwt",
       "--use-api",
     ],
@@ -240,6 +242,8 @@ async function tryRecovery(context, deployed, recovery, completed) {
             slug,
             "--project-ref",
             context.options.projectRef,
+            "--workdir",
+            context.databaseLink.workdir,
             "--yes",
           ],
           { label: `remove partial ${slug}` },
@@ -374,6 +378,8 @@ export async function applyHostedDeployment(context) {
         "set",
         "--project-ref",
         options.projectRef,
+        "--workdir",
+        databaseLink.workdir,
         "--env-file",
         resolve(options.envFile),
       ],
@@ -387,7 +393,12 @@ export async function applyHostedDeployment(context) {
         p_desired_build: desiredBuildId,
         p_ttl_seconds: 900,
       });
-      deployFunction(context.runPnpm, options.projectRef, slug);
+      deployFunction(
+        context.runPnpm,
+        options.projectRef,
+        databaseLink.workdir,
+        slug,
+      );
       deployed.push(slug);
       const next = context.functionList();
       assertFunctionTransition(inventory, next, slug);

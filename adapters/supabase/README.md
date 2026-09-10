@@ -114,7 +114,8 @@ both self-contained bundles, records their SHA-256 values, strictly inventories
 the project and current pair, creates and validates an isolated IPv4 pooler link,
 runs `db push --linked --dry-run --skip-vault`, and records the provider backup
 summary. It rejects a dirty Git tree and removes the transient link state on
-success or failure.
+success or failure. All hosted Supabase CLI calls use that workdir, so project
+discovery and Function operations do not leave `.temp` state in the checkout.
 
 Use a project-scoped Supabase token with Project Settings Read, Backups Read,
 Connection Pooling Read, API Keys Read, Edge Functions Read-Write, and Edge

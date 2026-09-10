@@ -24,6 +24,9 @@ async function fixtureRoot() {
   await mkdir(join(root, "adapter", "supabase", "migrations"), {
     recursive: true,
   });
+  await mkdir(join(root, "adapter", "supabase", "functions"), {
+    recursive: true,
+  });
   await writeFile(
     join(root, "adapter", "supabase", "config.toml"),
     'project_id = "one-fetch"\n',
@@ -89,6 +92,7 @@ test("transient link stages migrations, verifies the exact project, and cleans u
       ),
       "select 1;\n",
     );
+    await access(join(link.workdir, "supabase", "functions"));
     await link.cleanup();
     await assert.rejects(access(link.workdir));
   } finally {

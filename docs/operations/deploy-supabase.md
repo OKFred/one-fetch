@@ -53,6 +53,8 @@ pair/build, creates an isolated CLI workdir, verifies that its IPv4 pooler link
 belongs to the exact project, runs `db push --linked --dry-run --skip-vault`, and
 records a non-secret backup summary. The isolated link state is removed when the
 command completes or fails; it never modifies repository-local Supabase state.
+Function inventory, deployment, secrets, backup inventory, and partial cleanup
+also use the same isolated workdir.
 
 Set a project-scoped Supabase access token in the CLI environment or native
 credential store. The minimum hosted deployment capabilities are Project

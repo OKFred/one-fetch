@@ -1,5 +1,6 @@
 import {
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
@@ -47,6 +48,9 @@ async function stageProject(sourceRoot, workdir) {
       copyFile(join(source, "migrations", name), join(targetMigrations, name)),
     ),
   );
+  await cp(join(source, "functions"), join(target, "functions"), {
+    recursive: true,
+  });
 }
 
 async function verifyLink(workdir, projectRef) {

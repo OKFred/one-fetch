@@ -238,7 +238,7 @@ function defaultStatePath(projectRef, buildId) {
   );
 }
 
-function functionList(command = runCommand, projectRef) {
+function functionList(command = runCommand, projectRef, workdir) {
   return parseFunctionList(
     runPnpm(
       command,
@@ -249,6 +249,8 @@ function functionList(command = runCommand, projectRef) {
         "list",
         "--project-ref",
         projectRef,
+        "--workdir",
+        workdir,
         "--output",
         "json",
       ],
@@ -349,28 +351,6 @@ export async function runDeployment({
   );
   const bundles = await readBundles(desiredBuildId);
 
-  const beforeFunctions = functionList(command, options.projectRef);
-  assertFunctionBaseline(beforeFunctions, options.expectedCurrentBuild);
-  let currentRuntime = null;
-  if (options.expectedCurrentBuild !== "none") {
-    currentRuntime = await inspectCurrentDeployment({
-      environment,
-      projectRef: options.projectRef,
-      fetch: request,
-    });
-    if (currentRuntime.buildId !== options.expectedCurrentBuild) {
-      throw new Error(
-        `Current runtime build ${currentRuntime.buildId} does not match expected ${options.expectedCurrentBuild}`,
-      );
-    }
-    const commitPrefix = options.expectedCurrentBuild.slice(
-      options.expectedCurrentBuild.lastIndexOf(".g") + 2,
-    );
-    command("git", ["cat-file", "-e", `${commitPrefix}^{commit}`], {
-      label: "prior immutable commit recovery check",
-    });
-  }
-
   const databaseLink = await createDatabaseLink({
     adapterRoot,
     projectRef: options.projectRef,
@@ -379,6 +359,31 @@ export async function runDeployment({
       runPnpm(command, arguments_, commandOptions),
   });
   try {
+    const beforeFunctions = functionList(
+      command,
+      options.projectRef,
+      databaseLink.workdir,
+    );
+    assertFunctionBaseline(beforeFunctions, options.expectedCurrentBuild);
+    let currentRuntime = null;
+    if (options.expectedCurrentBuild !== "none") {
+      currentRuntime = await inspectCurrentDeployment({
+        environment,
+        projectRef: options.projectRef,
+        fetch: request,
+      });
+      if (currentRuntime.buildId !== options.expectedCurrentBuild) {
+        throw new Error(
+          `Current runtime build ${currentRuntime.buildId} does not match expected ${options.expectedCurrentBuild}`,
+        );
+      }
+      const commitPrefix = options.expectedCurrentBuild.slice(
+        options.expectedCurrentBuild.lastIndexOf(".g") + 2,
+      );
+      command("git", ["cat-file", "-e", `${commitPrefix}^{commit}`], {
+        label: "prior immutable commit recovery check",
+      });
+    }
     runPnpm(
       command,
       [
@@ -408,6 +413,8 @@ export async function runDeployment({
           "list",
           "--project-ref",
           options.projectRef,
+          "--workdir",
+          databaseLink.workdir,
           "--output",
           "json",
         ],
@@ -458,7 +465,8 @@ export async function runDeployment({
         databasePassword,
         runPnpm: (arguments_, commandOptions) =>
           runPnpm(command, arguments_, commandOptions),
-        functionList: () => functionList(command, options.projectRef),
+        functionList: () =>
+          functionList(command, options.projectRef, databaseLink.workdir),
         inspectCurrent: () =>
           inspectCurrentDeployment({
             environment,

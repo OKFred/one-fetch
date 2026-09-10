@@ -149,6 +149,13 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       commands.some(({ arguments_ }) => arguments_.includes("secrets")),
       true,
     );
+    for (const { arguments_ } of commands.filter(({ arguments_ }) =>
+      ["dump", "push", "secrets", "deploy"].some((command) =>
+        arguments_.includes(command),
+      ),
+    )) {
+      assert(arguments_.includes("--workdir"));
+    }
     const commandText = JSON.stringify(
       commands.map(({ arguments_, options }) => ({
         arguments_,
@@ -206,7 +213,8 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
       }
       if (arguments_.includes("deploy")) {
         const slug = arguments_[arguments_.indexOf("deploy") + 1];
-        const isRecovery = arguments_.includes("--workdir");
+        const workdir = arguments_[arguments_.indexOf("--workdir") + 1];
+        const isRecovery = workdir?.includes("recovery-") === true;
         if (slug === "one-fetch-gateway" && !isRecovery && !gatewayFailed) {
           gatewayFailed = true;
           throw new Error("fixture gateway failure");

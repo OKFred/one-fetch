@@ -442,6 +442,11 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
     assert(dryRun.includes("--linked"));
     assert.equal(dryRun.includes("--project-ref"), false);
     assert.equal(mutations.length, 0);
+    for (const entry of commands.filter((candidate) =>
+      candidate.includes("supabase"),
+    )) {
+      assert(entry.includes("--workdir"));
+    }
     assert.equal(
       commands.some(
         (entry) => entry.includes("functions") && entry.includes("deploy"),
