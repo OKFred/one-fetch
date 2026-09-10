@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { performance } from "node:perf_hooks";
 
@@ -10,7 +11,7 @@ import type {
 import type { ExecutionCredential } from "./auth.js";
 import type { BodySpool } from "./body-spool.js";
 import type { StoredConfiguration } from "./configuration.js";
-import { failure } from "./gateway-error.js";
+import { abortedGatewayFailure, failure } from "./gateway-error.js";
 import type { ResponseContext } from "./gateway-response.js";
 import type { GatewayDependencies } from "./gateway.js";
 import type { QuotaLease } from "./quota.js";
@@ -33,7 +34,14 @@ export const responseBodyCompleted = (response: IncomingMessage): boolean =>
 
 export const interruptedResponseOutcome = (
   downstreamDestroyed: boolean,
-): "partial" | "cancelled" => (downstreamDestroyed ? "cancelled" : "partial");
+  signal?: AbortSignal,
+): "partial" | "cancelled" | "timeout" => {
+  if (signal?.aborted)
+    return abortedGatewayFailure(signal).problem.code === "timeout"
+      ? "timeout"
+      : "cancelled";
+  return downstreamDestroyed ? "cancelled" : "partial";
+};
 
 export const auditAccepted = async (
   dependencies: GatewayDependencies,
@@ -86,11 +94,12 @@ export const streamTarget = async (
   credential: ExecutionCredential,
   startedAt: number,
   quota: QuotaLease,
+  signal: AbortSignal,
 ): Promise<void> => {
   const hash = createHash("sha256");
   const downloadStarted = performance.now();
   let bytes = 0;
-  let outcome: "completed" | "partial" | "cancelled" = "completed";
+  let outcome: "completed" | "partial" | "cancelled" | "timeout" = "completed";
   try {
     for await (const value of upstream.response as AsyncIterable<Uint8Array>) {
       const chunk = Buffer.from(value);
@@ -109,8 +118,7 @@ export const streamTarget = async (
       await quota.chargeBytes(chunk.byteLength);
       bytes += chunk.byteLength;
       hash.update(chunk);
-      if (!response.write(chunk))
-        await new Promise<void>((resolve) => response.once("drain", resolve));
+      if (!response.write(chunk)) await once(response, "drain", { signal });
     }
     if (!responseBodyCompleted(upstream.response)) {
       outcome = "partial";
@@ -123,7 +131,7 @@ export const streamTarget = async (
     }
     response.end();
   } catch (error) {
-    outcome = interruptedResponseOutcome(response.destroyed);
+    outcome = interruptedResponseOutcome(response.destroyed, signal);
     response.destroy(error instanceof Error ? error : undefined);
   } finally {
     const report: ExecutionReportV1 = {
