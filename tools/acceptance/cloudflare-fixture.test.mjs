@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   cleanupCloudflareFixture,
   deployCloudflareFixture,
+  parseFixtureArguments,
   validateFixtureName,
 } from "./cloudflare-fixture.mjs";
 
@@ -48,5 +49,23 @@ test("fixture names cannot target arbitrary Workers", () => {
   assert.throws(
     () => validateFixtureName("one-fetch-control"),
     /Fixture name/u,
+  );
+});
+
+test("pnpm's argument separator is accepted", () => {
+  assert.deepEqual(
+    parseFixtureArguments([
+      "--",
+      "cleanup",
+      "--name",
+      "one-fetch-fixture-a1b2c3d4",
+      "--confirm-name",
+      "one-fetch-fixture-a1b2c3d4",
+    ]),
+    {
+      command: "cleanup",
+      name: "one-fetch-fixture-a1b2c3d4",
+      confirmation: "one-fetch-fixture-a1b2c3d4",
+    },
   );
 });

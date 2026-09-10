@@ -91,13 +91,26 @@ export async function cleanupCloudflareFixture(
   return { name: checked, absent: true };
 }
 
-async function main(values) {
-  const command = values[0];
-  const name = valueAfter(values, "--name");
-  if (command === "deploy") return deployCloudflareFixture(name);
-  if (command === "cleanup")
-    return cleanupCloudflareFixture(name, valueAfter(values, "--confirm-name"));
+export function parseFixtureArguments(values) {
+  const normalized = values[0] === "--" ? values.slice(1) : values;
+  const command = normalized[0];
+  const name = valueAfter(normalized, "--name");
+  if (command === "deploy") return { command, name };
+  if (command === "cleanup") {
+    return {
+      command,
+      name,
+      confirmation: valueAfter(normalized, "--confirm-name"),
+    };
+  }
   throw new Error("Use deploy or cleanup");
+}
+
+async function main(values) {
+  const options = parseFixtureArguments(values);
+  if (options.command === "deploy")
+    return deployCloudflareFixture(options.name);
+  return cleanupCloudflareFixture(options.name, options.confirmation);
 }
 
 if (
