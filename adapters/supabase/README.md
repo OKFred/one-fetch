@@ -134,6 +134,12 @@ version transition and the running pair, then completes the lease. `--resume`
 is a separate explicit choice. Build identity is embedded in each bundle and is
 never assigned afterward through a mutable project Secret.
 
+A failed first install that already applied migrations may be continued only
+with explicit `--resume`/`-Resume`. The resume path requires no deployed
+Functions, CAS build `none`, and an exact migration checksum ledger before it
+can acquire a new lease. Without that explicit recovery signal, any existing
+`one_fetch` schema remains a hard failure.
+
 ## Operational boundaries
 
 - Application audit records never contain bodies, authorization, cookies, tokens, passwords, TOTP material, or private keys. Path/query and ordinary headers are redacted before signing.

@@ -105,6 +105,14 @@ lease is rejected transactionally. A failed update redeploys the captured prior
 Function sources and remains paused. A failed first install deletes only the
 Functions created by that run. Forward SQL is never reversed automatically.
 
+If a first install fails after migrations but before both Functions verify,
+rerun the corrected exact commit with `expected-current-build=none`, `--apply`,
+and explicit `--resume`. Resume is accepted only with no deployed Functions, a
+CAS current build of `none`, and a database migration ledger byte-for-byte equal
+to the checked-in manifest. A normal first install still refuses any existing
+`one_fetch` schema. Resume never reverses SQL or treats a partial runtime as
+healthy.
+
 Supabase deploys Control and Gateway independently; a local state file cannot
 prevent two machines from interleaving those operations. Build identity is
 embedded in each Function bundle rather than assigned later through a mutable
