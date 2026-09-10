@@ -7,6 +7,7 @@ import {
   recoverySteps,
   serializableFunctionList,
 } from "./deploy-support.mjs";
+import { assertResumeMigrationIntegrity } from "./supabase-resume.mjs";
 
 async function readRestrictedValue(path, label) {
   if (!path) throw new Error(`${label} file is required for --apply`);
@@ -305,8 +306,16 @@ export async function applyHostedDeployment(context) {
       recorder,
       databasePassword,
     );
-    if (options.expectedCurrentBuild === "none")
-      assertFirstInstallBackupIsEmpty(backup.source);
+    if (options.expectedCurrentBuild === "none") {
+      if (options.resume === true) {
+        await assertResumeMigrationIntegrity({
+          adapterRoot: context.adapterRoot,
+          rpc,
+        });
+      } else {
+        assertFirstInstallBackupIsEmpty(backup.source);
+      }
+    }
     await recorder.update({
       status: "applying",
       phase,
