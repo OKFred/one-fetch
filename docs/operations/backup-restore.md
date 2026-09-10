@@ -46,10 +46,13 @@ old database read-only through the rollback window.
 
 ## Supabase PostgreSQL
 
-Pause Gateway and drain work. Use the pinned Supabase/PostgreSQL tooling to make
-a consistent schema-and-data dump from the explicit project. Include non-public
-schemas, functions, grants, migration history, and audit data; exclude provider
-credentials. Record the PostgreSQL version and dump flags.
+Pause Gateway and drain work. The guarded deploy tool writes a paired
+`*.schema.sql` and `*.data.sql` logical backup for `one_fetch` and
+`supabase_migrations`; the state file records each size/digest plus a digest that
+binds the pair. Keep both files together. The data half uses `COPY`, and neither
+half contains provider credentials. Record the PostgreSQL version and exact dump
+flags. A legacy single `database-before-*.sql` file is schema-only and is not a
+complete recoverable backup.
 
 Restore into a separate project/database using a restricted owner. Revoke public
 roles before exposing functions, verify migrations/RPC grants/audit seals, deploy

@@ -8,7 +8,13 @@ import {
   recoverySteps,
   serializableFunctionList,
 } from "./deploy-support.mjs";
+import {
+  assertFirstInstallBackupIsEmpty,
+  createLogicalBackup,
+} from "./supabase-backup.mjs";
 import { assertResumeMigrationIntegrity } from "./supabase-resume.mjs";
+
+export { assertFirstInstallBackupIsEmpty } from "./supabase-backup.mjs";
 
 async function readRestrictedValue(path, label) {
   if (!path) throw new Error(`${label} file is required for --apply`);
@@ -156,56 +162,6 @@ async function restorePriorFunctions(runPnpm, projectRef, recovery) {
   }
 }
 
-export function assertFirstInstallBackupIsEmpty(source) {
-  if (
-    /create\s+schema\s+(?:if\s+not\s+exists\s+)?"?one_fetch"?|one_fetch\./iu.test(
-      source,
-    )
-  ) {
-    throw new Error(
-      "First install requires an empty one-fetch database schema",
-    );
-  }
-}
-
-async function createLogicalBackup(
-  runPnpm,
-  databaseLink,
-  recorder,
-  databasePassword,
-) {
-  const path = join(
-    dirname(recorder.path),
-    `database-before-${recorder.state.runId}.sql`,
-  );
-  await runPnpm(
-    [
-      "exec",
-      "supabase",
-      "db",
-      "dump",
-      "--workdir",
-      databaseLink.workdir,
-      "--linked",
-      "--file",
-      path,
-      "--yes",
-    ],
-    {
-      label: "Supabase logical backup",
-      environment: { SUPABASE_DB_PASSWORD: databasePassword },
-    },
-  );
-  const bytes = await readFile(path);
-  if (bytes.length === 0) throw new Error("Supabase logical backup is empty");
-  return {
-    path,
-    bytes: bytes.length,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    source: bytes.toString("utf8"),
-  };
-}
-
 function deployFunction(runPnpm, projectRef, workdir, slug) {
   runPnpm(
     [
@@ -301,12 +257,12 @@ export async function applyHostedDeployment(context) {
         recorder.state.runId,
       );
     }
-    const backup = await createLogicalBackup(
-      context.runPnpm,
+    const backup = await createLogicalBackup({
+      runPnpm: context.runPnpm,
       databaseLink,
       recorder,
       databasePassword,
-    );
+    });
     if (options.expectedCurrentBuild === "none") {
       if (options.resume === true) {
         await assertResumeMigrationIntegrity({
@@ -314,7 +270,9 @@ export async function applyHostedDeployment(context) {
           rpc,
         });
       } else {
-        assertFirstInstallBackupIsEmpty(backup.source);
+        assertFirstInstallBackupIsEmpty(
+          `${backup.schema.source}\n${backup.data.source}`,
+        );
       }
     }
     await recorder.update({
@@ -322,8 +280,18 @@ export async function applyHostedDeployment(context) {
       phase,
       gatewayPaused: options.expectedCurrentBuild !== "none",
       backup: {
-        path: backup.path,
-        bytes: backup.bytes,
+        format: backup.format,
+        schemas: backup.schemas,
+        schema: {
+          path: backup.schema.path,
+          bytes: backup.schema.bytes,
+          sha256: backup.schema.sha256,
+        },
+        data: {
+          path: backup.data.path,
+          bytes: backup.data.bytes,
+          sha256: backup.data.sha256,
+        },
         sha256: backup.sha256,
         restoreVerified: false,
       },

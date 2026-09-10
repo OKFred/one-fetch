@@ -97,7 +97,12 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       commands.push({ arguments_, options });
       if (arguments_.includes("dump")) {
         const output = arguments_[arguments_.indexOf("--file") + 1];
-        return writeFile(output, "create schema public;\n");
+        return writeFile(
+          output,
+          arguments_.includes("--data-only")
+            ? "-- data-only fixture\n"
+            : "create schema public;\n",
+        );
       }
       if (arguments_.includes("deploy")) {
         const slug = arguments_[arguments_.indexOf("deploy") + 1];
@@ -141,10 +146,33 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       "one-fetch-gateway",
     ]);
     assert.equal(state.gatewayPaused, false);
-    const dump = commands.find(({ arguments_ }) => arguments_.includes("dump"));
-    assert.equal(dump.options.environment.SUPABASE_DB_PASSWORD, "p".repeat(32));
-    assert(dump.arguments_.includes("--linked"));
-    assert.equal(dump.arguments_.includes("--project-ref"), false);
+    const dumps = commands.filter(({ arguments_ }) =>
+      arguments_.includes("dump"),
+    );
+    assert.equal(dumps.length, 2);
+    for (const dump of dumps) {
+      assert.equal(
+        dump.options.environment.SUPABASE_DB_PASSWORD,
+        "p".repeat(32),
+      );
+      assert(dump.arguments_.includes("--linked"));
+      assert.equal(dump.arguments_.includes("--project-ref"), false);
+      assert.equal(
+        dump.arguments_[dump.arguments_.indexOf("--schema") + 1],
+        "one_fetch,supabase_migrations",
+      );
+    }
+    const dataDump = dumps.find(({ arguments_ }) =>
+      arguments_.includes("--data-only"),
+    );
+    assert(dataDump.arguments_.includes("--use-copy"));
+    assert.equal(recorder.state.backup.format, "supabase-logical-v1");
+    assert.deepEqual(recorder.state.backup.schemas, [
+      "one_fetch",
+      "supabase_migrations",
+    ]);
+    assert.equal(recorder.state.backup.schema.bytes > 0, true);
+    assert.equal(recorder.state.backup.data.bytes > 0, true);
     assert.equal(
       commands.some(({ arguments_ }) => arguments_.includes("secrets")),
       true,
@@ -209,7 +237,12 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
       }
       if (arguments_.includes("dump")) {
         const output = arguments_[arguments_.indexOf("--file") + 1];
-        writeFileSync(output, "create schema one_fetch;\n");
+        writeFileSync(
+          output,
+          arguments_.includes("--data-only")
+            ? "copy one_fetch.audit_events from stdin;\n\\.\n"
+            : "create schema one_fetch;\n",
+        );
       }
       if (arguments_.includes("deploy")) {
         const slug = arguments_[arguments_.indexOf("deploy") + 1];
