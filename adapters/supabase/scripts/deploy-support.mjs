@@ -319,6 +319,28 @@ export function assertFunctionTransition(before, after, changedSlug) {
   }
 }
 
+export function assertSecretRefreshTransition(before, after) {
+  for (const slug of deploymentFunctionSlugs) {
+    const previous = before.get(slug);
+    const current = after.get(slug);
+    if (previous === undefined || current === undefined) {
+      throw new Error(`${slug} disappeared while refreshing secrets`);
+    }
+    if (
+      current.id !== previous.id ||
+      current.slug !== previous.slug ||
+      current.status !== previous.status ||
+      current.verifyJwt !== previous.verifyJwt ||
+      current.bundleSha256 !== previous.bundleSha256 ||
+      current.createdAt !== previous.createdAt ||
+      current.version < previous.version ||
+      current.updatedAt < previous.updatedAt
+    ) {
+      throw new Error(`${slug} code changed while refreshing secrets`);
+    }
+  }
+}
+
 export function recoverySteps(phase, desiredBuildId, expectedCurrentBuild) {
   const steps = [
     "Stop automated rollout attempts and inspect this state record plus Supabase Function logs.",

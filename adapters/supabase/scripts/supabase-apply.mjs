@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   assertFunctionTransition,
+  assertSecretRefreshTransition,
   deploymentFunctionSlugs,
   recoverySteps,
   serializableFunctionList,
@@ -111,7 +112,7 @@ async function capturePriorFunctions(runPnpm, projectRef, statePath, runId) {
   await mkdir(join(root, "supabase"), { recursive: true });
   await writeFile(
     join(root, "supabase", "config.toml"),
-    `project_id = "one-fetch-recovery"\n\n[functions.one-fetch-control]\nverify_jwt = false\n\n[functions.one-fetch-gateway]\nverify_jwt = false\n`,
+    `project_id = "one-fetch-recovery"\n\n[functions.one-fetch-control]\nverify_jwt = false\nentrypoint = "./functions/one-fetch-control/index.js"\n\n[functions.one-fetch-gateway]\nverify_jwt = false\nentrypoint = "./functions/one-fetch-gateway/index.js"\n`,
     { encoding: "utf8", flag: "wx", mode: 0o600 },
   );
   for (const slug of deploymentFunctionSlugs) {
@@ -395,6 +396,11 @@ export async function applyHostedDeployment(context) {
       { label: "set one-fetch Function secrets" },
     );
     let inventory = context.beforeFunctions;
+    if (options.expectedCurrentBuild !== "none") {
+      const afterSecretRefresh = context.functionList();
+      assertSecretRefreshTransition(inventory, afterSecretRefresh);
+      inventory = afterSecretRefresh;
+    }
     for (const slug of deploymentFunctionSlugs) {
       phase = slug === "one-fetch-control" ? "control" : "gateway";
       await rpc("of_renew_deployment_lease", {
