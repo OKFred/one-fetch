@@ -338,10 +338,12 @@ test("pnpm preflight launcher works without a command shell", () => {
 test("Preview preflight writes an executable plan without remote mutation", async () => {
   const directory = await mkdtemp(join(tmpdir(), "one-fetch-deploy-test-"));
   const envFile = join(directory, "deployment.env");
+  const databasePasswordFile = join(directory, "database.secret");
   const stateFile = join(directory, "state.json");
   const currentBuild = buildId("0.1.0", "a".repeat(40));
   const desiredBuild = buildId("0.1.0", "b".repeat(40));
   await writeFile(envFile, deploymentEnvironmentText());
+  await writeFile(databasePasswordFile, "p".repeat(32));
   const inventory = [
     functionRecord("one-fetch-control", 4),
     functionRecord("one-fetch-gateway", 7),
@@ -394,11 +396,23 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
         apply: false,
         projectRef,
         envFile,
+        dbPasswordFile: databasePasswordFile,
         expectedCurrentBuild: currentBuild,
         stateFile,
       },
       command,
       fetch: request,
+      createDatabaseLink: async ({
+        databasePassword,
+        projectRef: linkedRef,
+      }) => {
+        assert.equal(databasePassword, "p".repeat(32));
+        assert.equal(linkedRef, projectRef);
+        return {
+          workdir: join(directory, "database-link"),
+          cleanup: async () => undefined,
+        };
+      },
       readBundles: async () => [
         {
           functionName: "one-fetch-control",
@@ -425,6 +439,8 @@ test("Preview preflight writes an executable plan without remote mutation", asyn
       (entry) => entry.includes("db") && !entry.includes("--dry-run"),
     );
     assert(dryRun);
+    assert(dryRun.includes("--linked"));
+    assert.equal(dryRun.includes("--project-ref"), false);
     assert.equal(mutations.length, 0);
     assert.equal(
       commands.some(

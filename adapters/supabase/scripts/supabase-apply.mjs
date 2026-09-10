@@ -168,7 +168,7 @@ export function assertFirstInstallBackupIsEmpty(source) {
 
 async function createLogicalBackup(
   runPnpm,
-  options,
+  databaseLink,
   recorder,
   databasePassword,
 ) {
@@ -182,8 +182,9 @@ async function createLogicalBackup(
       "supabase",
       "db",
       "dump",
-      "--project-ref",
-      options.projectRef,
+      "--workdir",
+      databaseLink.workdir,
+      "--linked",
       "--file",
       path,
       "--yes",
@@ -265,10 +266,9 @@ export async function applyHostedDeployment(context) {
     options.serviceRoleKeyFile,
     "service-role key",
   );
-  const databasePassword = await readRestrictedValue(
-    options.dbPasswordFile,
-    "database password",
-  );
+  const { databaseLink, databasePassword } = context;
+  if (!databaseLink?.workdir || !databasePassword)
+    throw new Error("Verified transient database link is required for --apply");
   const rpc = (name, body) =>
     deploymentRpc(
       { fetch: context.fetch, projectRef: options.projectRef, serviceRoleKey },
@@ -297,7 +297,7 @@ export async function applyHostedDeployment(context) {
     }
     const backup = await createLogicalBackup(
       context.runPnpm,
-      options,
+      databaseLink,
       recorder,
       databasePassword,
     );
@@ -339,8 +339,9 @@ export async function applyHostedDeployment(context) {
         "supabase",
         "db",
         "push",
-        "--project-ref",
-        options.projectRef,
+        "--workdir",
+        databaseLink.workdir,
+        "--linked",
         "--include-all",
         "--skip-vault",
         "--yes",

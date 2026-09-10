@@ -41,16 +41,27 @@ URLs and explicit project ref before planning.
 ```bash
 cd adapters/supabase
 ./scripts/deploy.sh --project-ref <exact-ref> --env-file <secure-path> \
-  --expected-current-build <deployed-build-or-none>
+  --expected-current-build <deployed-build-or-none> \
+  --db-password-file <secure-database-password>
 ```
 
 PowerShell uses `scripts/deploy.ps1` with `-ProjectRef`, `-EnvFile`, and
 `-ExpectedCurrentBuild`. Use `none` only when neither Function exists. The command
 runs all local checks, embeds the exact commit build ID into both bundles,
 records bundle digests, strictly inventories the exact project and current
-pair/build, runs `db push --dry-run --skip-vault`, and records a non-secret backup
-summary. Every remote command carries the project ref; no linked-project state is
-written.
+pair/build, creates an isolated CLI workdir, verifies that its IPv4 pooler link
+belongs to the exact project, runs `db push --linked --dry-run --skip-vault`, and
+records a non-secret backup summary. The isolated link state is removed when the
+command completes or fails; it never modifies repository-local Supabase state.
+
+Set a project-scoped Supabase access token in the CLI environment or native
+credential store. The minimum hosted deployment capabilities are Project
+Settings Read, Backups Read, Connection Pooling Read, API Keys Read, Edge
+Functions Read-Write, and Edge Function Secrets Read-Write. Database preflight
+also requires the password through `--db-password-file` or an explicitly scoped
+`SUPABASE_DB_PASSWORD` environment variable; apply requires the restricted file.
+Passwords and tokens never appear in CLI arguments, state files, reports, or
+logs.
 
 The read-only command writes a ready plan under
 `artifacts/supabase-deployments/` (or the explicit state path). Inspect its exact

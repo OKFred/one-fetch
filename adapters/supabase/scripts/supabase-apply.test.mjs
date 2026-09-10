@@ -128,6 +128,8 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       desiredBuildId,
       recorder,
       beforeFunctions: new Map(),
+      databaseLink: { workdir: join(root, "database-link") },
+      databasePassword: "p".repeat(32),
       runPnpm,
       functionList: () => new Map(inventory),
       inspectCurrent: () => Promise.resolve({ buildId: desiredBuildId }),
@@ -141,6 +143,8 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
     assert.equal(state.gatewayPaused, false);
     const dump = commands.find(({ arguments_ }) => arguments_.includes("dump"));
     assert.equal(dump.options.environment.SUPABASE_DB_PASSWORD, "p".repeat(32));
+    assert(dump.arguments_.includes("--linked"));
+    assert.equal(dump.arguments_.includes("--project-ref"), false);
     assert.equal(
       commands.some(({ arguments_ }) => arguments_.includes("secrets")),
       true,
@@ -263,6 +267,8 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
         desiredBuildId: desiredBuild,
         recorder,
         beforeFunctions: new Map(inventory),
+        databaseLink: { workdir: join(root, "database-link") },
+        databasePassword: "p".repeat(32),
         runPnpm,
         functionList: () => new Map(inventory),
         inspectCurrent: () => Promise.resolve({ buildId: desiredBuild }),
