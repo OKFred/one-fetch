@@ -1,6 +1,7 @@
 import {
   ExecutionQuotaV1Schema,
   ExecutionTokenScopeV1Schema,
+  IsoDateTimeSchema,
 } from "@one-fetch/protocol";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -39,7 +40,7 @@ const ExecutionPrincipalSchema = z.object({
   name: z.string().min(1).max(128),
   scopes: ExecutionTokenScopeV1Schema,
   quotas: ExecutionQuotaV1Schema,
-  expiresAt: z.string().datetime().nullish(),
+  expiresAt: IsoDateTimeSchema.nullish(),
 });
 
 export async function hashPassword(
