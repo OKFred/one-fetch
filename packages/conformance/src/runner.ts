@@ -69,6 +69,20 @@ function targetHeaderFailures(
     .map(({ name }) => `target response metadata is missing ${name}`);
 }
 
+function outerSetCookieNames(headers: Headers): Set<string> {
+  const compatible = headers as Headers & { getSetCookie?: () => string[] };
+  const values =
+    typeof compatible.getSetCookie === "function"
+      ? compatible.getSetCookie()
+      : (headers.get("set-cookie")?.split(/,\s*(?=[^;,]+=)/u) ?? []);
+  return new Set(
+    values.flatMap((value) => {
+      const separator = value.indexOf("=");
+      return separator > 0 ? [value.slice(0, separator).trim()] : [];
+    }),
+  );
+}
+
 async function runCase(
   client: OneFetchGatewayClient,
   origin: string,
@@ -146,8 +160,14 @@ async function runCase(
         ) {
           failures.push("repeated Set-Cookie metadata was not preserved");
         }
-        if (result.response.headers.has("Set-Cookie"))
+        const outerCookieNames = outerSetCookieNames(result.response.headers);
+        if (
+          fixture.expected.setCookie.some((value) =>
+            outerCookieNames.has(value.slice(0, value.indexOf("=")).trim()),
+          )
+        ) {
           failures.push("Gateway emitted target Set-Cookie on its own origin");
+        }
       }
       failures.push(
         ...targetHeaderFailures(
