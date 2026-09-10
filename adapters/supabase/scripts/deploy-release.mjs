@@ -16,6 +16,10 @@ import {
   serializableFunctionList,
 } from "./deploy-support.mjs";
 import { applyHostedDeployment } from "./supabase-apply.mjs";
+import {
+  createTransientDatabaseLink,
+  readDatabasePassword,
+} from "./transient-database-link.mjs";
 
 const adapterRoot = resolve(import.meta.dirname, "..");
 const repositoryRoot = resolve(adapterRoot, "../..");
@@ -68,7 +72,7 @@ export function parseOptions(argumentsList) {
     !options.expectedCurrentBuild
   ) {
     throw new Error(
-      "Usage: deploy-release.mjs --project-ref <ref> --env-file <path> --expected-current-build <id|none> [--state-file <path>] [--apply --service-role-key-file <path> --db-password-file <path> [--admin-token-file <path>] [--resume]]",
+      "Usage: deploy-release.mjs --project-ref <ref> --env-file <path> --expected-current-build <id|none> [--db-password-file <path>] [--state-file <path>] [--apply --service-role-key-file <path> [--admin-token-file <path>] [--resume]]",
     );
   }
   assertExpectedCurrentBuild(options.expectedCurrentBuild);
@@ -234,7 +238,7 @@ function defaultStatePath(projectRef, buildId) {
   );
 }
 
-function functionList(command = runCommand, projectRef) {
+function functionList(command = runCommand, projectRef, workdir) {
   return parseFunctionList(
     runPnpm(
       command,
@@ -245,6 +249,8 @@ function functionList(command = runCommand, projectRef) {
         "list",
         "--project-ref",
         projectRef,
+        "--workdir",
+        workdir,
         "--output",
         "json",
       ],
@@ -309,10 +315,12 @@ export async function runDeployment({
   command = runCommand,
   fetch: request = globalThis.fetch,
   readBundles = bundleEvidence,
+  createDatabaseLink = createTransientDatabaseLink,
 }) {
   const envFile = resolve(options.envFile);
   const environment = await readDeploymentEnvironment(envFile);
   assertHostedDeployment(environment, options.projectRef);
+  const databasePassword = await readDatabasePassword(options);
   runPnpm(command, ["run", "predeploy"], {
     label: "local deployment preflight",
   });
@@ -343,113 +351,136 @@ export async function runDeployment({
   );
   const bundles = await readBundles(desiredBuildId);
 
-  const beforeFunctions = functionList(command, options.projectRef);
-  assertFunctionBaseline(beforeFunctions, options.expectedCurrentBuild);
-  let currentRuntime = null;
-  if (options.expectedCurrentBuild !== "none") {
-    currentRuntime = await inspectCurrentDeployment({
-      environment,
-      projectRef: options.projectRef,
-      fetch: request,
-    });
-    if (currentRuntime.buildId !== options.expectedCurrentBuild) {
-      throw new Error(
-        `Current runtime build ${currentRuntime.buildId} does not match expected ${options.expectedCurrentBuild}`,
-      );
-    }
-    const commitPrefix = options.expectedCurrentBuild.slice(
-      options.expectedCurrentBuild.lastIndexOf(".g") + 2,
-    );
-    command("git", ["cat-file", "-e", `${commitPrefix}^{commit}`], {
-      label: "prior immutable commit recovery check",
-    });
-  }
-
-  runPnpm(
-    command,
-    [
-      "exec",
-      "supabase",
-      "db",
-      "push",
-      "--project-ref",
+  const databaseLink = await createDatabaseLink({
+    adapterRoot,
+    projectRef: options.projectRef,
+    databasePassword,
+    runPnpm: (arguments_, commandOptions) =>
+      runPnpm(command, arguments_, commandOptions),
+  });
+  try {
+    const beforeFunctions = functionList(
+      command,
       options.projectRef,
-      "--include-all",
-      "--dry-run",
-      "--skip-vault",
-    ],
-    { label: "remote migration dry-run" },
-  );
-  const backups = backupSummary(
+      databaseLink.workdir,
+    );
+    assertFunctionBaseline(beforeFunctions, options.expectedCurrentBuild);
+    let currentRuntime = null;
+    if (options.expectedCurrentBuild !== "none") {
+      currentRuntime = await inspectCurrentDeployment({
+        environment,
+        projectRef: options.projectRef,
+        fetch: request,
+      });
+      if (currentRuntime.buildId !== options.expectedCurrentBuild) {
+        throw new Error(
+          `Current runtime build ${currentRuntime.buildId} does not match expected ${options.expectedCurrentBuild}`,
+        );
+      }
+      const commitPrefix = options.expectedCurrentBuild.slice(
+        options.expectedCurrentBuild.lastIndexOf(".g") + 2,
+      );
+      command("git", ["cat-file", "-e", `${commitPrefix}^{commit}`], {
+        label: "prior immutable commit recovery check",
+      });
+    }
     runPnpm(
       command,
       [
         "exec",
         "supabase",
-        "backups",
-        "list",
-        "--project-ref",
-        options.projectRef,
-        "--output",
-        "json",
+        "db",
+        "push",
+        "--workdir",
+        databaseLink.workdir,
+        "--linked",
+        "--include-all",
+        "--dry-run",
+        "--skip-vault",
       ],
-      { capture: true, label: "Supabase backup inventory" },
-    ),
-  );
-  const envDigest = createHash("sha256")
-    .update(await readFile(envFile))
-    .digest("hex");
-  const createdAt = new Date().toISOString();
-  const statePath = resolve(
-    options.stateFile ?? defaultStatePath(options.projectRef, desiredBuildId),
-  );
-  const recorder = await StateRecorder.create(statePath, {
-    schemaVersion: 1,
-    runId: randomUUID(),
-    createdAt,
-    updatedAt: createdAt,
-    projectRef: options.projectRef,
-    desiredBuildId,
-    expectedCurrentBuild: options.expectedCurrentBuild,
-    environmentSha256: envDigest,
-    status: "ready",
-    phase: "preflight",
-    bundles,
-    backups,
-    remoteBefore: {
-      functions: serializableFunctionList(beforeFunctions),
-      runtime: currentRuntime,
-    },
-    apply: {
-      available: true,
-      databaseRestoreAutomatic: false,
-      requiresServiceRoleKeyFile: true,
-      requiresDatabasePasswordFile: true,
-    },
-  });
-  if (options.apply) {
-    return applyHostedDeployment({
-      adapterRoot,
-      options,
-      environment,
+      {
+        label: "remote migration dry-run",
+        environment: { SUPABASE_DB_PASSWORD: databasePassword },
+      },
+    );
+    const backups = backupSummary(
+      runPnpm(
+        command,
+        [
+          "exec",
+          "supabase",
+          "backups",
+          "list",
+          "--project-ref",
+          options.projectRef,
+          "--workdir",
+          databaseLink.workdir,
+          "--output",
+          "json",
+        ],
+        { capture: true, label: "Supabase backup inventory" },
+      ),
+    );
+    const envDigest = createHash("sha256")
+      .update(await readFile(envFile))
+      .digest("hex");
+    const createdAt = new Date().toISOString();
+    const statePath = resolve(
+      options.stateFile ?? defaultStatePath(options.projectRef, desiredBuildId),
+    );
+    const recorder = await StateRecorder.create(statePath, {
+      schemaVersion: 1,
+      runId: randomUUID(),
+      createdAt,
+      updatedAt: createdAt,
+      projectRef: options.projectRef,
       desiredBuildId,
-      recorder,
-      beforeFunctions,
-      command,
-      runPnpm: (arguments_, commandOptions) =>
-        runPnpm(command, arguments_, commandOptions),
-      functionList: () => functionList(command, options.projectRef),
-      inspectCurrent: () =>
-        inspectCurrentDeployment({
-          environment,
-          projectRef: options.projectRef,
-          fetch: request,
-        }),
-      fetch: request,
+      expectedCurrentBuild: options.expectedCurrentBuild,
+      environmentSha256: envDigest,
+      status: "ready",
+      phase: "preflight",
+      bundles,
+      backups,
+      remoteBefore: {
+        functions: serializableFunctionList(beforeFunctions),
+        runtime: currentRuntime,
+      },
+      apply: {
+        available: true,
+        databaseRestoreAutomatic: false,
+        requiresServiceRoleKeyFile: true,
+        requiresDatabasePasswordFile: true,
+      },
     });
+    if (options.apply) {
+      return applyHostedDeployment({
+        adapterRoot,
+        options,
+        environment,
+        desiredBuildId,
+        recorder,
+        beforeFunctions,
+        command,
+        databaseLink,
+        databasePassword,
+        runPnpm: (arguments_, commandOptions) =>
+          runPnpm(command, arguments_, commandOptions),
+        functionList: () =>
+          functionList(command, options.projectRef, databaseLink.workdir),
+        inspectCurrent: () =>
+          inspectCurrentDeployment({
+            environment,
+            projectRef: options.projectRef,
+            fetch: request,
+          }),
+        fetch: request,
+      });
+    }
+    process.stdout.write(`Read-only preflight passed. State: ${statePath}\n`);
+    return recorder.state;
+  } finally {
+    await databaseLink.cleanup();
   }
-  process.stdout.write(`Read-only preflight passed. State: ${statePath}\n`);
-  return recorder.state;
 }
 
 async function main() {

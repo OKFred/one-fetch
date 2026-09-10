@@ -96,21 +96,33 @@ explicit:
 ```bash
 ./scripts/deploy.sh --project-ref abcdefghijklmnopqrst \
   --env-file /secure/path/one-fetch.env \
-  --expected-current-build 0.1.0+supabase.g0123456789ab
+  --expected-current-build 0.1.0+supabase.g0123456789ab \
+  --db-password-file /secure/path/database-password
 ```
 
 ```powershell
 ./scripts/deploy.ps1 -ProjectRef abcdefghijklmnopqrst `
   -EnvFile C:\secure\one-fetch.env `
-  -ExpectedCurrentBuild 0.1.0+supabase.g0123456789ab
+  -ExpectedCurrentBuild 0.1.0+supabase.g0123456789ab `
+  -DatabasePasswordFile C:\secure\database-password
 ```
 
 For a first deployment pass `none`; it is accepted only when neither Function
 exists. The planner validates the complete environment-file schema without
 printing values, runs the full local gate, embeds the exact commit build ID in
 both self-contained bundles, records their SHA-256 values, strictly inventories
-the project and current pair, runs `db push --dry-run --skip-vault`, and records
-the provider backup summary. It rejects a dirty Git tree.
+the project and current pair, creates and validates an isolated IPv4 pooler link,
+runs `db push --linked --dry-run --skip-vault`, and records the provider backup
+summary. It rejects a dirty Git tree and removes the transient link state on
+success or failure. All hosted Supabase CLI calls use that workdir, so project
+discovery and Function operations do not leave `.temp` state in the checkout.
+
+Use a project-scoped Supabase token with Project Settings Read, Backups Read,
+Connection Pooling Read, API Keys Read, Edge Functions Read-Write, and Edge
+Function Secrets Read-Write. The database password is required for planning as
+well as apply. Planning accepts the restricted file shown above or an explicit
+`SUPABASE_DB_PASSWORD` environment variable; apply requires the restricted file.
+Neither secret is placed in command arguments, state files, reports, or logs.
 
 The secret-free plan is created with exclusive permissions under the ignored
 `artifacts/supabase-deployments/` directory. The guarded apply additionally

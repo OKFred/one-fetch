@@ -168,7 +168,7 @@ export function assertFirstInstallBackupIsEmpty(source) {
 
 async function createLogicalBackup(
   runPnpm,
-  options,
+  databaseLink,
   recorder,
   databasePassword,
 ) {
@@ -182,8 +182,9 @@ async function createLogicalBackup(
       "supabase",
       "db",
       "dump",
-      "--project-ref",
-      options.projectRef,
+      "--workdir",
+      databaseLink.workdir,
+      "--linked",
       "--file",
       path,
       "--yes",
@@ -203,7 +204,7 @@ async function createLogicalBackup(
   };
 }
 
-function deployFunction(runPnpm, projectRef, slug) {
+function deployFunction(runPnpm, projectRef, workdir, slug) {
   runPnpm(
     [
       "exec",
@@ -213,6 +214,8 @@ function deployFunction(runPnpm, projectRef, slug) {
       slug,
       "--project-ref",
       projectRef,
+      "--workdir",
+      workdir,
       "--no-verify-jwt",
       "--use-api",
     ],
@@ -239,6 +242,8 @@ async function tryRecovery(context, deployed, recovery, completed) {
             slug,
             "--project-ref",
             context.options.projectRef,
+            "--workdir",
+            context.databaseLink.workdir,
             "--yes",
           ],
           { label: `remove partial ${slug}` },
@@ -265,10 +270,9 @@ export async function applyHostedDeployment(context) {
     options.serviceRoleKeyFile,
     "service-role key",
   );
-  const databasePassword = await readRestrictedValue(
-    options.dbPasswordFile,
-    "database password",
-  );
+  const { databaseLink, databasePassword } = context;
+  if (!databaseLink?.workdir || !databasePassword)
+    throw new Error("Verified transient database link is required for --apply");
   const rpc = (name, body) =>
     deploymentRpc(
       { fetch: context.fetch, projectRef: options.projectRef, serviceRoleKey },
@@ -297,7 +301,7 @@ export async function applyHostedDeployment(context) {
     }
     const backup = await createLogicalBackup(
       context.runPnpm,
-      options,
+      databaseLink,
       recorder,
       databasePassword,
     );
@@ -339,8 +343,9 @@ export async function applyHostedDeployment(context) {
         "supabase",
         "db",
         "push",
-        "--project-ref",
-        options.projectRef,
+        "--workdir",
+        databaseLink.workdir,
+        "--linked",
         "--include-all",
         "--skip-vault",
         "--yes",
@@ -373,6 +378,8 @@ export async function applyHostedDeployment(context) {
         "set",
         "--project-ref",
         options.projectRef,
+        "--workdir",
+        databaseLink.workdir,
         "--env-file",
         resolve(options.envFile),
       ],
@@ -386,7 +393,12 @@ export async function applyHostedDeployment(context) {
         p_desired_build: desiredBuildId,
         p_ttl_seconds: 900,
       });
-      deployFunction(context.runPnpm, options.projectRef, slug);
+      deployFunction(
+        context.runPnpm,
+        options.projectRef,
+        databaseLink.workdir,
+        slug,
+      );
       deployed.push(slug);
       const next = context.functionList();
       assertFunctionTransition(inventory, next, slug);
