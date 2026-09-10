@@ -29,7 +29,11 @@ import type {
   StoredConfiguration,
 } from "./configuration.js";
 import type { ExecutionReportStore } from "./execution-reports.js";
-import { failure, GatewayFailure } from "./gateway-error.js";
+import {
+  abortedGatewayFailure,
+  failure,
+  GatewayFailure,
+} from "./gateway-error.js";
 import {
   sendRelayError,
   setTargetResponseMetadata,
@@ -323,7 +327,10 @@ const handleGatewayRequest = async (
       body.sizeBytes,
     );
     timeout = setTimeout(
-      () => abort.abort(new Error("Request timeout")),
+      () =>
+        abort.abort(
+          failure("timeout", "timeout", "Request timed out", 504, true),
+        ),
       metadata.fetchOptions.timeoutMs,
     );
     const resolvedMetadata = metadata;
@@ -429,6 +436,7 @@ const handleGatewayRequest = async (
       credential,
       startedAt,
       quotaLease,
+      abort.signal,
     );
   } catch (error) {
     const gatewayError =
@@ -441,15 +449,15 @@ const handleGatewayRequest = async (
               "Resolved target addresses were denied by policy",
               403,
             )
-          : failure(
-              abort.signal.aborted ? "cancelled" : "upstream_network",
-              abort.signal.aborted ? "cancellation" : "internal",
-              abort.signal.aborted
-                ? "Request was cancelled"
-                : "Gateway request failed",
-              abort.signal.aborted ? 499 : 502,
-              !abort.signal.aborted,
-            );
+          : abort.signal.aborted
+            ? abortedGatewayFailure(abort.signal)
+            : failure(
+                "upstream_network",
+                "internal",
+                "Gateway request failed",
+                502,
+                true,
+              );
     if (!response.headersSent && metadata && token && configuration) {
       responseContext ??= {
         auditState: "unknown",

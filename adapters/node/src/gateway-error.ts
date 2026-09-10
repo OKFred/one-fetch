@@ -22,3 +22,8 @@ export const failure = (
     { code, message, origin: "one-fetch", retryable, stage },
     status,
   );
+
+export const abortedGatewayFailure = (signal: AbortSignal): GatewayFailure =>
+  signal.reason instanceof GatewayFailure
+    ? signal.reason
+    : failure("cancelled", "cancellation", "Request was cancelled", 499);
