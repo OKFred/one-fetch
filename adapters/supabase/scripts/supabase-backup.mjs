@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import {
+  inspectEmptyBaseline,
+  writeEmptyBaselinePart,
+} from "./supabase-empty-baseline.mjs";
 
 const BACKUP_SCHEMAS = "one_fetch,supabase_migrations";
 
@@ -64,30 +68,40 @@ export async function createLogicalBackup({
   databaseLink,
   recorder,
   databasePassword,
+  allowEmptyBaseline = false,
+  projectRef,
 }) {
   const prefix = join(
     dirname(recorder.path),
     `database-before-${recorder.state.runId}`,
   );
-  const schema = await dumpPart({
-    runPnpm,
-    databaseLink,
-    databasePassword,
-    path: `${prefix}.schema.sql`,
-    dataOnly: false,
-  });
-  const data = await dumpPart({
-    runPnpm,
-    databaseLink,
-    databasePassword,
-    path: `${prefix}.data.sql`,
-    dataOnly: true,
-  });
+  const emptyBaseline = allowEmptyBaseline
+    ? await inspectEmptyBaseline({ runPnpm, databaseLink, projectRef })
+    : undefined;
+  const schema = emptyBaseline
+    ? await writeEmptyBaselinePart(`${prefix}.schema.sql`, "schema")
+    : await dumpPart({
+        runPnpm,
+        databaseLink,
+        databasePassword,
+        path: `${prefix}.schema.sql`,
+        dataOnly: false,
+      });
+  const data = emptyBaseline
+    ? await writeEmptyBaselinePart(`${prefix}.data.sql`, "data")
+    : await dumpPart({
+        runPnpm,
+        databaseLink,
+        databasePassword,
+        path: `${prefix}.data.sql`,
+        dataOnly: true,
+      });
   const manifest = {
     format: "supabase-logical-v1",
     schemas: BACKUP_SCHEMAS.split(","),
     schema: { bytes: schema.bytes, sha256: schema.sha256 },
     data: { bytes: data.bytes, sha256: data.sha256 },
+    ...(emptyBaseline ? { emptyBaseline } : {}),
   };
   return {
     ...manifest,
