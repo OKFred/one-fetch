@@ -19,7 +19,9 @@ identifier and remove it after the report is complete.
 
 The Cloudflare fixture helper enforces the random acceptance-only name shape,
 checks that it does not already exist, verifies the deployed target, and
-requires the exact name again before deletion:
+requires the exact name again before deletion. Its checked-in fixture config
+explicitly disables persistent observability, Logpush and Tail Consumers,
+without inheriting another Worker's bindings or logging defaults:
 
 ```sh
 pnpm acceptance:cloudflare-fixture -- deploy \
@@ -93,3 +95,6 @@ pnpm acceptance:finalize -- \
 For a local Node run that records no provider resources, pass
 `--not-applicable` instead. This flag is invalid when the report contains any
 resource identifiers.
+
+See the [2026-09-12 Cloudflare revalidation note](acceptance-2026-09-12.md)
+for the tested commit, explicit platform skip and cleanup evidence boundary.
