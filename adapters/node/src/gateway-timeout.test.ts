@@ -76,7 +76,13 @@ async function fixture(streaming: boolean) {
     targetHeaders: [],
     body: { sizeBytes: 0 },
     hop: 0,
-    fetchOptions: { redirect: "manual", timeoutMs: 100 },
+    fetchOptions: {
+      redirect: "manual",
+      // The body-stage test must reach the first chunk before its deadline.
+      // Allow real database/audit and connection setup under parallel CI load;
+      // this tests timeout classification, not a 100 ms startup guarantee.
+      timeoutMs: streaming ? 1_000 : 100,
+    },
   };
   const response = await fetch(`${gatewayUrl}/slow`, {
     headers: {
