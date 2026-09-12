@@ -1,3 +1,5 @@
+import { targetUrlFromPath } from "@one-fetch/core";
+
 export function parseServiceBaseUrl(value: string, label: string): URL {
   const url = new URL(value);
   if (
@@ -39,7 +41,7 @@ export function buildServiceUrl(
     throw new TypeError("Service request path must start with /");
   }
   const service = parseServiceBaseUrl(serviceUrl, label);
-  const route = new URL(pathAndQuery, "https://route.invalid");
+  const route = targetUrlFromPath("https://route.invalid", pathAndQuery);
   if (route.hash !== "")
     throw new TypeError("Service path cannot contain a fragment");
   const basePath = service.pathname === "/" ? "" : service.pathname;
