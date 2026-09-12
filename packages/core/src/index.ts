@@ -3,6 +3,7 @@ export * from "./auth.js";
 export * from "./crypto.js";
 export * from "./fetch-options.js";
 export * from "./ip.js";
+export * from "./ingress-path.js";
 export * from "./policy.js";
 export * from "./sha256.js";
 export * from "./server-timing.js";

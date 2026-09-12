@@ -19,6 +19,7 @@ import {
 } from "@one-fetch/core";
 
 import { buildGatewayUrl, serviceBaseUrl } from "./url.js";
+import { bindGatewayPath } from "./path-binding.js";
 
 export type GatewayProgressPhase =
   | "preparing"
@@ -250,11 +251,16 @@ export class OneFetchGatewayClient {
       throw new TypeError(`${method} requests cannot carry a body`);
     }
     const targetHeaders = withUrlUserinfoHeader(target, input.headers ?? []);
-    const fetchOptions: FetchOptionsV1 = {
-      redirect: input.fetchOptions?.redirect ?? "follow",
-      timeoutMs: input.fetchOptions?.timeoutMs ?? ONE_FETCH_LIMITS_V1.timeoutMs,
-      ...input.fetchOptions,
-    };
+    const fetchOptions: FetchOptionsV1 = bindGatewayPath(
+      target,
+      {
+        redirect: input.fetchOptions?.redirect ?? "follow",
+        timeoutMs:
+          input.fetchOptions?.timeoutMs ?? ONE_FETCH_LIMITS_V1.timeoutMs,
+        ...input.fetchOptions,
+      },
+      this.#capabilities,
+    );
     const optionClassification =
       this.#capabilities === undefined
         ? undefined
