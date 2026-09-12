@@ -43,7 +43,10 @@ export async function pathHarness(policy?: PolicySetV1) {
   const calls: string[] = [];
   const events: Array<Record<string, unknown>> = [];
   const reports: Array<Record<string, unknown>> = [];
-  const firstReport = Promise.withResolvers<void>();
+  let reportReady: (() => void) | undefined;
+  const firstReport = new Promise<void>((resolve) => {
+    reportReady = resolve;
+  });
   const database: Database = {
     rpc: <T>(name: string, parameters: Record<string, unknown> = {}) => {
       calls.push(name);
@@ -99,7 +102,7 @@ export async function pathHarness(policy?: PolicySetV1) {
           if (parameters.p_audit)
             events.push(parameters.p_audit as Record<string, unknown>);
           value = { status: "finalized", auditState: "recorded" };
-          firstReport.resolve();
+          reportReady?.();
           break;
         default:
           throw new Error(`Unexpected RPC ${name}`);
@@ -112,11 +115,11 @@ export async function pathHarness(policy?: PolicySetV1) {
     calls,
     events,
     reports,
-    async waitForReport() {
+    waitForReport: async () => {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         await Promise.race([
-          firstReport.promise,
+          firstReport,
           new Promise<never>((_resolve, reject) => {
             timer = setTimeout(
               () => reject(new Error("Report finalization timed out")),
