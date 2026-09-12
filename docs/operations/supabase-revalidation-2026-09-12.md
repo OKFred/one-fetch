@@ -50,6 +50,11 @@ transport and validate the original path/query separately; it must not silently
 rewrite requests, change the test expectation, or claim exact Node/Cloudflare
 parity. No protocol change was made in this run.
 
+Follow-up: the development branch now implements a
+[capability-negotiated original-path binding](../supabase-path-binding.md) in
+Protocol V1's existing adapter extension point. Its local regression coverage
+does not supersede this failed hosted run; hosted revalidation is pending.
+
 `truncated-response` was the sole explicit skip because the Cloudflare-hosted
 synthetic target normalizes an injected stream failure. It is not counted as a
 passing executed case.

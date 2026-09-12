@@ -7,6 +7,14 @@ backed by one dedicated PostgreSQL project. Supabase reserves
 `/functions/v1/<function-name>`; configure that complete prefix as the service
 base. one-fetch reserves no path after the Gateway function prefix.
 
+The development adapter requires the negotiated
+[`supabaseOriginalPathV1` binding](../supabase-path-binding.md) to restore the
+original Fetch-serialized path/query after known hosted ingress normalization.
+Deploy the paired Functions and compatible client together, then refresh Control
+capabilities. Old clients fail explicitly; mutation confirmation cannot waive
+the binding. This fix still needs hosted revalidation and is not contained in
+the immutable published `v0.1.0` artifacts.
+
 Both functions use `verify_jwt=false` because one-fetch owns opaque tokens. SQL
 migrations keep tables in `one_fetch`, revoke `public`, `anon`, and
 `authenticated`, and expose only narrowly scoped service-role RPCs.
