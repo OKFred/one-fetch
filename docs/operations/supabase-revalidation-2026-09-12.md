@@ -53,7 +53,10 @@ parity. No protocol change was made in this run.
 Follow-up: the development branch now implements a
 [capability-negotiated original-path binding](../supabase-path-binding.md) in
 Protocol V1's existing adapter extension point. Its local regression coverage
-does not supersede this failed hosted run; hosted revalidation is pending.
+does not supersede this failed hosted run. A
+[separate 2026-09-13 revalidation](supabase-revalidation-2026-09-13.md) passed
+the original double-slash case on the new commit, but identified a query-space
+request that is rejected with signed `invalid_metadata`.
 
 `truncated-response` was the sole explicit skip because the Cloudflare-hosted
 synthetic target normalizes an injected stream failure. It is not counted as a

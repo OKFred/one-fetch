@@ -1,9 +1,13 @@
 # Supabase original-path binding (Protocol V1 extension)
 
 This change is implemented on the development branch, not in the published
-`v0.1.0` artifacts. Local regression tests pass; hosted revalidation is still
-required. The [2026-09-12 hosted report](operations/supabase-revalidation-2026-09-12.md)
-remains a failed full-fidelity acceptance and must not be relabeled as passing.
+`v0.1.0` artifacts. The
+[2026-09-13 hosted revalidation](operations/supabase-revalidation-2026-09-13.md)
+passed the original double-slash case, but an additional `%20` query-space
+probe received signed `invalid_metadata`. Exact query-space support remains
+unresolved; do not silently substitute `+`. The
+[2026-09-12 hosted report](operations/supabase-revalidation-2026-09-12.md)
+remains a failed full-fidelity acceptance for its earlier commit.
 
 ## Why the binding is required
 
@@ -102,14 +106,15 @@ URL, so this extension does **not** prevent provider access logs from observing
 it.
 
 Local coverage includes 400 generated slash-run combinations, unknown rewrites,
-capability mismatch, metadata limits, the shared 12-case HTTP smoke suite behind
+capability mismatch, metadata limits, the shared HTTP smoke suite behind
 simulated hosted normalization, signed denials, system/user rules, redirects,
 and audit/report secret canaries. This simulation uses the real client and
 Function handler with a synthetic upstream and database port; it is not a
 hosted network or PostgreSQL acceptance result.
 
 Before merge/release, rerun the exact future commit on a disposable hosted
-project, retain the original literal-path 404 expectation, and record cleanup
-separately from test success. The previously observed 20 MiB + 1 client timeout
-also needs a separate hosted outcome; this path fix does not establish prompt
-stream termination or upstream cancellation latency.
+project, including the new exact query-space/plus fixture. Retain the original
+literal-path 404 expectation and record cleanup separately from test success.
+The 20 MiB + 1 client timeout was observed again in the hosted revalidation;
+this path fix does not establish prompt stream termination or upstream
+cancellation latency.
