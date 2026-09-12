@@ -98,3 +98,11 @@ authorization. Retain the previous original-path/query fixtures and measure
 separately. Do not interpret passing local tests or CI as resolution of the
 hosted 60.70-second timeout, and do not relax conformance expectations to make
 that timeout count as prompt termination.
+
+## Subsequent hosted verification
+
+After explicit approval, the [hosted stream rerun](supabase-hosted-streams-2026-09-13.md)
+tested `0427f46`: established-response Stop passed, but prompt limit/timeout
+termination still failed. A minimal Function without one-fetch reproduced the
+errored-stream hang with Node Fetch and cURL. This local regression remains
+valid; it must not be presented as a resolution of the hosted response path.

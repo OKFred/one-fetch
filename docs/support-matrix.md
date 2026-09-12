@@ -31,7 +31,11 @@ It restores repeated slashes and percent-escape spelling only after checking
 the observed ingress path; unknown rewrites or missing bindings are rejected.
 The [hosted exact-query rerun](operations/supabase-exact-revalidation-2026-09-13.md)
 passed at `8fc5fa2`; unknown URL transformations and the documented stream/
-cancellation limitations remain outside that result. Published `v0.1.0`
+cancellation limitations remain outside that result. The subsequent
+[hosted stream rerun](operations/supabase-hosted-streams-2026-09-13.md) at
+`0427f46` verified body-phase Stop but still failed prompt limit/timeout stream
+termination; clients must not treat headers or partial data as a complete body.
+Published `v0.1.0`
 artifacts do not contain the fix; see the
 [hosted failure evidence](operations/supabase-revalidation-2026-09-12.md).
 

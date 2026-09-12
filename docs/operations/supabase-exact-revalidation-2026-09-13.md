@@ -134,6 +134,8 @@ Release, replace published `v0.1.0` artifacts or modify xPanel.
 
 A separate [local cancellation regression](supabase-stream-cancellation-2026-09-13.md)
 reproduced delayed downstream errors when upstream cleanup remains pending,
-and fixed the response monitor's abort/terminal ordering. That code has not been
-revalidated in a hosted environment; this run's commit, 60.70-second observation
-and acceptance boundaries remain unchanged.
+and fixed the response monitor's abort/terminal ordering. The later
+[hosted stream rerun](supabase-hosted-streams-2026-09-13.md) at `0427f46` passed
+established-response Stop but still failed prompt limit/timeout termination.
+This run's commit, 60.70-second observation and acceptance boundaries remain
+unchanged.
