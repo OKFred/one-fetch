@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import test from "node:test";
+
+import ts from "typescript";
 
 import {
   cleanupCloudflareFixture,
@@ -36,6 +40,9 @@ test("fixture lifecycle uses one exact random Worker name", async () => {
   const deployed = await deployCloudflareFixture(name, dependencies);
   assert.equal(deployed.name, name);
   assert.equal(probes, 2);
+  assert.equal(calls[0][1], "--config");
+  assert.equal(basename(calls[0][2]), "wrangler.fixture.jsonc");
+  assert.deepEqual(calls[0].slice(3), ["--name", name]);
   await assert.rejects(
     cleanupCloudflareFixture(name, "different", dependencies),
     /confirmation mismatch/u,
@@ -43,6 +50,26 @@ test("fixture lifecycle uses one exact random Worker name", async () => {
   const cleanup = await cleanupCloudflareFixture(name, name, dependencies);
   assert.equal(cleanup.absent, true);
   assert.deepEqual(calls.at(-1), ["delete", name, "--force"]);
+});
+
+test("fixture config disables persistent logs and has no fallback Worker name", async () => {
+  const parsed = ts.parseConfigFileTextToJson(
+    "wrangler.fixture.jsonc",
+    await readFile(
+      new globalThis.URL("./wrangler.fixture.jsonc", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(parsed.error, undefined);
+  const config = parsed.config;
+  assert.equal(config.name, undefined);
+  assert.equal(config.main, "cloudflare-target.mjs");
+  assert.equal(config.compatibility_date, "2026-09-04");
+  assert.deepEqual(config.compatibility_flags, ["enable_request_signal"]);
+  assert.deepEqual(config.observability, { enabled: false });
+  assert.equal(config.logpush, false);
+  assert.deepEqual(config.tail_consumers, []);
+  assert.equal(config.workers_dev, true);
 });
 
 test("fixture names cannot target arbitrary Workers", () => {
