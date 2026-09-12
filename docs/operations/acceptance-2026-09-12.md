@@ -44,11 +44,16 @@ No credential, Header value or body is included in that report.
 
 ## Remaining boundary
 
-Supabase hosted revalidation of the new path case is pending: the account has
+At the end of this Cloudflare run, Supabase hosted revalidation was pending: the account had
 no free project slot and the local CLI needs authentication. Existing active
 projects were not paused or modified. Node local conformance and the earlier
 Supabase acceptance remain separate evidence; neither substitutes for this
 missing hosted run.
+
+A subsequent authorized disposable Supabase run is recorded in
+[Supabase hosted revalidation](./supabase-revalidation-2026-09-12.md). It exposed
+an empty-database installer defect (fixed) and a hosted path-normalization
+failure (still open). Do not treat that run as a passing full-fidelity gate.
 
 No Release asset was replaced, no new version was published, and xPanel was
 not changed.

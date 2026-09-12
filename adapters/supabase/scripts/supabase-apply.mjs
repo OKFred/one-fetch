@@ -262,6 +262,9 @@ export async function applyHostedDeployment(context) {
       databaseLink,
       recorder,
       databasePassword,
+      allowEmptyBaseline:
+        options.expectedCurrentBuild === "none" && options.resume !== true,
+      projectRef: options.projectRef,
     });
     if (options.expectedCurrentBuild === "none") {
       if (options.resume === true) {
@@ -294,6 +297,9 @@ export async function applyHostedDeployment(context) {
         },
         sha256: backup.sha256,
         restoreVerified: false,
+        ...(backup.emptyBaseline
+          ? { emptyBaseline: backup.emptyBaseline }
+          : {}),
       },
       recovery,
     });

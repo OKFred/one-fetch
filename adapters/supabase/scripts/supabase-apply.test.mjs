@@ -95,6 +95,8 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
     };
     const runPnpm = (arguments_, options = {}) => {
       commands.push({ arguments_, options });
+      if (arguments_.includes("query"))
+        return JSON.stringify({ rows: [{ nspname: "supabase_migrations" }] });
       if (arguments_.includes("dump")) {
         const output = arguments_[arguments_.indexOf("--file") + 1];
         return writeFile(

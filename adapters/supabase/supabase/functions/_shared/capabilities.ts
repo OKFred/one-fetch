@@ -1,6 +1,7 @@
 import {
   ONE_FETCH_LIMITS_V1,
   OneFetchCapabilitiesV1Schema,
+  SUPABASE_ORIGINAL_PATH_V1,
 } from "@one-fetch/protocol";
 import type {
   FetchOptionCapabilityV1,
@@ -11,6 +12,12 @@ import type {
 import type { SupabaseEnvironment } from "./env.ts";
 
 export const SUPABASE_FETCH_OPTIONS: FetchOptionCapabilityV1[] = [
+  {
+    option: `adapter.${SUPABASE_ORIGINAL_PATH_V1}`,
+    fidelity: "exact",
+    detail:
+      "Required original path/query binding. Accepts verified ingress path normalization and bytewise query re-encoding, including %20 to +. Restores original bytes without merging or reordering query fields; other rewrites fail closed.",
+  },
   { option: "redirect", fidelity: "exact" },
   { option: "timeoutMs", fidelity: "exact" },
   {
@@ -126,7 +133,11 @@ export function buildSupabaseCapabilities(
         "Supabase policy can inspect the URL userinfo signal, but the runtime does not expose resolved addresses or connection pinning. Hostname rules are therefore a documented downgrade from Node.",
     },
     transports: {
-      http: { state: "stable" },
+      http: {
+        state: "stable",
+        detail:
+          "Requires negotiated supabaseOriginalPathV1. Hosted ingress may normalize path/query; the original bytes are restored only after binding validation. Unsupported rewrites are rejected. Clients must refresh capabilities after upgrades.",
+      },
       websocket: {
         state: "unsupported",
         detail:

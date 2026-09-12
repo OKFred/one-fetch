@@ -7,6 +7,15 @@ backed by one dedicated PostgreSQL project. Supabase reserves
 `/functions/v1/<function-name>`; configure that complete prefix as the service
 base. one-fetch reserves no path after the Gateway function prefix.
 
+The development adapter requires the negotiated
+[`supabaseOriginalPathV1` binding](../supabase-path-binding.md) to restore the
+original Fetch-serialized path/query after known hosted ingress normalization.
+Deploy the paired Functions and compatible client together, then refresh Control
+capabilities. Old clients fail explicitly; mutation confirmation cannot waive
+the binding. The [exact-query hosted rerun](supabase-exact-revalidation-2026-09-13.md)
+passed at `8fc5fa2`, with separate stream/cancellation and update/restore gates
+still open. The fix is not contained in immutable published `v0.1.0` artifacts.
+
 Both functions use `verify_jwt=false` because one-fetch owns opaque tokens. SQL
 migrations keep tables in `one_fetch`, revoke `public`, `anon`, and
 `authenticated`, and expose only narrowly scoped service-role RPCs.
@@ -59,8 +68,10 @@ also use the same isolated workdir.
 Set a project-scoped Supabase access token in the CLI environment or native
 credential store. The minimum hosted deployment capabilities are Project
 Settings Read, Backups Read, Connection Pooling Read, API Keys Read, Edge
-Functions Read-Write, and Edge Function Secrets Read-Write. Database preflight
-also requires the password through `--db-password-file` or an explicitly scoped
+Functions Read-Write, and Edge Function Secrets Read-Write. First-install
+schema inventory additionally needs database query access
+for the exact project (the catalog query contains no application data).
+Database preflight also requires the password through `--db-password-file` or an explicitly scoped
 `SUPABASE_DB_PASSWORD` environment variable; apply requires the restricted file.
 Passwords and tokens never appear in CLI arguments, state files, reports, or
 logs.
@@ -90,7 +101,11 @@ The apply sequence is fail-closed:
 
 1. pause Gateway for an update and download the two currently deployed Function
    sources as exact recovery inputs;
-2. create a logical database dump, require it to be non-empty, and record SHA-256;
+2. create a logical database dump, require it to be non-empty, and record SHA-256.
+   For a new install only, first query the exact project's schema catalog: when
+   both `one_fetch` and `supabase_migrations` are absent, record a verified empty
+   baseline with project identity, check time, query digest and hashed SQL
+   comment files instead. A missing/malformed catalog result fails closed;
 3. for updates, acquire the database CAS lease before migration; for a first
    install, require the dump to contain no `one_fetch` schema, apply the initial
    migration, then acquire the `expectedBuild=none` lease;
@@ -112,6 +127,13 @@ CAS current build of `none`, and a database migration ledger byte-for-byte equal
 to the checked-in manifest. A normal first install still refuses any existing
 `one_fetch` schema. Resume never reverses SQL or treats a partial runtime as
 healthy.
+
+The empty-baseline path is never available to updates or `--resume`. It is
+evidence that no one-fetch state existed, not a backup of other project schemas
+or proof of a database restore. A backup-phase failure before migrations can be
+retried normally with a new state-file path after its cause is fixed; retain the
+failed record and re-run the complete preflight. Do not add `--resume` to bypass
+a failed backup.
 
 Supabase deploys Control and Gateway independently; a local state file cannot
 prevent two machines from interleaving those operations. Build identity is

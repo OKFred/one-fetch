@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-09-12T17:18:09.929Z",
+  "sourceSha256": "674a61a646898c1133bf2ef511693aa2d5c6dd6a613f1c3f241edc5206ca8fdc",
+  "cases": [
+    ["plain", "/echo?value=hello", "/echo?value=hello"],
+    ["space", "/echo?value=hello%20world", "/echo?value=hello+world"],
+    ["plus", "/echo?value=hello+world", "/echo?value=hello+world"],
+    ["encoded-plus", "/echo?value=hello%2bworld", "/echo?value=hello%2Bworld"],
+    [
+      "mixed",
+      "/echo?x=hello%20world&x=hello+world&x=%2b&x=%2B",
+      "/echo?x=hello+world&x=hello+world&x=%2B&x=%2B"
+    ],
+    ["slashes", "///echo?x=%2f&x=%2F", "/echo?x=%2F&x=%2F"],
+    ["path-space", "/hello%20world?x=1", "/hello%20world?x=1"],
+    ["encoded-percent", "/echo?x=%2520&x=%252b", "/echo?x=%2520&x=%252b"],
+    [
+      "reserved",
+      "/echo?x=%26%3d%3f%23%2f%3b%3a%40%24%2c",
+      "/echo?x=%26%3D%3F%23%2F%3B%3A%40%24%2C"
+    ],
+    ["unreserved", "/echo?x=%41%7e%2d%5f%2e", "/echo?x=A%7E-_."],
+    [
+      "empty-duplicate",
+      "/echo?x=&x=two&empty&x=three",
+      "/echo?x=&x=two&empty&x=three"
+    ],
+    ["unicode", "/echo?x=%e4%b8%ad%e6%96%87", "/echo?x=%E4%B8%AD%E6%96%87"],
+    [
+      "encoded-ascii",
+      "/echo?x=%41%5a%61%7a%30%39%2d%5f%2e%7e%21%2a%27%28%29%5b%5d",
+      "/echo?x=AZaz09-_.%7E%21*%27%28%29%5B%5D"
+    ],
+    [
+      "literal-punctuation",
+      "/echo?x=~!*%27()[]:@$,;/",
+      "/echo?x=%7E%21*%27%28%29%5B%5D%3A%40%24%2C%3B%2F"
+    ],
+    [
+      "query-keys",
+      "/echo?hello%20world=1&hello+world=2&plus%2b=3&%41=4",
+      "/echo?hello+world=1&hello+world=2&plus%2B=3&A=4"
+    ],
+    ["path-unreserved", "/%41%7e%2d%5f%2e?x=1", "/A~-_.?x=1"]
+  ]
+}
