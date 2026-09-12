@@ -41,6 +41,9 @@ Deno.test(
         fetch: (input: RequestInfo | URL, init?: RequestInit) => {
           const url = new URL(input instanceof Request ? input.url : input);
           url.pathname = url.pathname.replace(/\/{2,}/gu, "/");
+          // Smoke fixtures use key=value fields. Recorded ingress vectors in
+          // path-query_test.ts separately cover bare flags and punctuation.
+          url.search = url.searchParams.toString();
           const normalized = url.href.replace(/%[\da-f]{2}/giu, (escape) =>
             escape.toUpperCase(),
           );
@@ -192,8 +195,8 @@ Deno.test(
       const response = await handler(
         boundPathRequest(
           environment.gatewayBaseUrl,
-          `/echo?token=${secret}`,
-          `//echo?token=${secret}`,
+          `/echo?token=${secret}+suffix`,
+          `//echo?token=${secret}%20suffix`,
         ),
       );
       await response.text();

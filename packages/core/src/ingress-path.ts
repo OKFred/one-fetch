@@ -17,25 +17,73 @@ export function assertOriginalPath(value: unknown): asserts value is string {
     throw new TypeError("Original path must already be Fetch-serialized");
 }
 
-/** Allow only the two transformations observed at hosted Supabase ingress. */
+function splitPathAndQuery(value: string): [string, string] {
+  const separator = value.indexOf("?");
+  return separator < 0
+    ? [value, ""]
+    : [value.slice(0, separator), value.slice(separator)];
+}
+
+const upperEscapes = (value: string): string =>
+  value.replace(/%[\da-f]{2}/giu, (escape) => escape.toUpperCase());
+
+function normalizedPath(path: string): string {
+  return path.replace(/%([\da-f]{2})/giu, (escape, hex: string) => {
+    const character = String.fromCharCode(Number.parseInt(hex, 16));
+    return /^[A-Za-z0-9._~-]$/u.test(character)
+      ? character
+      : escape.toUpperCase();
+  });
+}
+
+function normalizedQueryComponent(value: string): string {
+  // Bytewise encoding avoids lossy UTF-8 replacement and recursive decoding.
+  return value.replace(/%[\da-f]{2}|[^%]/giu, (unit) => {
+    if (unit === "+") return "+";
+    const byte = unit.startsWith("%")
+      ? Number.parseInt(unit.slice(1), 16)
+      : unit.charCodeAt(0);
+    if (byte === 32) return "+";
+    const character = String.fromCharCode(byte);
+    return /^[A-Za-z0-9*._-]$/u.test(character)
+      ? character
+      : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  });
+}
+
+function normalizedQuery(query: string): string {
+  if (query === "") return query;
+  // Preserve duplicate order, bare flags and empty segments; do not parse into
+  // URLSearchParams, which would add '=' to flags and discard empty segments.
+  const components = query
+    .slice(1)
+    .split("&")
+    .map((pair) => {
+      const separator = pair.indexOf("=");
+      if (separator < 0) return normalizedQueryComponent(pair);
+      return `${normalizedQueryComponent(pair.slice(0, separator))}=${normalizedQueryComponent(pair.slice(separator + 1))}`;
+    });
+  return `?${components.join("&")}`;
+}
+
+/** Match known hosted ingress spellings; always return the original bytes. */
 export function restoreSupabaseIngressPath(
   original: unknown,
   observed: string,
 ): string {
   assertOriginalPath(original);
-  const separator = original.indexOf("?");
-  const path = separator < 0 ? original : original.slice(0, separator);
-  const query = separator < 0 ? "" : original.slice(separator);
-  const collapsed = `${path.replace(/\/{2,}/gu, "/")}${query}`;
-  const upperEscapes = (value: string): string =>
-    value.replace(/%[\da-f]{2}/giu, (escape) => escape.toUpperCase());
+  const [path, query] = splitPathAndQuery(original);
+  const [observedPath, observedQuery] = splitPathAndQuery(observed);
+  const paths = [path, upperEscapes(path), normalizedPath(path)];
+  const acceptedPaths = paths.flatMap((value) => [
+    value,
+    value.replace(/\/{2,}/gu, "/"),
+  ]);
   if (
-    ![
-      original,
-      collapsed,
-      upperEscapes(original),
-      upperEscapes(collapsed),
-    ].includes(observed)
+    !acceptedPaths.includes(observedPath) ||
+    ![query, upperEscapes(query), normalizedQuery(query)].includes(
+      observedQuery,
+    )
   )
     throw new TypeError(
       "Gateway path does not match its original path binding",

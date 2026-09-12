@@ -16,7 +16,7 @@ export const SUPABASE_FETCH_OPTIONS: FetchOptionCapabilityV1[] = [
     option: `adapter.${SUPABASE_ORIGINAL_PATH_V1}`,
     fidelity: "exact",
     detail:
-      "Required original path/query binding. Only repeated path slash collapse and percent-escape case changes at ingress are accepted; other rewrites fail closed.",
+      "Required original path/query binding. Accepts verified ingress path normalization and bytewise query re-encoding, including %20 to +. Restores original bytes without merging or reordering query fields; other rewrites fail closed.",
   },
   { option: "redirect", fidelity: "exact" },
   { option: "timeoutMs", fidelity: "exact" },

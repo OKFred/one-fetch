@@ -23,7 +23,7 @@ test("ingress probe observes every fixed synthetic case without forwarding", asy
   const handler = createIngressProbeHandler(options);
   for (const [caseId, path] of INGRESS_PROBE_CASES) {
     const response = await handler(
-      new Request(base + path, {
+      new globalThis.Request(base + path, {
         headers: {
           ...headers,
           "one-fetch-probe-case": caseId,
@@ -56,7 +56,7 @@ test("ingress probe rejects unauthenticated, expired, unknown and body requests"
   const handler = createIngressProbeHandler(options);
   for (const supplied of ["", "t".repeat(43), "s".repeat(2000)]) {
     const response = await handler(
-      new Request(base + "/echo", {
+      new globalThis.Request(base + "/echo", {
         headers: { ...headers, "one-fetch-probe-token": supplied },
       }),
     );
@@ -65,7 +65,7 @@ test("ingress probe rejects unauthenticated, expired, unknown and body requests"
   assert.equal(
     (
       await createIngressProbeHandler({ ...options, expiresAt: 0 })(
-        new Request(base + "/echo", { headers }),
+        new globalThis.Request(base + "/echo", { headers }),
       )
     ).status,
     410,
@@ -73,7 +73,7 @@ test("ingress probe rejects unauthenticated, expired, unknown and body requests"
   assert.equal(
     (
       await handler(
-        new Request(base + "/echo", {
+        new globalThis.Request(base + "/echo", {
           headers: { ...headers, "one-fetch-probe-case": "unknown" },
         }),
       )
@@ -83,7 +83,7 @@ test("ingress probe rejects unauthenticated, expired, unknown and body requests"
   assert.equal(
     (
       await handler(
-        new Request(base + "/echo", {
+        new globalThis.Request(base + "/echo", {
           method: "POST",
           headers,
           body: "private-body",
@@ -93,8 +93,11 @@ test("ingress probe rejects unauthenticated, expired, unknown and body requests"
     405,
   );
   assert.equal(
-    (await handler(new Request("https://project.test/wrong/echo", { headers })))
-      .status,
+    (
+      await handler(
+        new globalThis.Request("https://project.test/wrong/echo", { headers }),
+      )
+    ).status,
     400,
   );
   assert.throws(() =>

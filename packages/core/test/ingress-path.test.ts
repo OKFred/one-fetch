@@ -3,8 +3,15 @@ import {
   assertOriginalPath,
   restoreSupabaseIngressPath,
 } from "../src/ingress-path.js";
+import hosted from "./fixtures/supabase-ingress.json" with { type: "json" };
 
 describe("Supabase ingress path binding", () => {
+  it.each(hosted.cases)(
+    "restores hosted observation %s without changing original bytes",
+    (_id, original, observed) => {
+      expect(restoreSupabaseIngressPath(original, observed)).toBe(original);
+    },
+  );
   it.each([
     ["//v1/echo?a=%2f&a=2", "/v1/echo?a=%2F&a=2"],
     ["//v1/echo?a=%2f", "//v1/echo?a=%2F"],
@@ -40,12 +47,16 @@ describe("Supabase ingress path binding", () => {
     ["/a?x=%2f", "/a?x=/"],
     ["/a//b", "/other"],
     ["/a?x=//", "/a?x=/"],
-    ["/%41", "/A"],
     ["/a", "//a"],
     ["/a", "/a?extra=1"],
-    ["/echo?q=hello%20world", "/echo?q=hello+world"],
     ["/echo?q=hello+world", "/echo?q=hello%20world"],
     ["/echo?q=%2b", "/echo?q=+"],
+    ["/hello%20world", "/hello+world"],
+    ["/echo?flag", "/echo?flag="],
+    ["/echo?a=1&&b=2", "/echo?a=1&b=2"],
+    ["/echo?x=%26admin%3Dtrue", "/echo?x=&admin=true"],
+    ["/echo?x=%2520", "/echo?x=+"],
+    ["/echo?x=%FF", "/echo?x=%EF%BF%BD"],
   ])("rejects unknown ingress changes", (original, observed) => {
     expect(() => restoreSupabaseIngressPath(original, observed)).toThrow();
   });
