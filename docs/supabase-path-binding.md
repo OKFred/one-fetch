@@ -4,16 +4,21 @@ This change is implemented on the development branch, not in the published
 `v0.1.0` artifacts. The
 [2026-09-13 hosted revalidation](operations/supabase-revalidation-2026-09-13.md)
 passed the original double-slash case, but an additional `%20` query-space
-probe received signed `invalid_metadata`. Exact query-space support remains
-unresolved; do not silently substitute `+`. The
+probe received signed `invalid_metadata`. A subsequent
+[authenticated ingress diagnostic](operations/supabase-ingress-diagnostic-2026-09-13.md)
+recorded the hosted Function's raw URL and reproduced the missing normalization
+cases locally. The validator now restores their original spelling, including
+`%20`, rather than forwarding the observed `+`. Full hosted Gateway revalidation
+of this fix is still pending. The
 [2026-09-12 hosted report](operations/supabase-revalidation-2026-09-12.md)
 remains a failed full-fidelity acceptance for its earlier commit.
 
 ## Why the binding is required
 
-Hosted Supabase ingress was observed collapsing repeated path slashes and
-uppercasing percent-escape spelling before the Gateway Function received the
-request. This changed the synthetic target's result from 404 to 200. Changing
+Hosted Supabase ingress was observed collapsing repeated path slashes,
+decoding path unreserved characters, and re-encoding query components before
+the Function received the request. The slash rewrite changed the synthetic
+target's result from 404 to 200. Changing
 the fixture expectation or merely accepting vendor mutations would hide the
 wrong target path.
 
@@ -70,13 +75,26 @@ shows the deployment's HTTP detail, including the binding requirement.
 ## Validation and execution
 
 After authentication and configuration validation, the Function removes its
-own prefix and compares the observed path/query with the binding. Only these
-forms are accepted:
+own prefix and compares the observed path and query separately with the
+binding. Only these known spellings are accepted:
 
-1. Original bytes unchanged.
-2. Repeated **path** slashes collapsed; query slashes unchanged.
-3. All percent escapes uppercased; no decoding or query reordering.
-4. Both of the preceding transformations.
+- Path: original bytes, uppercase percent escapes, or decoded ASCII unreserved
+  characters (`A-Z a-z 0-9 . _ ~ -`) with other escapes uppercased. Each form
+  may also collapse repeated path slashes. Path `%20` never becomes `+`.
+- Query: original bytes, uppercase percent escapes, or bytewise form-style
+  re-encoding of each key/value. Space becomes `+`, an existing literal `+`
+  remains `+`, encoded plus remains `%2B`, and only `A-Z a-z 0-9 * . _ -`
+  remain unescaped. Percent bytes are decoded once for this comparison only;
+  there is no UTF-8 replacement or recursive decoding.
+- Literal query separators, repeated-field order, bare flags without `=`,
+  and empty segments must remain intact. Reordering, dropping fields, decoding
+  an escaped `&` into a new field, or changing an encoded plus to a literal
+  plus is rejected. This is not arbitrary decoded-query equivalence.
+
+The comparison does **not** rewrite the outgoing request. Successful validation
+returns the exact original binding, even when the observed query uses `+`
+where the original used `%20`. Query slashes are not collapsed; their escaped
+spelling can change under the verified component re-encoding.
 
 Other rewrites, malformed escapes, URL references, raw spaces/control characters,
 backslashes, fragments, and non-Fetch-serialized dot segments are rejected with
@@ -105,12 +123,14 @@ the adapter metadata wholesale. The original path still appears in the outer
 URL, so this extension does **not** prevent provider access logs from observing
 it.
 
-Local coverage includes 400 generated slash-run combinations, unknown rewrites,
+Local coverage includes 16 recorded hosted ingress pairs, 400 generated
+slash-run combinations, unknown rewrites,
 capability mismatch, metadata limits, the shared HTTP smoke suite behind
 simulated hosted normalization, signed denials, system/user rules, redirects,
 and audit/report secret canaries. This simulation uses the real client and
 Function handler with a synthetic upstream and database port; it is not a
-hosted network or PostgreSQL acceptance result.
+hosted Gateway or PostgreSQL acceptance result. The separate ingress diagnostic
+is real hosted URL-observation evidence, not a complete request relay test.
 
 Before merge/release, rerun the exact future commit on a disposable hosted
 project, including the new exact query-space/plus fixture. Retain the original

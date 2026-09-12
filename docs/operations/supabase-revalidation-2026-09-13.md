@@ -108,3 +108,10 @@ then rerun the expanded suite against the exact future hosted build. Preserve
 the 20 MiB + 1 and upstream-cancellation limitations independently. Neither the
 old nor expanded suite replaces a protected-update/restore exercise or a new
 three-platform release acceptance.
+
+## Subsequent ingress-only diagnosis
+
+The separate [authenticated ingress diagnostic](supabase-ingress-diagnostic-2026-09-13.md)
+subsequently captured raw hosted URLs and identified the query re-encoding.
+It informed a local validator fix and regression fixtures. It does not change
+this run's failed probe, commit, counts or hosted acceptance boundary.
