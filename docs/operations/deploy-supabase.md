@@ -12,8 +12,9 @@ The development adapter requires the negotiated
 original Fetch-serialized path/query after known hosted ingress normalization.
 Deploy the paired Functions and compatible client together, then refresh Control
 capabilities. Old clients fail explicitly; mutation confirmation cannot waive
-the binding. This fix still needs hosted revalidation and is not contained in
-the immutable published `v0.1.0` artifacts.
+the binding. The [exact-query hosted rerun](supabase-exact-revalidation-2026-09-13.md)
+passed at `8fc5fa2`, with separate stream/cancellation and update/restore gates
+still open. The fix is not contained in immutable published `v0.1.0` artifacts.
 
 Both functions use `verify_jwt=false` because one-fetch owns opaque tokens. SQL
 migrations keep tables in `one_fetch`, revoke `public`, `anon`, and

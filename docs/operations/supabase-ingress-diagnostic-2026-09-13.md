@@ -87,3 +87,12 @@ suite is rerun. The diagnostic is not an upgrade/restore exercise and does not
 resolve the separate 20 MiB + 1 stream-termination or upstream-cancellation
 latency limitations. A new run needing a project pause or database mutation
 requires separate authorization; this probe's approval does not cover it.
+
+## Subsequent paired Gateway verification
+
+After separate operator authorization, the
+[exact-query Gateway rerun](supabase-exact-revalidation-2026-09-13.md) tested
+the fixed paired build on a disposable project. It closes this run's pending
+hosted exact-query rerun, without changing the diagnostic's scope or the
+independent stream/cancellation and update/restore limitations. In that later
+run media-center was intentionally left paused at the operator's request.

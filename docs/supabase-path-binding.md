@@ -8,8 +8,10 @@ probe received signed `invalid_metadata`. A subsequent
 [authenticated ingress diagnostic](operations/supabase-ingress-diagnostic-2026-09-13.md)
 recorded the hosted Function's raw URL and reproduced the missing normalization
 cases locally. The validator now restores their original spelling, including
-`%20`, rather than forwarding the observed `+`. Full hosted Gateway revalidation
-of this fix is still pending. The
+`%20`, rather than forwarding the observed `+`. The subsequent
+[exact-query Gateway rerun](operations/supabase-exact-revalidation-2026-09-13.md)
+at `8fc5fa2` passed 17 shared cases (one explicit skip) and 30 additional
+boundary checks. Large-response termination and cancellation limits remain. The
 [2026-09-12 hosted report](operations/supabase-revalidation-2026-09-12.md)
 remains a failed full-fidelity acceptance for its earlier commit.
 
@@ -132,9 +134,9 @@ Function handler with a synthetic upstream and database port; it is not a
 hosted Gateway or PostgreSQL acceptance result. The separate ingress diagnostic
 is real hosted URL-observation evidence, not a complete request relay test.
 
-Before merge/release, rerun the exact future commit on a disposable hosted
-project, including the new exact query-space/plus fixture. Retain the original
-literal-path 404 expectation and record cleanup separately from test success.
-The 20 MiB + 1 client timeout was observed again in the hosted revalidation;
-this path fix does not establish prompt stream termination or upstream
-cancellation latency.
+The hosted rerun tested the exact-query fix at `8fc5fa2`, including the new
+query-space/plus fixture and original literal-path 404 expectation. Cleanup was
+independently verified. A different future release build still requires its own
+acceptance. The 20 MiB + 1 client timeout was observed again (about 60.70 seconds);
+this path fix does not establish prompt stream termination, upstream
+cancellation latency or protected-update/restore acceptance.
