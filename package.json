@@ -34,6 +34,7 @@
     "release:artifacts": "node tools/release/build-review-bundle.mjs",
     "release:finalize": "node tools/release/finalize-review-bundle.mjs",
     "release:verify": "node tools/release/verify-release-input.mjs",
+    "release:verify-public": "node tools/release/verify-public-release.mjs",
     "test:release": "node --test tools/release/*.test.mjs",
     "test:tools": "pnpm --filter @one-fetch/conformance build && node --test tools/release/*.test.mjs tools/deploy/*.test.mjs tools/acceptance/*.test.mjs"
   },

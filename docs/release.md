@@ -119,3 +119,52 @@ attestations after publication.
 Deployment of a stable instance, merging xPanel 3.0, generating its extension
 package, and Chrome Web Store submission are independent approvals after the
 one-fetch Release. No repository workflow combines these side effects.
+
+## Public download verification
+
+After publication, verify downloads without GitHub authentication:
+
+```bash
+pnpm release:verify-public --version 0.1.0 --commit 21e6b985f32e0dcfab5389dd7b2a77b89f72377b
+```
+
+This requires Node 24.20+ and system cURL 8.4+ with HTTPS support. It does not
+read `GH_TOKEN`/`GITHUB_TOKEN`, `.netrc`, or `.curlrc`, and never uploads,
+deploys, republishes, installs, or extracts the downloaded files. Standard
+network proxy environment settings still apply. GitHub's
+[public release asset API](https://docs.github.com/en/rest/releases/assets#get-a-release-asset)
+supports unauthenticated access and exposes asset digests.
+
+The verifier resolves the annotated tag to the explicit expected commit; it
+does not trust the release's possibly moving `target_commitish` branch name.
+It validates the channel, required artifact inventory, safe asset filenames,
+canonical HTTPS download URLs, byte lengths, GitHub SHA-256 digests, manifest
+identity, and published SHA-256/SHA-512 checksum lists. Artifact hashing is
+streamed from disk, including the large OCI archive.
+
+Downloads and unique JSON receipts default to `.tools/public-release/<version>/`.
+An interrupted download stays in its asset-ID/SHA-256-specific `.part` file.
+Rerunning the same command resumes it using
+[cURL range continuation](https://curl.se/docs/manpage.html#-C).
+By default, two assets download concurrently and each asset has up to three
+300-second attempts. Transient network failures may retry; HTTP errors, unsafe
+paths, unsupported range continuation, or digest mismatches stop that asset.
+Use `--attempts 1..5` and `--timeout-seconds 1..3600` to tune the bounded retry
+budget. `--output` must remain inside the checkout; choose a new ignored
+directory for a completely fresh anonymous-download check.
+
+Every finished run writes a new receipt, including partial failures. Successful
+assets are retained when another asset fails. A reused file is rehashed and
+reported as `verified-cache`, never as a new anonymous download. Nonzero exit
+status and `state: incomplete` mean the gate has not passed. Do not execute a
+partial file or treat it as an artifact. Corrupt files are preserved for
+inspection, not silently overwritten; use a new output directory to retry.
+Concurrent writers to the same asset are rejected. After an OS/process crash,
+remove only its exact `download.lock` after confirming no verifier is active.
+Use a private local output directory, not one writable by another account.
+
+This check is **not provenance verification**: receipts explicitly record
+`provenanceVerified: false`. Independently verify GitHub attestations against
+the accepted source commit and release-review workflow as described above.
+Download/cache receipts never replace adapter runtime, backup/restore, or
+resource-cleanup acceptance evidence.
