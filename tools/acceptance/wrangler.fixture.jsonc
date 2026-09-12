@@ -1,0 +1,10 @@
+{
+  "$schema": "../../adapters/cloudflare/node_modules/wrangler/config-schema.json",
+  "main": "cloudflare-target.mjs",
+  "compatibility_date": "2026-09-04",
+  "compatibility_flags": ["enable_request_signal"],
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "logpush": false,
+  "tail_consumers": [],
+}

@@ -52,22 +52,13 @@ export async function deployCloudflareFixture(name, dependencies = {}) {
       ));
   const checked = validateFixtureName(name);
   if (await exists(checked)) throw new Error("Fixture Worker already exists");
-  const source = resolve(
+  const config = resolve(
     repositoryRoot,
     "tools",
     "acceptance",
-    "cloudflare-target.mjs",
+    "wrangler.fixture.jsonc",
   );
-  const output = await run([
-    "deploy",
-    source,
-    "--name",
-    checked,
-    "--compatibility-date",
-    "2026-09-04",
-    "--compatibility-flags",
-    "enable_request_signal",
-  ]);
+  const output = await run(["deploy", "--config", config, "--name", checked]);
   const origin = parseWorkersUrl(output);
   await verifyFixture(origin, fetch, wait);
   return { name: checked, origin };
