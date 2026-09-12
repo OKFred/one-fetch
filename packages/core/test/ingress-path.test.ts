@@ -10,6 +10,10 @@ describe("Supabase ingress path binding", () => {
     ["//v1/echo?a=%2f", "//v1/echo?a=%2F"],
     ["/a//b///c?q=https://example.test//x", "/a/b/c?q=https://example.test//x"],
     ["/%2f?q=%5c", "/%2F?q=%5C"],
+    [
+      "/echo?q=hello%20world&q=hello+world",
+      "/echo?q=hello%20world&q=hello+world",
+    ],
   ])("restores only the original bytes: %s", (original, observed) => {
     expect(restoreSupabaseIngressPath(original, observed)).toBe(original);
   });
@@ -39,6 +43,9 @@ describe("Supabase ingress path binding", () => {
     ["/%41", "/A"],
     ["/a", "//a"],
     ["/a", "/a?extra=1"],
+    ["/echo?q=hello%20world", "/echo?q=hello+world"],
+    ["/echo?q=hello+world", "/echo?q=hello%20world"],
+    ["/echo?q=%2b", "/echo?q=+"],
   ])("rejects unknown ingress changes", (original, observed) => {
     expect(() => restoreSupabaseIngressPath(original, observed)).toThrow();
   });
