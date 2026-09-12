@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import test from "node:test";
 
+import ts from "typescript";
+
 import {
   cleanupCloudflareFixture,
   deployCloudflareFixture,
@@ -51,12 +53,15 @@ test("fixture lifecycle uses one exact random Worker name", async () => {
 });
 
 test("fixture config disables persistent logs and has no fallback Worker name", async () => {
-  const config = JSON.parse(
+  const parsed = ts.parseConfigFileTextToJson(
+    "wrangler.fixture.jsonc",
     await readFile(
       new globalThis.URL("./wrangler.fixture.jsonc", import.meta.url),
       "utf8",
     ),
   );
+  assert.equal(parsed.error, undefined);
+  const config = parsed.config;
   assert.equal(config.name, undefined);
   assert.equal(config.main, "cloudflare-target.mjs");
   assert.equal(config.compatibility_date, "2026-09-04");
