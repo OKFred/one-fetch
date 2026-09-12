@@ -34,6 +34,14 @@ options, nonce, request ID, body declaration, redirect policy, and optional user
 deny rules. The wire limit is 48 KiB for decoded metadata and 20 MiB each for
 request and response bodies. Defaults are a 60-second timeout and 20 redirects.
 
+Initial target paths are joined after the declared origin, never resolved as
+relative URL references: `//v1/items` remains that literal path on the declared
+host. Client composition, policy normalization, adapter forwarding, and audit
+must agree on it. This differs from an upstream `Location: //other.example/x`,
+which is a real cross-origin redirect and still requires destination checks and
+credential stripping. Providers may normalize a URL before it reaches a Gateway;
+local path-preservation tests do not establish hosted-provider behavior.
+
 Native `Headers` is never the authoritative stored representation. This keeps
 ordering and duplicates visible for policy and audit decisions. A runtime may
 still merge ordinary duplicate headers at its network boundary; capabilities
