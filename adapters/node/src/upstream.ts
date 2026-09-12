@@ -5,6 +5,7 @@ import type { RequestOptions as HttpsRequestOptions } from "node:https";
 import type { LookupFunction, Socket } from "node:net";
 import { performance } from "node:perf_hooks";
 
+import { targetUrlFromPath } from "@one-fetch/core";
 import type {
   FetchOptionsV1,
   HeaderEntryV1,
@@ -216,7 +217,7 @@ const singleRequest = async (
 export const executeUpstream = async (
   input: ExecuteUpstreamOptions,
 ): Promise<UpstreamResult> => {
-  let current = new URL(input.pathAndQuery, input.targetOrigin);
+  let current = targetUrlFromPath(input.targetOrigin, input.pathAndQuery);
   let method = input.method;
   let headers = input.headers;
   let redirects = 0;

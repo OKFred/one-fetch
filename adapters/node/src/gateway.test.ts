@@ -48,8 +48,9 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
+const targetPaths = ["/v1/items", "//v1/items", "///[path-only]/items"];
 describe("Node transparent Gateway", () => {
-  it("preserves path, query, body, explicit headers, Set-Cookie and Server-Timing", async () => {
+  it.each(targetPaths)("preserves HTTP on %s", async (targetPath) => {
     let targetObservation:
       | { body: string; dnt?: string; origin?: string; url?: string }
       | undefined;
@@ -108,11 +109,15 @@ describe("Node transparent Gateway", () => {
           match: {
             methods: ["POST"],
             origins: [
-              { caseSensitive: false, operator: "exact", value: targetOrigin },
+              {
+                caseSensitive: false,
+                operator: "exact",
+                value: targetOrigin,
+              },
             ],
             path: {
               representation: "raw",
-              value: { operator: "exact", value: "/v1/items" },
+              value: { operator: "exact", value: targetPath },
             },
             query: [
               {
@@ -155,7 +160,7 @@ describe("Node transparent Gateway", () => {
     };
 
     const result = await fetch(
-      `http://127.0.0.1:${gatewayPort}/v1/items?tag=a&tag=b`,
+      `http://127.0.0.1:${gatewayPort}${targetPath}?tag=a&tag=b`,
       {
         body: payload,
         headers: {
@@ -175,7 +180,21 @@ describe("Node transparent Gateway", () => {
       body: payload,
       dnt: "1",
       origin: "https://caller.example",
-      url: "/v1/items?tag=a&tag=b",
+      url: `${targetPath}?tag=a&tag=b`,
+    });
+    const { events } = await services.audit.listEvents();
+    expect(
+      events.find(({ action }) => action === "request.accepted"),
+    ).toMatchObject({
+      correlation: { requestId: metadata.requestId },
+      request: {
+        origin: targetOrigin,
+        path: targetPath,
+        query: [
+          ["tag", "a"],
+          ["tag", "b"],
+        ],
+      },
     });
 
     const classified = await classifyOneFetchResponse(

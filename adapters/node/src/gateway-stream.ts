@@ -3,6 +3,7 @@ import { once } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { performance } from "node:perf_hooks";
 
+import { targetUrlFromPath } from "@one-fetch/core";
 import type {
   ExecutionReportV1,
   OneFetchRequestMetaV1,
@@ -52,7 +53,7 @@ export const auditAccepted = async (
   body: BodySpool,
 ): Promise<"recorded" | "degraded"> => {
   try {
-    const url = new URL(request.url ?? "/", metadata.targetOrigin);
+    const url = targetUrlFromPath(metadata.targetOrigin!, request.url ?? "/");
     await dependencies.audit.append({
       action: "request.accepted",
       actor: {
