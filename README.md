@@ -5,9 +5,10 @@ target method, path, query, binary body, repeated headers, Fetch options, status
 and response body visible while separating target responses from relay and
 provider failures.
 
-> **Status:** `0.1 Preview`. Source code and review artifacts are not evidence of
-> a live deployment or a stable release. No one-fetch service is operated by
-> OKFred.
+> **Status:** [v0.1.0 Preview](https://github.com/OKFred/one-fetch/releases/tag/v0.1.0)
+> is publicly available as a pre-release, not a stable release or a hosted
+> service. No one-fetch service is operated by OKFred. xPanel 2.1 still uses its
+> existing Relay protocol; one-fetch integration is a separate future update.
 
 ## Why two URLs?
 
@@ -83,11 +84,15 @@ Adapter-specific checks and environment requirements are in the
 
 ## Distribution
 
-one-fetch packages are not published to npm. A reviewed GitHub Release will
-contain immutable protocol/client archives, JSON Schemas, Control OpenAPI,
+one-fetch packages are not published to npm. The public Preview Release contains
+fixed-version protocol/client archives, JSON Schemas, Control OpenAPI,
 TypeScript declarations, a portable Node ESM archive and digest-pinned OCI build
 inputs, checksums, an SBOM, and GitHub provenance. CI and the manual artifact
 workflow do not deploy an adapter, push an image, or create a GitHub Release.
+
+The [public download verification guide](docs/release.md#public-download-verification)
+checks the annotated tag, downloaded bytes, manifest, and both checksum lists.
+Published assets and tags must never be replaced in place.
 
 ## License
 
