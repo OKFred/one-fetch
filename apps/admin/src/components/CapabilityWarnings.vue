@@ -5,6 +5,7 @@ import { useControlStore } from "../store";
 
 const store = useControlStore();
 const mutations = computed(() => store.capabilities?.headerMutations ?? []);
+const httpDetail = computed(() => store.capabilities?.transports.http.detail);
 </script>
 
 <template>
@@ -16,6 +17,7 @@ const mutations = computed(() => store.capabilities?.headerMutations ?? []);
         <p>{{ $t("fidelityUi.text") }}</p>
       </div>
     </div>
+    <p v-if="httpDetail" role="note">HTTP: {{ httpDetail }}</p>
     <details v-if="mutations.length">
       <summary>
         <Info :size="15" />{{ mutations.length }} {{ $t("fidelityUi.notices") }}

@@ -57,7 +57,11 @@ function encodedRequest(
       transport: "http",
       targetOrigin: "https://api.example",
       targetHeaders,
-      fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
+      fetchOptions: {
+        redirect: "manual",
+        timeoutMs: 60_000,
+        adapter: { supabaseOriginalPathV1: path },
+      },
       body: { sizeBytes: 0 },
       hop: 0,
     }),

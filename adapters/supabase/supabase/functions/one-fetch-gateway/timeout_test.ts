@@ -82,7 +82,11 @@ Deno.test(
       transport: "http",
       targetOrigin: "https://api.example",
       targetHeaders: [],
-      fetchOptions: { redirect: "manual", timeoutMs: 60_001 },
+      fetchOptions: {
+        redirect: "manual",
+        timeoutMs: 60_001,
+        adapter: { supabaseOriginalPathV1: "/resource" },
+      },
       body: { sizeBytes: 0 },
       hop: 0,
     });

@@ -20,11 +20,11 @@ import {
 import { finalizeRelayError, recordExecution } from "./recording.ts";
 import {
   isRecursiveServiceTarget,
-  pathAndQuery,
   readRequestBody,
   targetUrl,
   tokenAllows,
 } from "./request.ts";
+import type { PathBindingFailure } from "./path-binding.ts";
 
 const DeniedExecutionSchema = z
   .object({
@@ -194,7 +194,7 @@ export async function prepareExecution(
 
   const currentUrl = targetUrl(
     context.metadata.targetOrigin,
-    pathAndQuery(request),
+    context.targetPathAndQuery,
   );
   const target = currentUrl.href;
   if (
@@ -412,4 +412,19 @@ export async function prepareExecution(
     leaseId: lease.leaseId,
     auditState,
   };
+}
+
+export function rejectPathBinding(
+  context: GatewayContext,
+  config: ActiveConfig,
+  error: PathBindingFailure,
+): Promise<Response> {
+  return rejected(
+    context,
+    config.auditDegraded ? "degraded" : "recorded",
+    "execution.protocol-denied",
+    error.code,
+    "protocol",
+    error.message,
+  );
 }

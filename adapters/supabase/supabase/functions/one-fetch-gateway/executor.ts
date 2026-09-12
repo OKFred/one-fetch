@@ -11,7 +11,8 @@ import {
   problem,
   signedError,
 } from "./foundation.ts";
-import { prepareExecution } from "./execution-setup.ts";
+import { prepareExecution, rejectPathBinding } from "./execution-setup.ts";
+import { inspectPathBinding } from "./path-binding.ts";
 import { finalizeRelayError } from "./recording.ts";
 import { isRecursiveServiceTarget, tokenAllows } from "./request.ts";
 import { createTargetResponse } from "./target-response.ts";
@@ -20,6 +21,23 @@ import { evaluateRequestPolicy } from "./policy.ts";
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export async function executeHttp(
+  request: Request,
+  context: GatewayContext,
+  config: ActiveConfig,
+): Promise<Response> {
+  if (context.metadata.transport === "http") {
+    const binding = inspectPathBinding(request, context.metadata);
+    if (!binding.ok) return rejectPathBinding(context, config, binding.error);
+    return executeBoundHttp(
+      request,
+      { ...context, targetPathAndQuery: binding.path },
+      config,
+    );
+  }
+  return executeBoundHttp(request, context, config);
+}
+
+async function executeBoundHttp(
   request: Request,
   context: GatewayContext,
   config: ActiveConfig,
