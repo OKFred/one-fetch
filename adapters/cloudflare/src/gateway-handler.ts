@@ -1,4 +1,8 @@
-import { classifyFetchOptions, randomNonce } from "@one-fetch/core";
+import {
+  classifyFetchOptions,
+  randomNonce,
+  targetUrlFromPath,
+} from "@one-fetch/core";
 import {
   decodeRequestMetadata,
   ONE_FETCH_REQUEST_HEADER,
@@ -117,7 +121,7 @@ export async function handleGatewayRequest(
       );
     const gatewayUrl = new URL(request.url);
     const pathAndQuery = `${gatewayUrl.pathname}${gatewayUrl.search}`;
-    const target = new URL(pathAndQuery, meta.targetOrigin);
+    const target = targetUrlFromPath(meta.targetOrigin, pathAndQuery);
     if (target.origin === gatewayUrl.origin)
       throw problem(
         "target_not_allowed",

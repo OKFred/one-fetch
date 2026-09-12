@@ -9,6 +9,7 @@ import {
 } from "@one-fetch/protocol";
 
 import { ipInCidr, isIpLiteral } from "./ip.js";
+import { targetUrlFromPath } from "./target-url.js";
 import {
   matchNamedValue,
   matchPolicyBody,
@@ -225,7 +226,7 @@ export function createHttpPolicyContext(input: {
     throw new TypeError("pathAndQuery must start with /");
   }
   const origin = new URL(input.targetOrigin);
-  const pathUrl = new URL(input.pathAndQuery, origin);
+  const pathUrl = targetUrlFromPath(origin.origin, input.pathAndQuery);
   const rawPath = input.pathAndQuery.split("?", 1)[0] ?? "/";
   return {
     transport: input.transport ?? "http",
@@ -252,7 +253,7 @@ export function createHttpPolicyContext(input: {
       : { resolvedIps: input.resolvedIps }),
     ...(input.relaySelf === undefined ? {} : { relaySelf: input.relaySelf }),
     rawPath,
-    normalizedPath: new URL(pathUrl.pathname, origin).pathname,
+    normalizedPath: pathUrl.pathname,
     query: Array.from(pathUrl.searchParams.entries()),
     headers: input.headers,
     fetchOptions: input.fetchOptions,

@@ -77,6 +77,25 @@ export const HTTP_CONFORMANCE_FIXTURES: readonly HttpConformanceFixture[] =
       },
     },
     {
+      id: "leading-slashes-stay-in-target-path",
+      description:
+        "Leading slashes are literal path segments, not a replacement target host",
+      tier: "smoke",
+      request: {
+        targetPath: "//v1/echo?tag=one&tag=two&escaped=%2f",
+        method: "GET",
+        fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
+      },
+      expected: {
+        status: 404,
+        source: "target",
+        bodyIncludes: [
+          '"path":"//v1/echo"',
+          '"rawQuery":"tag=one&tag=two&escaped=%2f"',
+        ],
+      },
+    },
+    {
       id: "json-request-body",
       description: "JSON content type and bytes reach the target",
       tier: "smoke",

@@ -43,8 +43,7 @@ function inMemoryGatewayFetch(): typeof fetch {
     const metadata = decodeRequestMetadata(encoded);
     const gatewayUrl = new URL(gatewayRequest.url);
     const targetUrl = new URL(
-      `${gatewayUrl.pathname}${gatewayUrl.search}`,
-      metadata.targetOrigin,
+      `${metadata.targetOrigin}${gatewayUrl.pathname}${gatewayUrl.search}`,
     );
     const upstream = new Request(targetUrl, {
       method: gatewayRequest.method,
@@ -110,6 +109,14 @@ describe("portable Gateway conformance suite", () => {
     const report = await runGatewayConformance(client, "https://target.test");
     expect(report, JSON.stringify(report.results, null, 2)).toMatchObject({
       passed: true,
+    });
+    expect(
+      report.results.find(
+        ({ id }) => id === "leading-slashes-stay-in-target-path",
+      ),
+    ).toMatchObject({
+      passed: true,
+      observed: { source: "target", status: 404 },
     });
   });
 

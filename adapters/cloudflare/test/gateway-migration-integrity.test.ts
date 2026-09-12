@@ -13,9 +13,14 @@ import { handleGatewayRequest } from "../src/gateway-handler";
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../src/types";
 
 const token = "migration-classification-test-token-0123456789";
+const gatewayPaths = [
+  "/path?query=kept",
+  "//other.example/path?x=1&x=2",
+  "///[path-only]/items?x=%2f",
+];
 
 describe("Cloudflare Gateway migration compatibility boundary", () => {
-  it("signs the Control storage denial before quota or target work", async () => {
+  it.each(gatewayPaths)("authorizes exact %s", async (path) => {
     const control = {
       authorizeExecutionJson: vi.fn(() =>
         Promise.resolve(
@@ -42,7 +47,7 @@ describe("Cloudflare Gateway migration compatibility boundary", () => {
         hop: 0,
       };
       const response = await handleGatewayRequest(
-        new Request("https://gateway.example/path?query=kept", {
+        new Request(`https://gateway.example${path}`, {
           headers: {
             [ONE_FETCH_REQUEST_HEADER]: encodeRequestMetadata(meta),
             [ONE_FETCH_TOKEN_HEADER]: token,
@@ -57,6 +62,9 @@ describe("Cloudflare Gateway migration compatibility boundary", () => {
 
       expect(response.status).toBe(503);
       expect(control.authorizeExecutionJson).toHaveBeenCalledOnce();
+      expect(control.authorizeExecutionJson).toHaveBeenCalledWith(
+        expect.stringContaining(`"targetUrl":"https://target.example${path}"`),
+      );
       expect(targetFetch).not.toHaveBeenCalled();
       const signed = decodeResponseMetadata(
         response.headers.get(ONE_FETCH_RESPONSE_HEADER)!,

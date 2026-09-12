@@ -1,4 +1,5 @@
 import type { OneFetchGatewayClient } from "@one-fetch/client";
+import { targetUrlFromPath } from "@one-fetch/core";
 import type { ExecutionReportV1 } from "@one-fetch/protocol";
 
 import {
@@ -37,7 +38,7 @@ function targetUrl(origin: string, path: string): string {
   if (target.pathname !== "/" || target.search !== "" || target.hash !== "") {
     throw new TypeError("Conformance target must be an origin");
   }
-  return new URL(path, target).href;
+  return targetUrlFromPath(target.origin, path).href;
 }
 
 function errorName(error: unknown): string {

@@ -11,3 +11,4 @@ export * from "./policy-types.js";
 export * from "./recommended-policy.js";
 export * from "./redaction.js";
 export * from "./signing.js";
+export * from "./target-url.js";

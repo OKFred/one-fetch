@@ -1,6 +1,6 @@
 import { ONE_FETCH_LIMITS_V1 } from "@one-fetch/protocol";
 import type { OneFetchRequestMetaV1 } from "../_shared/protocol-types.ts";
-import { sha256Hex } from "@one-fetch/core";
+import { sha256Hex, targetUrlFromPath } from "@one-fetch/core";
 
 import type { ExecutionPrincipal } from "../_shared/auth.ts";
 import { requestPath } from "../_shared/http.ts";
@@ -131,9 +131,8 @@ export function pathAndQuery(request: Request): string {
 }
 
 export function targetUrl(targetOrigin: string, pathQuery: string): URL {
-  const origin = new URL(targetOrigin);
   const separator = pathQuery.startsWith("/") ? "" : "/";
-  return new URL(`${origin.origin}${separator}${pathQuery}`);
+  return targetUrlFromPath(targetOrigin, `${separator}${pathQuery}`);
 }
 
 export function isRecursiveServiceTarget(

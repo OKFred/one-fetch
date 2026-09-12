@@ -11,6 +11,7 @@ import {
   createHttpPolicyContext,
   evaluateSystemPolicy,
   evaluateUserDenyRules,
+  targetUrlFromPath,
 } from "@one-fetch/core";
 import {
   ONE_FETCH_LIMITS_V1,
@@ -362,7 +363,7 @@ const handleGatewayRequest = async (
       }
     };
     const initialResolution = await resolveApprovedTarget(
-      new URL(request.url ?? "/", metadata.targetOrigin),
+      targetUrlFromPath(metadata.targetOrigin!, request.url ?? "/"),
       metadata.targetHeaders,
       0,
       request.method ?? "GET",

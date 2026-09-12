@@ -2,7 +2,9 @@ import type { ExecutionPrincipal } from "../_shared/auth.ts";
 import type { OneFetchRequestMetaV1 } from "../_shared/protocol-types.ts";
 import {
   isRecursiveServiceTarget,
+  pathAndQuery,
   readRequestBody,
+  targetUrl,
   tokenAllows,
 } from "./request.ts";
 
@@ -14,6 +16,27 @@ const bases = [
   "https://project.supabase.co/functions/v1/one-fetch-control",
   "https://project.supabase.co/functions/v1/one-fetch-gateway",
 ];
+
+Deno.test(
+  "Provider prefix removal retains repeated slashes and encoded duplicate queries",
+  () => {
+    for (const path of [
+      "//other.example/v1?x=1&x=2",
+      "///[path-only]/items?x=%2f&x=+&x=%20",
+    ]) {
+      const request = new Request(
+        `https://project.supabase.co/functions/v1/one-fetch-gateway${path}`,
+      );
+      const raw = pathAndQuery(request);
+      assert(raw === path, "provider prefix changed the target path or query");
+      const target = targetUrl("https://target.example", raw);
+      assert(
+        target.href === `https://target.example${path}`,
+        "target origin/path was changed",
+      );
+    }
+  },
+);
 
 function principal(
   origins: string[],
