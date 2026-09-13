@@ -208,37 +208,6 @@ test("deployment baseline and Function version transitions fail closed", () => {
   }
 });
 
-test("restored ESM entrypoints remain a valid protected-update baseline", () => {
-  const recovered = ["one-fetch-control", "one-fetch-gateway"].map((slug) => ({
-    ...functionRecord(slug, 1),
-    entrypoint_path: `file:///tmp/recovery/source/supabase/functions/${slug}/index.js`,
-  }));
-  const before = parseFunctionList(JSON.stringify(recovered));
-  assert.doesNotThrow(() =>
-    assertFunctionBaseline(before, buildId("0.1.0", commit)),
-  );
-  const after = parseFunctionList(
-    JSON.stringify([functionRecord("one-fetch-control", 2), recovered[1]]),
-  );
-  assert.doesNotThrow(() =>
-    assertFunctionTransition(before, after, "one-fetch-control"),
-  );
-  for (const path of [
-    "functions/one-fetch-control/index.ts",
-    "functions/one-fetch-control/other.js",
-    "functions/one-fetch-control/nested/index.js",
-    "functions/one-fetch-control/../index.js",
-    "functions/one-fetch-control/.one-fetch-bundle/index.js?extra=1",
-    "functions/one-fetch-gateway/index.js",
-  ]) {
-    assert.throws(() =>
-      parseFunctionList(
-        JSON.stringify([{ ...recovered[0], entrypoint_path: path }]),
-      ),
-    );
-  }
-});
-
 test("post-deploy verification checks Control pair/build and Gateway", async () => {
   const expectedBuildId = buildId("0.1.0", commit);
   const seen = [];

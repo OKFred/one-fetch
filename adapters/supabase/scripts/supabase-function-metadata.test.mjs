@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 
 import {
+  assertFunctionBaseline,
+  assertFunctionTransition,
   assertSecretRefreshTransition,
   parseFunctionList,
 } from "./deploy-support.mjs";
@@ -46,4 +48,38 @@ test("secret refresh permits only provider deployment metadata changes", () => {
       ),
     /code changed/u,
   );
+});
+
+test("restored ESM entrypoints remain a valid protected-update baseline", () => {
+  const recovered = ["one-fetch-control", "one-fetch-gateway"].map((slug) => ({
+    ...record(slug, 1, "a", randomUUID()),
+    entrypoint_path: `file:///tmp/recovery/source/supabase/functions/${slug}/index.js`,
+  }));
+  const before = parseFunctionList(JSON.stringify(recovered));
+  assert.doesNotThrow(() =>
+    assertFunctionBaseline(before, `0.1.0+supabase.g${"a".repeat(12)}`),
+  );
+  const after = parseFunctionList(
+    JSON.stringify([
+      record("one-fetch-control", 2, "a", recovered[0].id),
+      recovered[1],
+    ]),
+  );
+  assert.doesNotThrow(() =>
+    assertFunctionTransition(before, after, "one-fetch-control"),
+  );
+  for (const path of [
+    "functions/one-fetch-control/index.ts",
+    "functions/one-fetch-control/other.js",
+    "functions/one-fetch-control/nested/index.js",
+    "functions/one-fetch-control/../index.js",
+    "functions/one-fetch-control/.one-fetch-bundle/index.js?extra=1",
+    "functions/one-fetch-gateway/index.js",
+  ]) {
+    assert.throws(() =>
+      parseFunctionList(
+        JSON.stringify([{ ...recovered[0], entrypoint_path: path }]),
+      ),
+    );
+  }
 });
