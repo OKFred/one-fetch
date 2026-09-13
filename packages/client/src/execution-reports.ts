@@ -44,6 +44,13 @@ export function createExecutionReportWatcher(
   );
   const request = options.fetch ?? globalThis.fetch;
   return (identity, token, onIncomplete) => {
+    // Invalid report handles must not become another Control route or prevent
+    // the original response from using its normal local timeout fallback.
+    if (
+      !/^[A-Za-z0-9._:-]{1,128}$/u.test(identity.reportId) ||
+      /^\.{1,2}$/u.test(identity.reportId)
+    )
+      return () => undefined;
     const url = buildServiceUrl(
       base,
       CONTROL_ROUTES_V1.executionReport(identity.reportId),

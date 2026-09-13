@@ -37,6 +37,23 @@ describe("bounded execution report watcher", () => {
     vi.useRealTimers();
   });
 
+  it.each([".", "..", "../auth", "report?secret", "a".repeat(129)])(
+    "does not turn invalid report handle %s into a Control route",
+    async (reportId) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      const failed = vi.fn();
+      const stop = createExecutionReportWatcher({
+        controlUrl: "https://control.example",
+        fetch,
+      })({ ...identity, reportId }, token, failed);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(failed).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      stop();
+    },
+  );
+
   it("sends only the execution bearer to the explicitly configured Control path", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>((input, init) => {
       const request = new Request(input, init);
