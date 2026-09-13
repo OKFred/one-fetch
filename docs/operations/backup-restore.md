@@ -2,8 +2,10 @@
 
 Backup and restore are security operations. During Preview, platform-native
 tools are authoritative; an unsupported Control endpoint must not be treated as
-a backup. Every backup is encrypted, access-controlled, kept off-provider, and
-tested with a real restore.
+a backup. Production backups must be encrypted, access-controlled, kept
+off-provider, and tested with a real restore. The guarded deploy tools currently
+create local plaintext recovery files; operators must protect their directory
+and encrypt the files before off-host transfer. They are not encrypted archives.
 
 ## Backup contents
 
@@ -46,17 +48,66 @@ old database read-only through the rollback window.
 
 ## Supabase PostgreSQL
 
-Pause Gateway and drain work. The guarded deploy tool writes a paired
-`*.schema.sql` and `*.data.sql` logical backup for `one_fetch` and
-`supabase_migrations`; the state file records each size/digest plus a digest that
-binds the pair. Keep both files together. The data half uses `COPY`, and neither
-half contains provider credentials. Record the PostgreSQL version and exact dump
-flags. A legacy single `database-before-*.sql` file is schema-only and is not a
-complete recoverable backup.
+Pause Gateway, drain work, and stop other writers (including administrator and
+scheduled operations) for the capture window. Gateway pause does not quiesce
+Control. The separate CLI queries/dumps do **not** share a PostgreSQL snapshot;
+the operator must document how writes were quiesced, or treat the capture as an
+unverified recovery candidate rather than an atomic point-in-time backup.
 
-Restore into a separate project/database using a restricted owner. Revoke public
-roles before exposing functions, verify migrations/RPC grants/audit seals, deploy
-isolated functions, and run conformance. Switch profile URLs only after review.
+The guarded deploy tool writes `supabase-logical-v2` with three required parts:
+
+- `*.schema.sql`: structure of `one_fetch` and `supabase_migrations`.
+- `*.rpc.sql`: only owned `public.of_*` definitions, PostgreSQL owners and
+  service-role-only execute grants. Unrelated public objects are not exported.
+- `*.data.sql`: data for the two schemas, using `COPY`.
+
+The state file binds their sizes, SHA-256 digests and RPC count. Keep all three
+files and the state together in their original restricted directory. Application
+password/token hashes and recoverable ciphertext may be present: these files
+are sensitive even though provider credentials are not included. Record the
+PostgreSQL version, CLI/dump flags, immutable source build and migration checksums.
+The deployment checkout must contain the current source commit so its owned RPC
+inventory can be derived before updating. Missing, extra, overloaded or
+unexpectedly privileged RPCs stop the backup; the tool does not broaden scope.
+
+Verify bytes without connecting to a database:
+
+```sh
+pnpm --filter @one-fetch/adapter-supabase backup:verify --state-file <absolute-deployment-state.json>
+```
+
+This read-only command rejects missing parts, changed sizes/digests and paths
+outside the state directory. Success means `integrityVerified: true`, **not**
+`restoreVerified: true`. If relocating an archive, deliberately update only the
+three local part paths in a working copy of the state and retain the original.
+
+A legacy single SQL file is schema-only. A `supabase-logical-v1` schema/data pair
+also omits `public.of_*` RPCs: neither is a complete functional backup. Historical
+table-count-only restore results do not prove that login, configuration or quota
+interfaces were restored. Do not upgrade their labels or manifests to v2.
+
+Restore only into a separately authorized, empty project/database. Prepare the
+Supabase `postgres`, `anon`, `authenticated`, `service_role` roles and `pgcrypto`
+in `extensions`; do not expose PostgREST/Functions during restoration. After
+verifying bytes, restore **schema → RPC → data** with `psql` and
+`ON_ERROR_STOP=1`. The RPC part is transactional and restores only service-role
+execute access. Do not replay destination-version migrations over the backup or
+grant public access to work around a restore failure. Verify migration/RPC
+catalogs, grants, stored account/session behavior and audit integrity, deploy
+isolated matching Functions, then run conformance. Switch profile URLs only
+after review; database restoration is never automatic.
+
+Run the repeatable local regression (Docker required, no hosted credentials):
+
+```sh
+pnpm --filter @one-fetch/adapter-supabase test:restore
+```
+
+It uses a digest-pinned PostgreSQL 17.6 container with no network or exposed
+ports, validates the v2 files, restores synthetic persisted data and RPCs, and
+runs the SQL suite on the restored database. It then deletes its exact container
+and temporary files. This is local database evidence, not hosted Function or
+protected-update acceptance.
 
 ## Required restore drill
 

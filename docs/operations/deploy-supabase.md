@@ -128,6 +128,17 @@ to the checked-in manifest. A normal first install still refuses any existing
 `one_fetch` schema. Resume never reverses SQL or treats a partial runtime as
 healthy.
 
+Backups now use `supabase-logical-v2`: schema, owned `public.of_*` RPC
+definitions/grants, and data are separately hashed and bound by the state file.
+The public RPC catalog is checked even when application schemas are absent, so
+a leftover RPC cannot silently pass the empty-install gate. Updates derive the
+expected RPC inventory from the immutable **current** build, which must exist
+in the deployment checkout. The backup is read back and verified before SQL
+migrations begin. RPC ACL/inventory drift fails closed. See the
+[three-part backup and restore runbook](backup-restore.md#supabase-postgresql)
+for writer quiescence, encryption and isolated restore requirements; v1 pairs
+are not complete functional backups.
+
 The empty-baseline path is never available to updates or `--resume`. It is
 evidence that no one-fetch state existed, not a backup of other project schemas
 or proof of a database restore. A backup-phase failure before migrations can be
