@@ -93,6 +93,9 @@ is omitted, the token is printed for an attended interactive bootstrap.
 
 ## Acceptance
 
+For downloaded CI/release artifacts, use the
+[archive and OCI acceptance runner](node-artifact-acceptance.md) before deploying.
+
 Verify both externally and from the service network:
 
 ```text

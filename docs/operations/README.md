@@ -6,6 +6,7 @@ restore effects require an operator-selected account/project and a separate
 approval.
 
 - [Node](deploy-node.md)
+- [Node archive and OCI runtime acceptance](node-artifact-acceptance.md)
 - [Cloudflare Workers](deploy-cloudflare.md)
 - [Supabase Edge Functions](deploy-supabase.md)
 - [Backup, restore, and migration rehearsal](backup-restore.md)
