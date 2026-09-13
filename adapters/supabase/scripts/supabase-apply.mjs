@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
+import { capturePriorFunctions, tryRecovery } from "./supabase-recovery.mjs";
 import {
   assertFunctionTransition,
   assertSecretRefreshTransition,
@@ -93,75 +93,6 @@ async function setPaused(fetch, environment, token, paused) {
   return value;
 }
 
-async function hashTree(root) {
-  const hash = createHash("sha256");
-  async function visit(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((left, right) => left.name.localeCompare(right.name));
-    for (const entry of entries) {
-      const path = join(directory, entry.name);
-      if (entry.isSymbolicLink())
-        throw new Error("Recovery source cannot contain symbolic links");
-      if (entry.isDirectory()) await visit(path);
-      else if (entry.isFile()) {
-        hash.update(path.slice(root.length).replaceAll("\\", "/"));
-        hash.update(await readFile(path));
-      } else throw new Error("Recovery source contains an unsupported entry");
-    }
-  }
-  await visit(root);
-  return hash.digest("hex");
-}
-
-async function capturePriorFunctions(runPnpm, projectRef, statePath, runId) {
-  const root = join(dirname(statePath), `recovery-${runId}`);
-  await mkdir(join(root, "supabase"), { recursive: true });
-  await writeFile(
-    join(root, "supabase", "config.toml"),
-    `project_id = "one-fetch-recovery"\n\n[functions.one-fetch-control]\nverify_jwt = false\nentrypoint = "./functions/one-fetch-control/index.js"\n\n[functions.one-fetch-gateway]\nverify_jwt = false\nentrypoint = "./functions/one-fetch-gateway/index.js"\n`,
-    { encoding: "utf8", flag: "wx", mode: 0o600 },
-  );
-  for (const slug of deploymentFunctionSlugs) {
-    runPnpm(
-      [
-        "exec",
-        "supabase",
-        "functions",
-        "download",
-        slug,
-        "--project-ref",
-        projectRef,
-        "--use-api",
-        "--workdir",
-        root,
-      ],
-      { label: `download prior ${slug}` },
-    );
-  }
-  return { root, sha256: await hashTree(root) };
-}
-
-async function restorePriorFunctions(runPnpm, projectRef, recovery) {
-  for (const slug of deploymentFunctionSlugs) {
-    runPnpm(
-      [
-        "exec",
-        "supabase",
-        "functions",
-        "deploy",
-        slug,
-        "--project-ref",
-        projectRef,
-        "--no-verify-jwt",
-        "--use-api",
-        "--workdir",
-        recovery.root,
-      ],
-      { label: `restore prior ${slug}` },
-    );
-  }
-}
-
 function deployFunction(runPnpm, projectRef, workdir, slug) {
   runPnpm(
     [
@@ -179,47 +110,6 @@ function deployFunction(runPnpm, projectRef, workdir, slug) {
     ],
     { label: `deploy ${slug}` },
   );
-}
-
-async function tryRecovery(context, deployed, recovery, completed) {
-  const result = {
-    functionRollbackAttempted: false,
-    functionRollbackSucceeded: false,
-  };
-  if (completed || deployed.length === 0) return result;
-  result.functionRollbackAttempted = true;
-  try {
-    if (context.options.expectedCurrentBuild === "none") {
-      for (const slug of [...deployed].reverse()) {
-        context.runPnpm(
-          [
-            "exec",
-            "supabase",
-            "functions",
-            "delete",
-            slug,
-            "--project-ref",
-            context.options.projectRef,
-            "--workdir",
-            context.databaseLink.workdir,
-            "--yes",
-          ],
-          { label: `remove partial ${slug}` },
-        );
-      }
-    } else {
-      await restorePriorFunctions(
-        context.runPnpm,
-        context.options.projectRef,
-        recovery,
-      );
-    }
-    result.functionRollbackSucceeded = true;
-  } catch (error) {
-    result.functionRollbackError =
-      error instanceof Error ? error.message : "unknown";
-  }
-  return result;
 }
 
 export async function applyHostedDeployment(context) {
@@ -242,6 +132,16 @@ export async function applyHostedDeployment(context) {
   let leaseAcquired = false;
   let completed = false;
   const deployed = [];
+  const attempted = [];
+  const renewLease = async () => {
+    const result = await rpc("of_renew_deployment_lease", {
+      p_lease_id: recorder.state.runId,
+      p_desired_build: desiredBuildId,
+      p_ttl_seconds: 900,
+    });
+    if (result.renewed !== true)
+      throw new Error("Deployment lease renewal was not confirmed");
+  };
   let phase = "backup";
   try {
     if (options.expectedCurrentBuild !== "none") {
@@ -384,11 +284,10 @@ export async function applyHostedDeployment(context) {
     }
     for (const slug of deploymentFunctionSlugs) {
       phase = slug === "one-fetch-control" ? "control" : "gateway";
-      await rpc("of_renew_deployment_lease", {
-        p_lease_id: leaseId,
-        p_desired_build: desiredBuildId,
-        p_ttl_seconds: 900,
-      });
+      await renewLease();
+      // A CLI failure can follow a successful remote write.
+      attempted.push(slug);
+      await recorder.update({ phase, attemptedFunctions: [...attempted] });
       deployFunction(
         context.runPnpm,
         options.projectRef,
@@ -425,13 +324,31 @@ export async function applyHostedDeployment(context) {
       remoteAfter: { functions: serializableFunctionList(inventory), runtime },
     });
   } catch (error) {
+    // Keep our CAS lease until code recovery and runtime checks have settled.
+    const rollback = await tryRecovery(
+      {
+        ...context,
+        renewRecoveryLease: renewLease,
+        confirmPaused: () =>
+          setPaused(context.fetch, context.environment, adminToken, true),
+      },
+      attempted,
+      recovery,
+      completed,
+    );
     if (leaseAcquired && !completed) {
-      await rpc("of_fail_deployment", {
-        p_lease_id: recorder.state.runId,
-        p_reason_code: `${phase}-failed`,
-      }).catch(() => undefined);
+      try {
+        const released = await rpc("of_fail_deployment", {
+          p_lease_id: recorder.state.runId,
+          p_reason_code: `${phase}-failed`,
+        });
+        if (released.failed !== true)
+          throw new Error("Deployment failure lease release was not confirmed");
+        rollback.failureLeaseReleased = true;
+      } catch {
+        rollback.failureLeaseReleased = false;
+      }
     }
-    const rollback = await tryRecovery(context, deployed, recovery, completed);
     await recorder.update({
       status: "failed",
       phase,
