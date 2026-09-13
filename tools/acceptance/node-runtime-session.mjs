@@ -24,7 +24,7 @@ export function assertNoRuntimeSecrets(value, secrets) {
     throw new Error("Runtime receipt contains a secret canary");
 }
 
-// All credentials stay in this process. No host credential directory is used.
+// Admin/session credentials stay in this process. No host credential directory is used.
 export async function acceptNodeRuntime({
   controlUrl,
   gatewayUrl,

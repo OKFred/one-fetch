@@ -52,8 +52,11 @@ Each run uses:
   on ephemeral `127.0.0.1` ports. The synthetic target is container-local.
 - UID 1000, read-only root, no added capabilities, no-new-privileges, bounded
   memory/PIDs, private tmpfs state, and disabled Docker container logging.
-- Fresh bootstrap/admin/execution credentials and signing keys in process
-  memory and container tmpfs only. No host credential files or databases.
+- Fresh bootstrap/admin/execution credentials, with no runner-created host
+  credential files or databases. Signing keys and instance secrets enter via
+  container environment variables; Docker stores those in container metadata
+  and Docker administrators can inspect them until container removal. Bootstrap
+  and database state use tmpfs; admin/session/execution tokens stay in the runner.
 - Bootstrap, session refresh/logout/login, empty default allowlist, an explicit
   synthetic target rule, all HTTP conformance fixtures, execution-token
   revocation, and audit event signature/credential-canary verification.

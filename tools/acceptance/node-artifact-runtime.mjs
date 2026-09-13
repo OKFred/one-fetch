@@ -141,7 +141,8 @@ export async function runNodeArtifactRuntime(options) {
     startedAt: new Date().toISOString(),
     passed: false,
     cleanup: { state: "pending", containerAbsent: false },
-    credentialsWrittenToHost: false,
+    hostCredentialFilesCreated: false,
+    secretsPassedViaContainerEnvironment: true,
     provenanceVerified: false,
   };
   await writeFile(output, JSON.stringify(receipt, null, 2) + "\n", {
