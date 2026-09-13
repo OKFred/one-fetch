@@ -7,7 +7,14 @@ import {
   randomBytes,
   webcrypto,
 } from "node:crypto";
-import { chmod, copyFile, mkdir, readFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  readFile,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import process from "node:process";
@@ -58,9 +65,12 @@ async function rejectVerification(verify, options) {
 }
 
 try {
-  const { verifyNodeDeployment } = await import(
-    pathToFileURL("/tmp/acceptance/deployment.mjs").href
-  );
+  const {
+    verifyNodeDeployment,
+    applyNodeDeployment,
+    rollbackNodeDeployment,
+    withNodeDeploymentLock,
+  } = await import(pathToFileURL("/tmp/acceptance/deployment.mjs").href);
   const pointerBytes = await readFile(join(root, "current.json"));
   const pointer = JSON.parse(pointerBytes);
   assert.match(
@@ -79,6 +89,60 @@ try {
   assert.equal(online.runtimeVerified, true);
   report.runningIdentityVerified = true;
   report.databaseSchemaVersion = online.databaseSchemaVersion;
+  phase = "packaged-operation-lock";
+  await withNodeDeploymentLock(root, "apply", async (lock) => {
+    await lock.assertOwned();
+    for (const operation of [
+      () => applyNodeDeployment({ root }),
+      () => rollbackNodeDeployment({ root }),
+      () => verifyNodeDeployment({ root, database, controlUrl, resume: true }),
+    ])
+      await assert.rejects(operation(), /Deployment is locked/u);
+  });
+  await assert.rejects(readFile(join(root, ".deployment-lock.json")), {
+    code: "ENOENT",
+  });
+  assert.deepEqual(await readFile(join(root, "current.json")), pointerBytes);
+  report.packagedOperationLockVerified = true;
+
+  phase = "packaged-resume";
+  const adminToken = process.env.ONE_FETCH_ACCEPTANCE_ADMIN_TOKEN;
+  assert.ok(adminToken);
+  const beforePause = await request(controlUrl + "/api/v1/config", adminToken);
+  const paused = await globalThis.fetch(
+    controlUrl + "/api/v1/config/gateway-paused",
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+        "If-Match": JSON.stringify(beforePause.version),
+      },
+      body: JSON.stringify({ schemaVersion: 1, paused: true }),
+      signal: globalThis.AbortSignal.timeout(10_000),
+    },
+  );
+  assert.equal(paused.status, 200);
+  assert.equal((await paused.json()).gatewayPaused, true);
+  const adminTokenFile = "/tmp/acceptance/resume-admin-token";
+  await writeFile(adminTokenFile, adminToken, { flag: "wx", mode: 0o600 });
+  try {
+    const resumed = await verifyNodeDeployment({
+      root,
+      database,
+      controlUrl,
+      adminTokenFile,
+      resume: true,
+    });
+    assert.equal(resumed.gatewayResumed, true);
+    assert.equal(
+      (await request(controlUrl + "/api/v1/config", adminToken)).gatewayPaused,
+      false,
+    );
+    report.packagedResumeVerified = true;
+  } finally {
+    await unlink(adminTokenFile);
+  }
   phase = "missing-database";
   await rejectVerification(verifyNodeDeployment, {
     root,

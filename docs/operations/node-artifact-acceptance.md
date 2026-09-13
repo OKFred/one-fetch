@@ -57,6 +57,9 @@ helper that reports offline checks as runtime verification must fail acceptance.
 
 After the same HTTP/authentication/audit suite, installed mode checks:
 
+- The packaged helper's apply/resume/rollback commands reject a competing held
+  operation lock. A real authenticated pause followed by the packaged helper's
+  explicit resume succeeds, leaving the installation pointer unchanged.
 - Offline verification is explicitly `offline-verified`; online verification
   matches the running build, instance, Control/Gateway pair and configuration.
 - Missing databases, tampered migration checksums and a different database
@@ -73,10 +76,13 @@ database is never replaced or restored in place. Admin/execution credentials
 enter the additional check through `docker exec` environment variables, not
 arguments or host files; Docker administrators remain able to inspect the
 temporary process. The receipt contains only counts, digests and pass/fail flags.
+The explicit resume check briefly creates a mode-0600 administrator-token file
+in container tmpfs and removes it in `finally`; it creates no host token file.
 
 This is a first-install and isolated-recovery rehearsal, **not** a successful
 different-version upgrade, concurrent-deployment lease test or physical database
-path proof. Copying a database preserves its logical instance identity. Keep
+path proof. Packaged operation-lock assertions are not a full-lifecycle lease
+test. Copying a database preserves its logical instance identity. Keep
 those separate acceptance requirements open even when installed mode passes.
 
 Each run uses:
