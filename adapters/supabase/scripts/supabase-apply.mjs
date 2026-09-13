@@ -265,6 +265,7 @@ export async function applyHostedDeployment(context) {
       allowEmptyBaseline:
         options.expectedCurrentBuild === "none" && options.resume !== true,
       projectRef: options.projectRef,
+      expectedCurrentBuild: options.expectedCurrentBuild,
     });
     if (options.expectedCurrentBuild === "none") {
       if (options.resume === true) {
@@ -274,7 +275,7 @@ export async function applyHostedDeployment(context) {
         });
       } else {
         assertFirstInstallBackupIsEmpty(
-          `${backup.schema.source}\n${backup.data.source}`,
+          `${backup.schema.source}\n${backup.rpc.source}\n${backup.data.source}`,
         );
       }
     }
@@ -294,6 +295,12 @@ export async function applyHostedDeployment(context) {
           path: backup.data.path,
           bytes: backup.data.bytes,
           sha256: backup.data.sha256,
+        },
+        rpc: {
+          path: backup.rpc.path,
+          bytes: backup.rpc.bytes,
+          sha256: backup.rpc.sha256,
+          count: backup.rpc.count,
         },
         sha256: backup.sha256,
         restoreVerified: false,

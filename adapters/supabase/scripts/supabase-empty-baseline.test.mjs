@@ -97,7 +97,9 @@ test("confirmed absent schemas produce hashed empty baseline files, not fake dum
       },
     });
     assert.deepEqual(backup.emptyBaseline.schemas, []);
-    for (const part of [backup.schema, backup.data]) {
+    assert.equal(backup.format, "supabase-logical-v2");
+    assert.equal(backup.rpc.count, 0);
+    for (const part of [backup.schema, backup.rpc, backup.data]) {
       const bytes = await readFile(part.path);
       assert.equal(part.bytes, bytes.length);
       assert.equal(
@@ -108,15 +110,43 @@ test("confirmed absent schemas produce hashed empty baseline files, not fake dum
     }
     await assert.rejects(
       createLogicalBackup({
-        recorder,
+        recorder: { ...recorder, state: { runId: randomUUID() } },
         databaseLink,
         projectRef,
         runPnpm: (args) => {
-          assert(args.includes("dump"));
+          assert(args.includes("query"));
           throw new Error("real backup failure");
         },
       }),
       /real backup failure/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("absent schemas cannot hide remaining public RPCs on first installation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "one-fetch-rpc-baseline-"));
+  try {
+    await assert.rejects(
+      createLogicalBackup({
+        recorder: {
+          path: join(root, "state.json"),
+          state: { runId: randomUUID() },
+        },
+        databaseLink,
+        projectRef,
+        allowEmptyBaseline: true,
+        runPnpm: (args) => {
+          assert(args.includes("query"));
+          return JSON.stringify({
+            rows: args.at(-1).includes("pg_proc")
+              ? [{ name: "of_unexpected" }]
+              : [],
+          });
+        },
+      }),
+      /Invalid RPC backup catalog/u,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

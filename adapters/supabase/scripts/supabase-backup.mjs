@@ -5,6 +5,8 @@ import {
   inspectEmptyBaseline,
   writeEmptyBaselinePart,
 } from "./supabase-empty-baseline.mjs";
+import { captureRpcBackup } from "./supabase-rpc-backup.mjs";
+import { backupDigest, backupManifest } from "./backup-integrity.mjs";
 
 const BACKUP_SCHEMAS = "one_fetch,supabase_migrations";
 
@@ -70,6 +72,7 @@ export async function createLogicalBackup({
   databasePassword,
   allowEmptyBaseline = false,
   projectRef,
+  expectedCurrentBuild = "none",
 }) {
   const prefix = join(
     dirname(recorder.path),
@@ -78,6 +81,19 @@ export async function createLogicalBackup({
   const emptyBaseline = allowEmptyBaseline
     ? await inspectEmptyBaseline({ runPnpm, databaseLink, projectRef })
     : undefined;
+  // Missing application schemas do not prove that no public RPC remains.
+  const rpc = await captureRpcBackup({
+    runPnpm,
+    databaseLink,
+    projectRef,
+    path: `${prefix}.rpc.sql`,
+    expectedCurrentBuild,
+    allowEmpty: allowEmptyBaseline,
+  });
+  if (allowEmptyBaseline && rpc.count !== 0)
+    throw new Error(
+      "First install requires an empty one-fetch public RPC inventory",
+    );
   const schema = emptyBaseline
     ? await writeEmptyBaselinePart(`${prefix}.schema.sql`, "schema")
     : await dumpPart({
@@ -96,17 +112,19 @@ export async function createLogicalBackup({
         path: `${prefix}.data.sql`,
         dataOnly: true,
       });
-  const manifest = {
-    format: "supabase-logical-v1",
+  const manifest = backupManifest({
+    format: "supabase-logical-v2",
     schemas: BACKUP_SCHEMAS.split(","),
     schema: { bytes: schema.bytes, sha256: schema.sha256 },
     data: { bytes: data.bytes, sha256: data.sha256 },
+    rpc: { bytes: rpc.bytes, sha256: rpc.sha256, count: rpc.count },
     ...(emptyBaseline ? { emptyBaseline } : {}),
-  };
+  });
   return {
     ...manifest,
     schema,
     data,
-    sha256: sha256(JSON.stringify(manifest)),
+    rpc,
+    sha256: backupDigest(manifest),
   };
 }

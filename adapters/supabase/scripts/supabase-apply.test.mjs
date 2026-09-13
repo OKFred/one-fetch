@@ -5,6 +5,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { ownedRpcNames, RPC_CATALOG_QUERY } from "./supabase-rpc-backup.mjs";
+import { rpcFixture } from "./rpc-backup-fixtures.mjs";
 import { parseOptions } from "./deploy-release.mjs";
 import {
   applyHostedDeployment,
@@ -96,7 +99,11 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
     const runPnpm = (arguments_, options = {}) => {
       commands.push({ arguments_, options });
       if (arguments_.includes("query"))
-        return JSON.stringify({ rows: [{ nspname: "supabase_migrations" }] });
+        return JSON.stringify({
+          rows: arguments_.includes(RPC_CATALOG_QUERY)
+            ? []
+            : [{ nspname: "supabase_migrations" }],
+        });
       if (arguments_.includes("dump")) {
         const output = arguments_[arguments_.indexOf("--file") + 1];
         return writeFile(
@@ -168,7 +175,9 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       arguments_.includes("--data-only"),
     );
     assert(dataDump.arguments_.includes("--use-copy"));
-    assert.equal(recorder.state.backup.format, "supabase-logical-v1");
+    assert.equal(recorder.state.backup.format, "supabase-logical-v2");
+    assert.equal(recorder.state.backup.rpc.count, 0);
+    assert.ok(recorder.state.backup.rpc.bytes > 0);
     assert.deepEqual(recorder.state.backup.schemas, [
       "one_fetch",
       "supabase_migrations",
@@ -212,7 +221,10 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
       writeFile(adminTokenPath, "a".repeat(32)),
       writeFile(envPath, "SAFE=fixture"),
     ]);
-    const currentBuild = "0.1.0+supabase.g000000000000";
+    const currentBuild = `0.1.0+supabase.g${execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim().slice(0, 12)}`;
+    const rpcRows = (await ownedRpcNames(currentBuild)).map((name) =>
+      rpcFixture(name),
+    );
     const desiredBuild = "0.1.0+supabase.g111111111111";
     const events = [];
     const inventory = new Map([
@@ -230,6 +242,8 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
     let gatewayFailed = false;
     const runPnpm = (arguments_, options = {}) => {
       events.push(`cli:${options.label}`);
+      if (arguments_.includes(RPC_CATALOG_QUERY))
+        return JSON.stringify({ rows: rpcRows });
       if (arguments_.includes("download")) {
         const slug = arguments_[arguments_.indexOf("download") + 1];
         const workdir = arguments_[arguments_.indexOf("--workdir") + 1];
