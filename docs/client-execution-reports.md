@@ -126,6 +126,11 @@ report after a 60-second client timeout now fails that stronger gate. Baseline
 runs without the flag retain their original timing semantics for comparison.
 
 The hosted failures recorded at `0427f46` remain valid historical evidence.
-Deploy and run the exact new build in an explicitly authorized temporary
-environment before claiming the hosted workaround passes. No existing Release,
-Gateway deployment or xPanel integration is changed by this client code.
+The subsequent [exact-build hosted acceptance](operations/supabase-report-watch-2026-09-13.md)
+at `320b91e` passed report-aware limit/timeout and established-body Stop probes,
+17 executed HTTP cases and 30 path/query checks. Temporary resources and
+credentials were removed and independently verified. This establishes the
+opt-in client workaround, not a fix to the provider stream-reset behavior,
+end-to-end integrity, upstream disconnect latency or protected update/restore.
+No existing Release or xPanel integration was changed. New builds still require
+their own exact-build acceptance before carrying these results forward.

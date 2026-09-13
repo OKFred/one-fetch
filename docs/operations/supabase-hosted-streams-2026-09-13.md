@@ -157,5 +157,7 @@ evidence rather than being overwritten by this run.
 The development client now offers an opt-in
 [bounded authenticated report watcher](../client-execution-reports.md), with
 local lifecycle and real loopback HTTP tests. This is a client workaround;
-it does not repair the provider's stream-reset behavior. Its new hosted
-acceptance remains separate and does not change this run's failed result.
+it does not repair the provider's stream-reset behavior. The subsequent
+[exact `320b91e` hosted run](supabase-report-watch-2026-09-13.md) passed its
+opt-in report-aware termination probes. That separate acceptance does not
+change this run's failed result or establish upstream disconnect latency.

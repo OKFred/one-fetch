@@ -107,3 +107,9 @@ resource identifiers.
 
 See the [2026-09-12 Cloudflare revalidation note](acceptance-2026-09-12.md)
 for the tested commit, explicit platform skip and cleanup evidence boundary.
+
+The [2026-09-13 Supabase report-aware run](supabase-report-watch-2026-09-13.md)
+records exact `320b91e` hosted results, CI client-byte identity, established-body
+limit/timeout/Stop probes and independently verified cleanup. Its opt-in
+workaround acceptance does not cover provider stream reset, protected update,
+restoration or upstream disconnect latency.
