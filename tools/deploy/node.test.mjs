@@ -87,16 +87,14 @@ function initializeDatabase(path) {
     database.exec(
       "CREATE TABLE instance_config(key TEXT PRIMARY KEY, value_json TEXT NOT NULL) STRICT",
     );
-    database
-      .prepare("INSERT INTO instance_config VALUES (?, ?)")
-      .run(
-        "configuration",
-        JSON.stringify({
-          ...fixtureIdentity,
-          version: "config-1",
-          gatewayPaused: false,
-        }),
-      );
+    database.prepare("INSERT INTO instance_config VALUES (?, ?)").run(
+      "configuration",
+      JSON.stringify({
+        ...fixtureIdentity,
+        version: "config-1",
+        gatewayPaused: false,
+      }),
+    );
   } finally {
     database.close();
   }

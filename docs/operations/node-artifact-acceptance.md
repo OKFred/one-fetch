@@ -46,6 +46,39 @@ silently falls back to AMD64. Do not run acceptance commands concurrently with
 source edits or generated-file builds; the receipt identifies the runner commit
 and dirty checkout independently of the artifact commit.
 
+## Exercise installation and isolated recovery
+
+Use `--mode installed` with another new receipt path. This mode additionally
+mounts the bundle's checksum-verified standalone deployment helper, invokes its
+`apply --expected-version none`, and starts the installed CLI through its
+`launch` command. It does not replace the helper with checkout code. Use a CI
+bundle that includes the fail-closed deployment-verification change; an older
+helper that reports offline checks as runtime verification must fail acceptance.
+
+After the same HTTP/authentication/audit suite, installed mode checks:
+
+- Offline verification is explicitly `offline-verified`; online verification
+  matches the running build, instance, Control/Gateway pair and configuration.
+- Missing databases, tampered migration checksums and a different database
+  identity are rejected.
+- SQLite's online backup produces a SHA-256-identified snapshot. A separate copy
+  passes integrity and migration verification and starts a second, loopback-only
+  runtime using the installed application and original instance keys.
+- Restored sessions, configuration, signed audit events and execution-token
+  revocation still work. The original installation pointer is unchanged.
+
+The snapshot, restored database and deliberately invalid test copies remain in
+the private container tmpfs and disappear with the owned container. The existing
+database is never replaced or restored in place. Admin/execution credentials
+enter the additional check through `docker exec` environment variables, not
+arguments or host files; Docker administrators remain able to inspect the
+temporary process. The receipt contains only counts, digests and pass/fail flags.
+
+This is a first-install and isolated-recovery rehearsal, **not** a successful
+different-version upgrade, concurrent-deployment lease test or physical database
+path proof. Copying a database preserves its logical instance identity. Keep
+those separate acceptance requirements open even when installed mode passes.
+
 Each run uses:
 
 - One random, ownership-labelled container; Control/Gateway are published only

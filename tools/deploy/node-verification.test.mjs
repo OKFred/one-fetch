@@ -171,14 +171,12 @@ const mutations = {
     ),
   "missing pair": (f) =>
     f.mutate((db) =>
-      db
-        .prepare("UPDATE instance_config SET value_json = ?")
-        .run(
-          JSON.stringify({
-            instanceId: f.identity.instanceId,
-            version: "config-1",
-          }),
-        ),
+      db.prepare("UPDATE instance_config SET value_json = ?").run(
+        JSON.stringify({
+          instanceId: f.identity.instanceId,
+          version: "config-1",
+        }),
+      ),
     ),
 };
 for (const [name, mutate] of Object.entries(mutations)) {
