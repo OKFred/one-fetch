@@ -3,6 +3,9 @@
 This is an additional local database gate for draft PR #15, not hosted update,
 Function restoration, a new Release, or an authorization to restore media-center.
 
+The subsequent [hosted update and isolated restore checkpoint](supabase-hosted-update-restore-2026-09-13.md)
+has separate exact-build evidence. This original local-only result is preserved.
+
 ## Defect and scope
 
 The former `supabase-logical-v1` backup selected only `one_fetch` and

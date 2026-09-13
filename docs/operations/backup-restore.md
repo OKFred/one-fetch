@@ -97,6 +97,15 @@ catalogs, grants, stored account/session behavior and audit integrity, deploy
 isolated matching Functions, then run conformance. Switch profile URLs only
 after review; database restoration is never automatic.
 
+Retain the original instance pepper and audit keys through the operator's secure
+secret backup; database dumps do not replace those secrets. Change only the
+destination Control/Gateway URLs for an isolated restore. Downloaded compiled
+Function bundles may use `functions/<slug>/index.js`; the protected-update
+inventory accepts that exact recovery layout and the normal
+`.one-fetch-bundle/index.js`, not arbitrary source entrypoints. After restoration,
+also verify that a subsequent protected update succeeds. See the separate
+[hosted update/restore/re-update evidence](supabase-hosted-update-restore-2026-09-13.md).
+
 Run the repeatable local regression (Docker required, no hosted credentials):
 
 ```sh

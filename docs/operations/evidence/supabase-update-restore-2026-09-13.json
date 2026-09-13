@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "kind": "supabase-protected-update-and-hosted-restore",
+  "checkedAt": "2026-09-13T10:24:18.286Z",
+  "deployments": [
+    {
+      "projectRef": "ygnznpkwmogbnhxfzbqk",
+      "desiredBuildId": "0.1.0+supabase.ga8823b27575e",
+      "expectedCurrentBuild": "none",
+      "status": "verified",
+      "phase": "complete",
+      "gatewayPaused": false,
+      "completedAt": "2026-09-13T09:51:05.974Z",
+      "bundles": [
+        {
+          "functionName": "one-fetch-control",
+          "bytes": 1003552,
+          "sha256": "dd7a5d8c853ecdb8aff4087670b712768a06500db890cf61bb2410cfab1b5f47"
+        },
+        {
+          "functionName": "one-fetch-gateway",
+          "bytes": 884267,
+          "sha256": "0ecec656af1e7c84e4c0293af873c7a027ae7b3d80e1e1be228b42ce1cd1073b"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "one-fetch-control",
+          "version": 1,
+          "bundleSha256": "ab53904bb5da8e3ed9e4cbf90b527257d11eb863543cf98fcfc93432b4f06897",
+          "verifyJwt": false
+        },
+        {
+          "slug": "one-fetch-gateway",
+          "version": 1,
+          "bundleSha256": "a44f559e2d6c4dac08275486820097110e40d012c4a432bf23f61aee92bcabcf",
+          "verifyJwt": false
+        }
+      ],
+      "backupFormat": "supabase-logical-v1"
+    },
+    {
+      "projectRef": "ygnznpkwmogbnhxfzbqk",
+      "desiredBuildId": "0.1.0+supabase.gc355500534e1",
+      "expectedCurrentBuild": "0.1.0+supabase.ga8823b27575e",
+      "status": "verified",
+      "phase": "complete",
+      "gatewayPaused": true,
+      "completedAt": "2026-09-13T10:04:36.987Z",
+      "bundles": [
+        {
+          "functionName": "one-fetch-control",
+          "bytes": 1003552,
+          "sha256": "c4d0e3a5b1f732018c482b3413777f10ccc35ddf16b06f63670b967a6664272c"
+        },
+        {
+          "functionName": "one-fetch-gateway",
+          "bytes": 884267,
+          "sha256": "84ecaae7a17724d7967ea547b903caf12ed4b7b3c9a2f86b7a05059d83d72f4d"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "one-fetch-control",
+          "version": 3,
+          "bundleSha256": "005189f926a80d962f087ac06c6559c2a5c8cba9696ce350270287aa54b25cf3",
+          "verifyJwt": false
+        },
+        {
+          "slug": "one-fetch-gateway",
+          "version": 3,
+          "bundleSha256": "ccfff0b84f575a947399f47fbd0c544ce1a4d9a5f66403b44e4f25c761d0bb49",
+          "verifyJwt": false
+        }
+      ],
+      "integrity": {
+        "format": "supabase-logical-v2",
+        "parts": 3,
+        "rpcCount": 39,
+        "integrityVerified": true,
+        "restoreVerified": false
+      },
+      "backup": {
+        "format": "supabase-logical-v2",
+        "schemas": ["one_fetch", "supabase_migrations"],
+        "schema": {
+          "bytes": 23843,
+          "sha256": "159e68ca1f19bceae8f014937ed8031d1033b2dae4dad5fbdef7337232d6389a"
+        },
+        "data": {
+          "bytes": 120788,
+          "sha256": "c99903de08c7f3e202cc92a954c482a1a48e5a053dff7760255de48fdeb55c6c"
+        },
+        "rpc": {
+          "bytes": 64765,
+          "sha256": "91dca4523c909ac31e1d89778c69c417bb387c4dff0b600210a4e244f5c1538c",
+          "count": 39
+        },
+        "sha256": "c47755fc95240144775758bdc0121d3856ef1c7e41ebe960c9c83a127f451ae5"
+      },
+      "recoveryTreeSha256": "a11914538ca80cf92328936424980d0ec1aea5b8033c7152e83d688544a08f7f"
+    },
+    {
+      "projectRef": "rrvwpvmwuzqqikzsyxtb",
+      "desiredBuildId": "0.1.0+supabase.g3bf479a02b10",
+      "expectedCurrentBuild": "0.1.0+supabase.ga8823b27575e",
+      "status": "verified",
+      "phase": "complete",
+      "gatewayPaused": true,
+      "completedAt": "2026-09-13T10:14:54.070Z",
+      "bundles": [
+        {
+          "functionName": "one-fetch-control",
+          "bytes": 1003552,
+          "sha256": "c94520d46f03b50d1de9fdeb869faa6bbac8df1da83489d7178106e993da7017"
+        },
+        {
+          "functionName": "one-fetch-gateway",
+          "bytes": 884267,
+          "sha256": "cc466dc55933bf867641181dd974fa06936be8235de51f2d8227f8781d6f4f83"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "one-fetch-control",
+          "version": 3,
+          "bundleSha256": "8632f37de9f838ae1e28ee2f6b770f0dfc6882697f425752bc19cb7636a05334",
+          "verifyJwt": false
+        },
+        {
+          "slug": "one-fetch-gateway",
+          "version": 3,
+          "bundleSha256": "9754e709557c3d261f56b522743d7bcfba9ed0fe67ed21eb67008da2691ee3f4",
+          "verifyJwt": false
+        }
+      ],
+      "integrity": {
+        "format": "supabase-logical-v2",
+        "parts": 3,
+        "rpcCount": 39,
+        "integrityVerified": true,
+        "restoreVerified": false
+      },
+      "backup": {
+        "format": "supabase-logical-v2",
+        "schemas": ["one_fetch", "supabase_migrations"],
+        "schema": {
+          "bytes": 23843,
+          "sha256": "159e68ca1f19bceae8f014937ed8031d1033b2dae4dad5fbdef7337232d6389a"
+        },
+        "data": {
+          "bytes": 234851,
+          "sha256": "6eaadd1ff7dddf9315de4c308be5d08b3ab08c43048a0fb9e30fc06875fd23cd"
+        },
+        "rpc": {
+          "bytes": 64765,
+          "sha256": "91dca4523c909ac31e1d89778c69c417bb387c4dff0b600210a4e244f5c1538c",
+          "count": 39
+        },
+        "sha256": "58ed02b981a3f5bfa7a6c004ab96623e01aceccb419e90393cfa60d7405c856d"
+      },
+      "recoveryTreeSha256": "86fe22da6c23eed4bc07c6761e4e3ee2b597ca1341eb4dcdce8ddbcb17a30778"
+    }
+  ],
+  "failedBackupGate": {
+    "phase": "backup",
+    "paused": true,
+    "noFunctionReplacement": true
+  },
+  "knownSecretCanaries": {
+    "passed": true,
+    "uniqueValues": 10,
+    "files": 50
+  },
+  "cleanup": {
+    "schemaVersion": 1,
+    "checkedAt": "2026-09-13T10:24:18.275Z",
+    "privateDirectoryRemoved": true,
+    "syntheticBackupsDestroyed": true,
+    "userCliCredentialsRetained": true,
+    "temporaryWorktreeDeregistered": true,
+    "temporaryWorktreeRemoved": false,
+    "temporaryWorktreeResidualReason": "Git cleanup failed on Windows long paths; follow-up removal was policy-blocked. Non-sensitive residual retained.",
+    "mediaCenterRestored": false,
+    "resources": [
+      {
+        "kind": "supabase-project",
+        "id": "ygnznpkwmogbnhxfzbqk",
+        "name": "one-fetch-update-6ff15bec71e4",
+        "absent": true
+      },
+      {
+        "kind": "supabase-project",
+        "id": "rrvwpvmwuzqqikzsyxtb",
+        "name": "one-fetch-restore-6ff15bec71e4",
+        "absent": true
+      },
+      {
+        "kind": "cloudflare-worker",
+        "id": "one-fetch-fixture-6ff15bec71e4",
+        "absent": true
+      }
+    ],
+    "cloudResourcesAbsent": true
+  },
+  "receipts": [
+    {
+      "file": "supabase-update-baseline-6ff15bec71e4.json",
+      "bytes": 1935,
+      "sha256": "68ad2644433d26acf2cfcdac1eb9499c2c70cdf44dbddb372804d804f8de9547"
+    },
+    {
+      "file": "supabase-update-updated-6ff15bec71e4.json",
+      "bytes": 2820,
+      "sha256": "c19129d0abde7879bade9b677a7ef13a144c351449ecd02dce640ce62db14b4c"
+    },
+    {
+      "file": "supabase-hosted-restore-6ff15bec71e4.json",
+      "bytes": 1254,
+      "sha256": "26bbfa7eeacc3655faaea7320f152cc48ec658194b6e4a476b3689368c96bb74"
+    },
+    {
+      "file": "supabase-update-restored-6ff15bec71e4.json",
+      "bytes": 2821,
+      "sha256": "a790559e14be02c9c7b7b7e0be58acac547e196cd8de89f006958f47766b7926"
+    },
+    {
+      "file": "supabase-update-reupdated-6ff15bec71e4.json",
+      "bytes": 5951,
+      "sha256": "350104c443e6ef168e5d63c745476d23a28f901b556e891e18d199e2450e4256"
+    },
+    {
+      "file": "supabase-final-revocation-6ff15bec71e4.json",
+      "bytes": 323,
+      "sha256": "3f1110f86a3c0e24d60ba41873aab95b58f7214f62a071e035cde5a0a537eb71"
+    },
+    {
+      "file": "supabase-updated-conformance-final-6ff15bec71e4.json",
+      "bytes": 5815,
+      "sha256": "a0c504fab7738d9963c67f4c2cf03397637c56404e80335916a45075f81ab6f3"
+    },
+    {
+      "file": "supabase-restored-conformance-final-6ff15bec71e4.json",
+      "bytes": 5806,
+      "sha256": "a21a4c851c7985bfc98e5b913c68063c98c471cc63498d40b33cdff29edde79f"
+    },
+    {
+      "file": "supabase-reupdated-conformance-final-6ff15bec71e4.json",
+      "bytes": 5840,
+      "sha256": "919d70476506f25d1da4b5a3de3d4dd485aefbddb901711948ab353a491285cf"
+    },
+    {
+      "file": "rpc-query-file-local-restore-6ff15bec71e4.json",
+      "bytes": 971,
+      "sha256": "f472973cba04ba0a78484ccc64af7c7c660e09f693217e1a99eb4d3fb9d5150b"
+    },
+    {
+      "file": "ci-3bf479a-push-review-validation.json",
+      "bytes": 584,
+      "sha256": "9849f6bf2a895f1230f65fd9aa3ff178f3df218ceab6fd5190c54d915ffae61a"
+    },
+    {
+      "file": "supabase-cleanup-local-6ff15bec71e4.json",
+      "bytes": 912,
+      "sha256": "94d04ebd9d401f4da0130ec90030019d6eb55ea56a74a91e6e7a4555a18ddf82"
+    },
+    {
+      "file": "check-rpc-query-file-6ff15bec71e4.log",
+      "bytes": 46503,
+      "sha256": "616314bd09061b4e3f5d38df7ee6d7f50db922279ca7d3af4fbf1e50583a75f6"
+    },
+    {
+      "file": "check-recovery-entrypoint-6ff15bec71e4.log",
+      "bytes": 46444,
+      "sha256": "fa66c92271b9de357b4b3ef541633d1a8f39e7a2bf1d0746f6ab536c2f7dd6e6"
+    },
+    {
+      "file": "supabase-rpc-shape-6ff15bec71e4.json",
+      "bytes": 451,
+      "sha256": "0cd54e764553f991c5ab2f9a7cd4b056d445d39722e890494b9acd86722c2d62"
+    },
+    {
+      "file": "supabase-rpc-shape-file-6ff15bec71e4.json",
+      "bytes": 22079,
+      "sha256": "20061e33d9050db75c9c377d5b1399434eed724542a17b6fff1b64bad3f52588"
+    },
+    {
+      "file": "supabase-reupdate-before-6ff15bec71e4.json",
+      "bytes": 684,
+      "sha256": "261a481423814488649eb90480ee8e928f2c44cec1ca36464847c3999713d12e"
+    },
+    {
+      "file": "supabase-reupdate-after-6ff15bec71e4.json",
+      "bytes": 682,
+      "sha256": "68d57f98371d76fa7e9cc0bb03aec8aa82238f3a04be08a645bbb71b47305b6c"
+    }
+  ],
+  "limits": {
+    "publishedRelease": false,
+    "mainMerged": false,
+    "upstreamDisconnectObserved": false,
+    "midDeploymentHostedRollbackTested": false,
+    "atomicCrossDumpSnapshot": false
+  }
+}
