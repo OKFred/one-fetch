@@ -197,6 +197,8 @@ jobs:
       - run: node --test tools/release/*.test.mjs
       - run: pnpm check:openapi
       - run: pnpm --filter @one-fetch/conformance... build
+      - name: Test deployment and artifact acceptance safety checks
+        run: node --test tools/deploy/*.test.mjs tools/acceptance/*.test.mjs
       - run: pnpm exec eslint .
       - run: pnpm exec prettier --check .
 
