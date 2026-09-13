@@ -55,6 +55,8 @@ function sql(database, source) {
       "-i",
       container,
       "psql",
+      "-h",
+      "127.0.0.1",
       "-U",
       "postgres",
       "-d",
