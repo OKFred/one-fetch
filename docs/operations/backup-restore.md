@@ -138,6 +138,9 @@ Confirm the old bundle can run against the resulting schema; incompatible
 migration recovery requires a separately authorized isolated database restore.
 After a verified rollback, rerun the normal protected updater with the actual
 old build as `--expected-current-build`; there is no bypass or automatic resume.
+The two code-only hosted failure scenarios and subsequent retry have
+[separate acceptance evidence](supabase-hosted-rollback-2026-09-13.md), including
+their unchanged-schema and local-cleanup limitations.
 
 Run the repeatable local regression (Docker required, no hosted credentials):
 
