@@ -151,3 +151,11 @@ separate verification boundaries.
 No PR merge, tag, Release, published artifact replacement or xPanel change was
 performed. Prior failed, exact-query and local-only reports remain historical
 evidence rather than being overwritten by this run.
+
+## Subsequent client implementation
+
+The development client now offers an opt-in
+[bounded authenticated report watcher](../client-execution-reports.md), with
+local lifecycle and real loopback HTTP tests. This is a client workaround;
+it does not repair the provider's stream-reset behavior. Its new hosted
+acceptance remains separate and does not change this run's failed result.

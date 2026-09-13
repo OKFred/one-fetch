@@ -69,6 +69,15 @@ URL-encoded, multipart and binary bodies, target error classification,
 redirects, repeated `Set-Cookie`, target `Server-Timing`, and streaming. Add
 `--full` for 20 MiB boundaries, timeout, cancellation, and truncation checks.
 
+Add `--watch-reports --full` to explicitly enable the
+[bounded execution report watcher](../client-execution-reports.md) against the
+provided trusted `--control-url`. This also requires incomplete responses to
+finish within ten seconds, including terminal-report retrieval. A partial
+report after a long client timeout does not pass this stronger gate. Retain
+separate baseline reports without the flag; do not overwrite historical results.
+Incomplete reports must match the signed response's report ID, request ID and
+status in either mode.
+
 The output is strict `AcceptanceReportV1`. It contains adapter/build/config
 identity, a capabilities digest, bounded case observations, and cleanup state.
 It contains no request or response body, Header value, credential, or token.
