@@ -31,6 +31,7 @@ export interface ConformanceReport {
 export interface ConformanceRunOptions {
   getExecutionReport?: (reportId: string) => Promise<ExecutionReportV1>;
   skipFixtures?: Readonly<Record<string, string>>;
+  maximumIncompleteDurationMs?: number;
 }
 
 function targetUrl(origin: string, path: string): string {
@@ -252,6 +253,15 @@ async function runCase(
         } else {
           observed.reportOutcome = report.outcome;
           observed.bodyComplete = report.bodyComplete;
+          if (
+            report.reportId !== reportId ||
+            report.requestId !== result.requestMetadata.requestId ||
+            report.status !== result.response.status
+          ) {
+            failures.push(
+              "incomplete execution report identity does not match the signed target response",
+            );
+          }
           if (report.outcome !== "partial" || report.bodyComplete) {
             failures.push(
               `expected an incomplete target report, received ${report.outcome}/${report.bodyComplete ? "complete" : "incomplete"}`,
@@ -284,11 +294,21 @@ async function runCase(
   } finally {
     if (cancelTimer !== undefined) clearTimeout(cancelTimer);
   }
+  const durationMs = performance.now() - startedAt;
+  if (
+    fixture.expected.incomplete !== undefined &&
+    options.maximumIncompleteDurationMs !== undefined &&
+    durationMs > options.maximumIncompleteDurationMs
+  ) {
+    failures.push(
+      `incomplete response exceeded the ${options.maximumIncompleteDurationMs} ms termination deadline`,
+    );
+  }
   return {
     id: fixture.id,
     passed: failures.length === 0,
     failures,
-    durationMs: performance.now() - startedAt,
+    durationMs,
     observed,
   };
 }
@@ -299,6 +319,15 @@ export async function runGatewayConformance(
   fixtures: readonly HttpConformanceFixture[] = HTTP_CONFORMANCE_FIXTURES,
   options: ConformanceRunOptions = {},
 ): Promise<ConformanceReport> {
+  if (
+    options.maximumIncompleteDurationMs !== undefined &&
+    (!Number.isFinite(options.maximumIncompleteDurationMs) ||
+      options.maximumIncompleteDurationMs <= 0)
+  ) {
+    throw new TypeError(
+      "Incomplete termination deadline must be a positive finite number",
+    );
+  }
   const results: ConformanceCaseResult[] = [];
   for (const fixture of fixtures) {
     const reason = options.skipFixtures?.[fixture.id];

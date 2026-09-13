@@ -169,7 +169,12 @@ describe("portable Gateway conformance suite", () => {
     const report = await runGatewayConformance(
       client,
       "https://target.test",
-      [fixture!],
+      [
+        {
+          ...fixture!,
+          request: { ...fixture!.request, requestId: "request-truncated" },
+        },
+      ],
       {
         getExecutionReport: () =>
           Promise.resolve({
