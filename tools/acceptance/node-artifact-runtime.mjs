@@ -342,6 +342,17 @@ export async function runNodeArtifactRuntime(options) {
       version: options.version,
       auditPublicKey,
       secrets: Object.values(secretValues),
+      onStep: (step) => {
+        phase = `conformance:${step}`;
+      },
+      onSuite: (report) => {
+        acceptance = {
+          report,
+          authenticationVerified: true,
+          revocationVerified: false,
+          verifiedAuditEvents: 0,
+        };
+      },
     });
     receipt.passed = acceptance.report.suite.passed;
     if (!receipt.passed)

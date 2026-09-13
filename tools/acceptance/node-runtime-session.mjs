@@ -34,6 +34,8 @@ export async function acceptNodeRuntime({
   version,
   auditPublicKey,
   secrets,
+  onStep = () => {},
+  onSuite = () => {},
 }) {
   const request = (input, init = {}) =>
     globalThis.fetch(input, {
@@ -46,6 +48,7 @@ export async function acceptNodeRuntime({
     password: randomBytes(36).toString("base64url"),
   };
   const canaries = [...secrets, bootstrapToken, admin.password];
+  onStep("bootstrap");
   const status = await control.getBootstrapStatus();
   assert.equal(status.initialized, false);
   const pair = await control.bootstrap({
@@ -65,12 +68,14 @@ export async function acceptNodeRuntime({
   });
   canaries.push(refreshed.accessToken, refreshed.refreshToken);
   await control.logout();
+  onStep("login");
   const login = await control.login({
     schemaVersion: 1,
     ...admin,
     rememberDevice: false,
   });
   canaries.push(login.accessToken, login.refreshToken);
+  onStep("policy");
   let config = await control.getConfiguration();
   assert.equal(config.policy.mode, "allowlist");
   assert.equal(config.policy.rules.length, 0);
@@ -105,6 +110,7 @@ export async function acceptNodeRuntime({
       { schemaVersion: 1, paused: false },
       config.version,
     );
+  onStep("execution-token");
   const credential = await control.createExecutionToken({
     schemaVersion: 1,
     name: "artifact-conformance",
@@ -123,6 +129,7 @@ export async function acceptNodeRuntime({
     expiresAt: new Date(Date.now() + 600_000).toISOString(),
   });
   canaries.push(credential.token);
+  onStep("capabilities");
   const capabilities = await control.getCapabilities();
   assert.equal(capabilities.provider, "node");
   assert.equal(capabilities.buildVersion, version);
@@ -134,6 +141,7 @@ export async function acceptNodeRuntime({
     token: credential.token,
     capabilities: capabilities.fetchOptions,
   });
+  onStep("http-suite");
   const suite = await runGatewayConformance(
     gateway,
     targetUrl,
@@ -144,14 +152,31 @@ export async function acceptNodeRuntime({
       maximumIncompleteDurationMs: 10_000,
     },
   );
+  const report = await createAcceptanceReport({
+    commit,
+    capabilities,
+    controlUrl,
+    gatewayUrl,
+    targetUrl,
+    suite,
+    cleanup: { state: "pending", resources: [] },
+  });
+  assertNoRuntimeSecrets(report, canaries);
+  // Preserve completed HTTP evidence even if subsequent auth/audit checks fail.
+  onSuite(report);
+  onStep("revocation");
   await control.revokeExecutionToken(credential.credential.id);
+  onStep("revoked-request");
   const revoked = await gateway.executeHttp({
     method: "GET",
     targetUrl: targetUrl + "/status/200",
   });
   await revoked.response.arrayBuffer();
+  onStep(`revoked-classification-${revoked.classification.source}`);
   assert.equal(revoked.classification.source, "relay");
+  onStep(`revoked-error-${revoked.classification.error.code}`);
   assert.equal(revoked.classification.error.code, "unauthorized");
+  onStep("audit");
   const events = [];
   let cursor;
   do {
@@ -167,15 +192,6 @@ export async function acceptNodeRuntime({
   for (const event of events)
     assert.equal(await verifyAuditEvent(event, auditPublicKey), true);
   assertNoRuntimeSecrets(events, canaries);
-  const report = await createAcceptanceReport({
-    commit,
-    capabilities,
-    controlUrl,
-    gatewayUrl,
-    targetUrl,
-    suite,
-    cleanup: { state: "pending", resources: [] },
-  });
   assertNoRuntimeSecrets(report, canaries);
   return {
     report,
