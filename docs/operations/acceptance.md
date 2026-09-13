@@ -113,3 +113,8 @@ records exact `320b91e` hosted results, CI client-byte identity, established-bod
 limit/timeout/Stop probes and independently verified cleanup. Its opt-in
 workaround acceptance does not cover provider stream reset, protected update,
 restoration or upstream disconnect latency.
+
+The [2026-09-13 Node installed-artifact recovery](node-installed-recovery-2026-09-13.md)
+records real CI first-install and isolated SQLite recovery on AMD64 and emulated
+ARM64, alongside a retained failed verification baseline. It does not certify
+different-version updates, deployment leases or final Release provenance.
