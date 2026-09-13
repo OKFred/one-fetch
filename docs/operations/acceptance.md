@@ -118,3 +118,8 @@ The [2026-09-13 Node installed-artifact recovery](node-installed-recovery-2026-0
 records real CI first-install and isolated SQLite recovery on AMD64 and emulated
 ARM64, alongside a retained failed verification baseline. It does not certify
 different-version updates, deployment leases or final Release provenance.
+
+The [Node operation-lock follow-up](node-operation-lock-2026-09-13.md) adds real
+packaged lock rejection and explicit Control pause/resume to the AMD64/emulated
+ARM64 recovery runs. The local operation lock is not a full deployment lease;
+cross-version application upgrade remains a separate gate.
