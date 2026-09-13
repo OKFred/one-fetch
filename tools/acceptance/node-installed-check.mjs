@@ -59,7 +59,7 @@ async function rejectVerification(verify, options) {
 
 try {
   const { verifyNodeDeployment } = await import(
-    pathToFileURL("/deployment.mjs").href
+    pathToFileURL("/tmp/acceptance/deployment.mjs").href
   );
   const pointerBytes = await readFile(join(root, "current.json"));
   const pointer = JSON.parse(pointerBytes);

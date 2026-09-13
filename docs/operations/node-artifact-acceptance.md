@@ -49,7 +49,7 @@ and dirty checkout independently of the artifact commit.
 ## Exercise installation and isolated recovery
 
 Use `--mode installed` with another new receipt path. This mode additionally
-mounts the bundle's checksum-verified standalone deployment helper, invokes its
+copies the bundle's checksum-verified standalone deployment helper, invokes its
 `apply --expected-version none`, and starts the installed CLI through its
 `launch` command. It does not replace the helper with checkout code. Use a CI
 bundle that includes the fail-closed deployment-verification change; an older
@@ -81,6 +81,10 @@ those separate acceptance requirements open even when installed mode passes.
 
 Each run uses:
 
+- Fixed non-sensitive input files copied through Docker stdin into private tmpfs,
+  with hashes checked again inside the container before activation. No host bind
+  mounts or root staging process are needed; archive/helper digests must still
+  match the reviewed bundle. OCI mode keeps the image's original entrypoint.
 - One random, ownership-labelled container; Control/Gateway are published only
   on ephemeral `127.0.0.1` ports. The synthetic target is container-local.
 - UID 1000, read-only root, no added capabilities, no-new-privileges, bounded

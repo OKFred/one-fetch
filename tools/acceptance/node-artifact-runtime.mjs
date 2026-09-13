@@ -25,6 +25,10 @@ import {
   acceptNodeRuntime,
   assertNoRuntimeSecrets,
 } from "./node-runtime-session.mjs";
+import {
+  runtimeBootstrapScript,
+  stageRuntimeFiles,
+} from "./node-runtime-copy.mjs";
 
 const execute = promisify(execFile);
 const ownerLabel = "one-fetch.acceptance-run";
@@ -145,6 +149,7 @@ export async function runNodeArtifactRuntime(options) {
     hostCredentialFilesCreated: false,
     secretsPassedViaContainerEnvironment: true,
     provenanceVerified: false,
+    fileTransport: "docker-exec-stdin",
   };
   await writeFile(output, JSON.stringify(receipt, null, 2) + "\n", {
     flag: "wx",
@@ -227,45 +232,16 @@ export async function runNodeArtifactRuntime(options) {
       `127.0.0.1:${controlPort}:8787`,
       "--publish",
       `127.0.0.1:${gatewayPort}:8788`,
-      "--mount",
-      `type=bind,source=${resolve(repository, "tools/acceptance/target-server.mjs")},target=/fixture/tools/acceptance/target-server.mjs,readonly`,
-      "--mount",
-      `type=bind,source=${resolve(repository, "packages/conformance/dist/target.js")},target=/fixture/packages/conformance/dist/target.js,readonly`,
       ...Object.keys(environment).flatMap((key) => ["--env", key]),
     ];
-    if (options.mode === "archive")
-      args.push(
-        "--mount",
-        `type=bind,source=${input.archive.path},target=/artifact.tar.gz,readonly`,
-        "--entrypoint",
-        "/bin/sh",
-      );
-    if (options.mode === "installed") {
-      for (const [source, target] of [
-        [input.archive.path, "/artifact.tar.gz"],
-        [input.deploy.path, "/deployment.mjs"],
-        [
-          resolve(repository, "tools/acceptance/node-install-entry.mjs"),
-          "/install-entry.mjs",
-        ],
-        [
-          resolve(repository, "tools/acceptance/node-installed-check.mjs"),
-          "/installed-check.mjs",
-        ],
-      ])
-        args.push(
-          "--mount",
-          `type=bind,source=${source},target=${target},readonly`,
-        );
-      args.push("--entrypoint", "node");
-    }
+    if (options.mode !== "oci") args.push("--entrypoint", "node");
     args.push(options.image);
-    if (options.mode === "installed")
-      args.push("/install-entry.mjs", input.archive.sha256);
-    if (options.mode === "archive")
+    if (options.mode !== "oci")
       args.push(
-        "-c",
-        "mkdir /tmp/runtime && tar --no-same-owner -xzf /artifact.tar.gz -C /tmp/runtime && cd /tmp/runtime/one-fetch && exec node dist/cli.js",
+        "-e",
+        runtimeBootstrapScript,
+        options.mode,
+        input.archive.sha256,
       );
     assert.equal(
       await docker([
@@ -286,6 +262,23 @@ export async function runNodeArtifactRuntime(options) {
     receipt.containerId = id;
     phase = "startup";
     await docker(["container", "start", id]);
+    phase = "copy-inputs";
+    receipt.copiedFiles = await stageRuntimeFiles(
+      id,
+      options,
+      input,
+      repository,
+    );
+    if (options.mode !== "oci")
+      await docker([
+        "container",
+        "exec",
+        id,
+        "node",
+        "-e",
+        'require("node:fs").writeFileSync("/tmp/acceptance/ready","ready",{flag:"wx",mode:0o600})',
+      ]);
+    phase = "startup";
     assert.equal(
       loopbackPublishedOrigin(
         await docker(["container", "port", id, "8787/tcp"]),
@@ -334,7 +327,7 @@ export async function runNodeArtifactRuntime(options) {
       "--detach",
       id,
       "node",
-      "/fixture/tools/acceptance/target-server.mjs",
+      "/tmp/acceptance/fixture/tools/acceptance/target-server.mjs",
       "--host",
       "127.0.0.1",
       "--port",
@@ -392,7 +385,7 @@ export async function runNodeArtifactRuntime(options) {
                     "ONE_FETCH_ACCEPTANCE_EXECUTION_TOKEN",
                     id,
                     "node",
-                    "/installed-check.mjs",
+                    "/tmp/acceptance/installed-check.mjs",
                   ],
                   {
                     ONE_FETCH_ACCEPTANCE_ADMIN_TOKEN: credentials.adminToken,

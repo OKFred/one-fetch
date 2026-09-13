@@ -3,10 +3,10 @@ import { execFileSync, spawn } from "node:child_process";
 import process from "node:process";
 
 // Container-only launcher. The archive and standalone helper are verified,
-// read-only mounts; all installation state is in the container's tmpfs.
+// copied files; all installation state is in the container's tmpfs.
 const sha256 = process.argv[2];
 assert.match(sha256 ?? "", /^[a-f0-9]{64}$/u);
-const helper = "/deployment.mjs";
+const helper = "/tmp/acceptance/deployment.mjs";
 const root = "/tmp/installed";
 execFileSync(
   process.execPath,
@@ -17,7 +17,7 @@ execFileSync(
     "--root",
     root,
     "--archive",
-    "/artifact.tar.gz",
+    "/tmp/acceptance/artifact.tar.gz",
     "--sha256",
     sha256,
     "--expected-version",
