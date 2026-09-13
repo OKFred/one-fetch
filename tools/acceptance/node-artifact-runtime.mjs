@@ -137,6 +137,7 @@ export async function runNodeArtifactRuntime(options) {
     image: options.image,
     archiveSha256: input.archive.sha256,
     ociSha256: input.oci.sha256,
+    deploymentHelperSha256: input.deploy.sha256,
     manifestSha256: input.manifestSha256,
     startedAt: new Date().toISOString(),
     passed: false,
@@ -239,7 +240,28 @@ export async function runNodeArtifactRuntime(options) {
         "--entrypoint",
         "/bin/sh",
       );
+    if (options.mode === "installed") {
+      for (const [source, target] of [
+        [input.archive.path, "/artifact.tar.gz"],
+        [input.deploy.path, "/deployment.mjs"],
+        [
+          resolve(repository, "tools/acceptance/node-install-entry.mjs"),
+          "/install-entry.mjs",
+        ],
+        [
+          resolve(repository, "tools/acceptance/node-installed-check.mjs"),
+          "/installed-check.mjs",
+        ],
+      ])
+        args.push(
+          "--mount",
+          `type=bind,source=${source},target=${target},readonly`,
+        );
+      args.push("--entrypoint", "node");
+    }
     args.push(options.image);
+    if (options.mode === "installed")
+      args.push("/install-entry.mjs", input.archive.sha256);
     if (options.mode === "archive")
       args.push(
         "-c",
@@ -354,6 +376,36 @@ export async function runNodeArtifactRuntime(options) {
           verifiedAuditEvents: 0,
         };
       },
+      ...(options.mode !== "installed"
+        ? {}
+        : {
+            onVerified: async (credentials) => {
+              phase = "installed-verification-and-restore";
+              const checked = JSON.parse(
+                await docker(
+                  [
+                    "container",
+                    "exec",
+                    "--env",
+                    "ONE_FETCH_ACCEPTANCE_ADMIN_TOKEN",
+                    "--env",
+                    "ONE_FETCH_ACCEPTANCE_EXECUTION_TOKEN",
+                    id,
+                    "node",
+                    "/installed-check.mjs",
+                  ],
+                  {
+                    ONE_FETCH_ACCEPTANCE_ADMIN_TOKEN: credentials.adminToken,
+                    ONE_FETCH_ACCEPTANCE_EXECUTION_TOKEN:
+                      credentials.executionToken,
+                  },
+                ),
+              );
+              receipt.installedChecks = checked;
+              assert.equal(checked.passed, true);
+              return checked;
+            },
+          }),
     });
     receipt.passed = acceptance.report.suite.passed;
     if (!receipt.passed)

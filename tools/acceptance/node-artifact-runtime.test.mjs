@@ -29,6 +29,12 @@ const arguments_ = [
 
 test("runtime acceptance requires exact identities and explicit safe modes", () => {
   assert.equal(parseRuntimeArguments(arguments_).image, image);
+  assert.equal(
+    parseRuntimeArguments(
+      arguments_.map((value) => (value === "oci" ? "installed" : value)),
+    ).mode,
+    "installed",
+  );
   for (const args of [
     arguments_.slice(0, -2),
     [...arguments_, "--image", image],

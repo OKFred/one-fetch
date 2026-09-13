@@ -43,7 +43,7 @@ export function parseRuntimeArguments(values) {
     );
   if (
     !["linux/amd64", "linux/arm64"].includes(result.platform) ||
-    !["oci", "archive"].includes(result.mode)
+    !["oci", "archive", "installed"].includes(result.mode)
   )
     throw new Error("Unsupported runtime acceptance platform or mode");
   return result;
@@ -104,6 +104,10 @@ export async function verifyRuntimeInput(options) {
     (e) => e.name === `one-fetch-node-${options.version}.oci.tar`,
   );
   if (!archive || !oci) throw new Error("Runtime archives are missing");
+  const deploy = entries.find(
+    (e) => e.name === `one-fetch-node-deploy-${options.version}.mjs`,
+  );
+  if (!deploy) throw new Error("Standalone deployment helper is missing");
   const tar = (...args) =>
     execFileSync("tar", args, {
       encoding: "utf8",
@@ -125,6 +129,7 @@ export async function verifyRuntimeInput(options) {
   return {
     archive,
     oci,
+    deploy,
     manifestSha256: entries.find(
       (e) => e.name === `one-fetch-release-manifest-${options.version}.json`,
     ).sha256,

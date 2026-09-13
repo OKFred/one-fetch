@@ -36,6 +36,7 @@ export async function acceptNodeRuntime({
   secrets,
   onStep = () => {},
   onSuite = () => {},
+  onVerified,
 }) {
   const request = (input, init = {}) =>
     globalThis.fetch(input, {
@@ -193,10 +194,16 @@ export async function acceptNodeRuntime({
     assert.equal(await verifyAuditEvent(event, auditPublicKey), true);
   assertNoRuntimeSecrets(events, canaries);
   assertNoRuntimeSecrets(report, canaries);
+  const deployment = await onVerified?.({
+    adminToken: login.accessToken,
+    executionToken: credential.token,
+  });
+  if (deployment !== undefined) assertNoRuntimeSecrets(deployment, canaries);
   return {
     report,
     authenticationVerified: true,
     revocationVerified: true,
     verifiedAuditEvents: events.length,
+    ...(deployment === undefined ? {} : { deployment }),
   };
 }
