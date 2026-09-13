@@ -21,6 +21,10 @@ import {
 import { buildGatewayUrl, serviceBaseUrl } from "./url.js";
 import { bindGatewayPath } from "./path-binding.js";
 import { composeAbortSignal, trackResponseBody } from "./response-stream.js";
+import {
+  createExecutionReportWatcher,
+  type ExecutionReportWatchOptions,
+} from "./execution-reports.js";
 
 export type GatewayProgressPhase =
   | "preparing"
@@ -65,6 +69,7 @@ export interface OneFetchGatewayClientOptions {
   fetch?: typeof globalThis.fetch;
   capabilities?: FetchOptionCapabilityV1[];
   client?: { name: string; version: string };
+  executionReports?: ExecutionReportWatchOptions;
 }
 
 function bodyContentType(
@@ -103,6 +108,9 @@ export class OneFetchGatewayClient {
   readonly #fetch: typeof globalThis.fetch;
   readonly #capabilities: FetchOptionCapabilityV1[] | undefined;
   readonly #client: { name: string; version: string } | undefined;
+  readonly #watchReports:
+    | ReturnType<typeof createExecutionReportWatcher>
+    | undefined;
 
   constructor(options: OneFetchGatewayClientOptions) {
     this.gatewayBaseUrl = serviceBaseUrl(options.gatewayUrl, "Gateway URL");
@@ -113,6 +121,10 @@ export class OneFetchGatewayClient {
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#capabilities = options.capabilities;
     this.#client = options.client;
+    this.#watchReports =
+      options.executionReports === undefined
+        ? undefined
+        : createExecutionReportWatcher(options.executionReports);
   }
 
   async executeHttp(input: GatewayHttpRequest): Promise<GatewayHttpResult> {
@@ -230,8 +242,32 @@ export class OneFetchGatewayClient {
           },
         };
       }
+      const watchReports = this.#watchReports;
+      const reportId =
+        classification.source === "target"
+          ? classification.metadata.reportId
+          : undefined;
       return {
-        response: trackResponseBody(response, abort, progress),
+        response: trackResponseBody(
+          response,
+          abort,
+          progress,
+          classification.source === "target" &&
+            classification.target.kind === "http" &&
+            reportId !== undefined &&
+            watchReports
+            ? () =>
+                watchReports(
+                  {
+                    reportId,
+                    requestId: metadata.requestId,
+                    status: response.status,
+                  },
+                  this.#token,
+                  (error) => abort.cancel(error),
+                )
+            : undefined,
+        ),
         requestMetadata: metadata,
         classification,
         ...(optionClassification === undefined ? {} : { optionClassification }),

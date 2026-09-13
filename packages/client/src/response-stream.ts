@@ -48,6 +48,7 @@ export function trackResponseBody(
     loadedBytes?: number,
     totalBytes?: number,
   ) => void,
+  startReportWatch?: () => () => void,
 ): Response {
   const totalBytes = responseLength(response);
   progress("downloading", 0, totalBytes);
@@ -61,9 +62,11 @@ export function trackResponseBody(
   let loadedBytes = 0;
   let finished = false;
   let abortListener: (() => void) | undefined;
+  let stopReportWatch: (() => void) | undefined;
   const finish = (): void => {
     if (finished) return;
     finished = true;
+    stopReportWatch?.();
     if (abortListener !== undefined)
       abort.signal.removeEventListener("abort", abortListener);
     abort.cleanup();
@@ -79,6 +82,7 @@ export function trackResponseBody(
       if (abort.signal.aborted) abortListener();
       else
         abort.signal.addEventListener("abort", abortListener, { once: true });
+      if (!finished) stopReportWatch = startReportWatch?.();
     },
     async pull(controller) {
       if (finished) return;
@@ -101,11 +105,11 @@ export function trackResponseBody(
         }
       }
     },
-    async cancel(reason) {
+    cancel(reason) {
       if (finished) return;
       finish();
       abort.cancel(reason);
-      await reader.cancel(reason);
+      void reader.cancel(reason).catch(() => undefined);
     },
   });
   return new Response(body, {

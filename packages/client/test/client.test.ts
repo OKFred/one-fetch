@@ -394,12 +394,19 @@ describe("gateway client", () => {
 describe("control client", () => {
   it("fetches a report by reportId with an execution bearer token", async () => {
     let authorization: string | null = null;
+    const abort = new AbortController();
     const client = new OneFetchControlClient({
       controlUrl: "https://control.example",
       accessToken: "admin_access_token_that_must_not_be_used",
       fetch: (input, init) => {
         const request = new Request(input, init);
         authorization = request.headers.get("Authorization");
+        expect(init).toMatchObject({
+          signal: abort.signal,
+          credentials: "omit",
+          redirect: "error",
+          referrerPolicy: "no-referrer",
+        });
         expect(request.url).toBe(
           "https://control.example/api/v1/reports/report-1",
         );
@@ -424,6 +431,7 @@ describe("control client", () => {
       client.getExecutionReport(
         "report-1",
         "of_execution_token_that_is_long_enough",
+        { signal: abort.signal },
       ),
     ).resolves.toMatchObject({ reportId: "report-1", source: "target" });
     expect(authorization).toBe("Bearer of_execution_token_that_is_long_enough");
