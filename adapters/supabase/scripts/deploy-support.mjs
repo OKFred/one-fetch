@@ -229,8 +229,10 @@ export function parseFunctionList(source) {
     if (functions.has(slug)) {
       throw new Error(`Supabase reported ${slug} more than once`);
     }
+    // The official download/recovery flow restores the inspected ESM bundle
+    // as index.js. Accept that exact layout so recovery remains upgradeable.
     const expectedEntrypoint = new RegExp(
-      `(?:^|/)functions/${slug}/\\.one-fetch-bundle/index\\.js$`,
+      `(?:^|/)functions/${slug}/(?:\\.one-fetch-bundle/)?index\\.js$`,
       "u",
     );
     if (

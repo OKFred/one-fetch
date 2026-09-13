@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import process from "node:process";
 import { Readable } from "node:stream";
 
-import { handleConformanceTarget } from "../../packages/conformance/dist/index.js";
+import { handleConformanceTarget } from "../../packages/conformance/dist/target.js";
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(name);

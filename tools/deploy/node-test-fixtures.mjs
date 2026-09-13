@@ -1,0 +1,168 @@
+import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+
+const fixtureSql = "-- synthetic deployment migration\n";
+const fixtureChecksum = createHash("sha256").update(fixtureSql).digest("hex");
+const fixtureIdentity = {
+  instanceId: "deployment-test",
+  controlGatewayPairId: "deployment-pair",
+};
+
+export async function archiveFixture(
+  parent,
+  version,
+  databaseSchemaVersion = 1,
+  migrationSql = fixtureSql,
+) {
+  const source = join(parent, `source-${version}`);
+  const root = join(source, "one-fetch");
+  await mkdir(join(root, "dist"), { recursive: true });
+  await mkdir(join(root, "migrations"));
+  await writeFile(join(root, "migrations", "0001_fixture.sql"), migrationSql);
+  await writeFile(
+    join(root, "migration-manifest.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      hashAlgorithm: "sha256",
+      migrationsDirectory: "migrations",
+      migrations: [
+        {
+          version: 1,
+          file: "0001_fixture.sql",
+          bytes: Buffer.byteLength(migrationSql),
+          artifactSha256: createHash("sha256")
+            .update(migrationSql)
+            .digest("hex"),
+        },
+      ],
+    }),
+  );
+  await writeFile(
+    join(root, "BUILD-METADATA.json"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      version,
+      entrypoint: "dist/cli.js",
+      databaseSchemaVersion,
+    })}\n`,
+  );
+  await writeFile(join(root, "dist", "cli.js"), "export {};\n");
+  const archive = join(parent, `one-fetch-node-${version}.tar.gz`);
+  execFileSync("tar", ["-czf", archive, "-C", source, "one-fetch"]);
+  const sha256 = createHash("sha256")
+    .update(await readFile(archive))
+    .digest("hex");
+  return { archive, sha256 };
+}
+
+export function initializeDatabase(path) {
+  const database = new DatabaseSync(path);
+  try {
+    database.exec(
+      "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL) STRICT;",
+    );
+    database
+      .prepare(
+        "INSERT INTO schema_migrations(version, checksum, applied_at) VALUES (1, ?, ?)",
+      )
+      .run(fixtureChecksum, new Date().toISOString());
+    database.exec(
+      "CREATE TABLE instance_config(key TEXT PRIMARY KEY, value_json TEXT NOT NULL) STRICT",
+    );
+    database.prepare("INSERT INTO instance_config VALUES (?, ?)").run(
+      "configuration",
+      JSON.stringify({
+        ...fixtureIdentity,
+        version: "config-1",
+        gatewayPaused: false,
+      }),
+    );
+  } finally {
+    database.close();
+  }
+}
+
+export async function fakeControl() {
+  let paused = false;
+  let revision = 1;
+  let buildVersion = "0.1.0";
+  let onConfiguration = () => {};
+  const token = "admin-test-token-that-is-long-enough";
+  const server = createServer(async (request, response) => {
+    const url = new globalThis.URL(request.url ?? "/", "http://127.0.0.1");
+    if (url.pathname === "/api/v1/capabilities") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          buildVersion,
+          protocolVersion: 1,
+          provider: "node",
+          ...fixtureIdentity,
+          configVersion: `config-${revision}`,
+        }),
+      );
+      return;
+    }
+    if (request.headers.authorization !== `Bearer ${token}`) {
+      response.writeHead(401).end();
+      return;
+    }
+    if (url.pathname === "/api/v1/config" && request.method === "GET") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          ...fixtureIdentity,
+          version: `config-${revision}`,
+          gatewayPaused: paused,
+        }),
+      );
+      return;
+    }
+    if (
+      url.pathname === "/api/v1/config/gateway-paused" &&
+      request.method === "PUT"
+    ) {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      paused = JSON.parse(
+        globalThis.Buffer.concat(chunks).toString("utf8"),
+      ).paused;
+      revision += 1;
+      onConfiguration({
+        ...fixtureIdentity,
+        version: `config-${revision}`,
+        gatewayPaused: paused,
+      });
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          version: `config-${revision}`,
+          gatewayPaused: paused,
+        }),
+      );
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  return {
+    controlUrl: `http://127.0.0.1:${address.port}`,
+    token,
+    setBuildVersion(value) {
+      buildVersion = value;
+    },
+    observeConfiguration(callback) {
+      onConfiguration = callback;
+    },
+    isPaused: () => paused,
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
+}

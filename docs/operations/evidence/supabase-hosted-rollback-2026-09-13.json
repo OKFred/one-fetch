@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "kind": "supabase-hosted-deployment-rollback",
+  "sourceCommit": "ad449d6ec0124cd8257d371eaf0b0f0a003099db",
+  "baselineCommit": "d82e1ea83f32dbad7d3e609b889ad90122f8ee85",
+  "projectRef": "xklrpxnraudpcuoiunwa",
+  "projectName": "one-fetch-update-4d309b22c842",
+  "completedAt": "2026-09-13T10:56:15.799Z",
+  "faultModel": "client throws after a confirmed real Function deployment; not a provider outage",
+  "receipts": [
+    {
+      "name": "supabase-baseline-4d309b22c842.json",
+      "sha256": "f0ae790b63d298292f3643477bde7f86be94593dfe40392794bdf09f97601aec",
+      "stage": "baseline",
+      "checks": {
+        "exactPairedRuntimeBuild": true,
+        "bootstrapRefreshLogout": true,
+        "originalAccountLogin": true,
+        "emptyAllowlist": true,
+        "gatewayStillPaused": true,
+        "originalExecutionTokenExists": true,
+        "signedPausedDenial": true,
+        "allAuditSignaturesValid": true,
+        "auditSecretCanariesAbsent": true
+      },
+      "auditCount": 9,
+      "auditSha256": "c4058c2039e13d979f1bd2e3b34cf2a77fbe902cfd755adb097d12c340b78364"
+    },
+    {
+      "name": "supabase-injected-control-checkpoint-4d309b22c842.json",
+      "sha256": "14d18573dea1674b06144176ca71e4f148068ee29adeb611d29d5680f7508bab",
+      "stage": "control",
+      "checks": {
+        "newControlActuallyServing": true,
+        "oldGatewayStillServing": true,
+        "pausedEmptyAllowlistAtFailure": true,
+        "competingDeploymentDeniedDuringPartialUpdate": true
+      }
+    },
+    {
+      "name": "supabase-injected-control-4d309b22c842.json",
+      "sha256": "8e479fb50153b044190e6740fb3b6a055b64567e5508a430aca76fd14d86a2d1",
+      "stage": "control",
+      "checks": {
+        "guardedAutomaticRollbackConfirmed": true,
+        "backupIntegrityPreserved": true,
+        "oldDatabaseBuildAndReleasedLease": true,
+        "independentOldRuntimeHandshake": true
+      }
+    },
+    {
+      "name": "supabase-rollback-control-4d309b22c842.json",
+      "sha256": "22be37e5348d66170502ac1f6638452a221aec8e4e4658b68a892e3c93bee563",
+      "stage": "rollback-control",
+      "checks": {
+        "exactPairedRuntimeBuild": true,
+        "originalAccountLogin": true,
+        "emptyAllowlist": true,
+        "gatewayStillPaused": true,
+        "originalExecutionTokenExists": true,
+        "signedPausedDenial": true,
+        "allAuditSignaturesValid": true,
+        "auditSecretCanariesAbsent": true,
+        "priorPolicyAndAuditPreserved": true
+      },
+      "auditCount": 12,
+      "auditSha256": "098ee79763a61eb113a1f95e5c92ea9bdf015e194cce290696e8a485cb03f564"
+    },
+    {
+      "name": "supabase-injected-both-checkpoint-4d309b22c842.json",
+      "sha256": "42845fb4f19b6bb8da1714e4d3d992192b40d4171c5d4800bb88bdc8cc53853c",
+      "stage": "both",
+      "checks": {
+        "newControlActuallyServing": true,
+        "newGatewayActuallyServing": true,
+        "pausedEmptyAllowlistAtFailure": true,
+        "competingDeploymentDeniedDuringPartialUpdate": true
+      }
+    },
+    {
+      "name": "supabase-injected-both-4d309b22c842.json",
+      "sha256": "dd83ae3103d7f13af14a9f09c9253b683a1fbafe04a2410625d50e8c13aa5796",
+      "stage": "both",
+      "checks": {
+        "guardedAutomaticRollbackConfirmed": true,
+        "backupIntegrityPreserved": true,
+        "oldDatabaseBuildAndReleasedLease": true,
+        "independentOldRuntimeHandshake": true
+      }
+    },
+    {
+      "name": "supabase-rollback-both-4d309b22c842.json",
+      "sha256": "082782c5fd27327e2b0f74ba944e9b25628a60217a344b95102ac29e19ca63d3",
+      "stage": "rollback-both",
+      "checks": {
+        "exactPairedRuntimeBuild": true,
+        "originalAccountLogin": true,
+        "emptyAllowlist": true,
+        "gatewayStillPaused": true,
+        "originalExecutionTokenExists": true,
+        "signedPausedDenial": true,
+        "allAuditSignaturesValid": true,
+        "auditSecretCanariesAbsent": true,
+        "priorPolicyAndAuditPreserved": true
+      },
+      "auditCount": 15,
+      "auditSha256": "13ada35ffca64965b72cf03971e009ab39b353122570d8c3769c45f4e9b215e5"
+    },
+    {
+      "name": "supabase-final-4d309b22c842.json",
+      "sha256": "d9f0baa87b9363cb083e080d1c2d981dcfa19890b704310e75e146601085165d",
+      "stage": "final",
+      "checks": {
+        "exactPairedRuntimeBuild": true,
+        "originalAccountLogin": true,
+        "emptyAllowlist": true,
+        "gatewayStillPaused": true,
+        "originalExecutionTokenExists": true,
+        "signedPausedDenial": true,
+        "allAuditSignaturesValid": true,
+        "auditSecretCanariesAbsent": true,
+        "priorPolicyAndAuditPreserved": true
+      },
+      "auditCount": 18,
+      "auditSha256": "82e109a0c79f2ef9208174cf6869a2d384b083b25a33ebe6f58f96992e3e894c"
+    }
+  ],
+  "deployments": [
+    {
+      "name": "install.json",
+      "sha256": "f7f20d2ed5f653b619cbfd76021e86f31a87c600d9bc2be371fd7ec6f280c215",
+      "status": "verified",
+      "phase": "complete",
+      "expectedCurrentBuild": "none",
+      "desiredBuildId": "0.1.0+supabase.gd82e1ea83f32",
+      "backupSha256": "bbcc1b5547367098863cd8f48a75e8e15fe0c7e1d22f26aac22cb59d8efa3847",
+      "rpcCount": 0,
+      "restoreVerified": false,
+      "rollback": null
+    },
+    {
+      "name": "injected-control.json",
+      "sha256": "7ac83dcd97bc07debc4c18d0faf7f2a938c95bc4445b95589ecbf14b5aebc0ea",
+      "status": "failed",
+      "phase": "control",
+      "expectedCurrentBuild": "0.1.0+supabase.gd82e1ea83f32",
+      "desiredBuildId": "0.1.0+supabase.gad449d6ec012",
+      "backupSha256": "bf2b57619f4f198fc08234a8cf63a003cbd1b20c2d487cd8e1f2718dbe12dbe8",
+      "rpcCount": 39,
+      "restoreVerified": false,
+      "rollback": {
+        "functionRollbackAttempted": true,
+        "functionRollbackSucceeded": true,
+        "recoveredBuildId": "0.1.0+supabase.gd82e1ea83f32",
+        "gatewayPauseVerified": true,
+        "failureLeaseReleased": true
+      }
+    },
+    {
+      "name": "injected-both.json",
+      "sha256": "d29d2e499bf6956219c828179e01f42d8523abfa76821acce1e6894c96aa6cd3",
+      "status": "failed",
+      "phase": "gateway",
+      "expectedCurrentBuild": "0.1.0+supabase.gd82e1ea83f32",
+      "desiredBuildId": "0.1.0+supabase.gad449d6ec012",
+      "backupSha256": "09f21854ef305c785233704fd5724b75cddd5bf53d3fc8e4487d0286db7bc7df",
+      "rpcCount": 39,
+      "restoreVerified": false,
+      "rollback": {
+        "functionRollbackAttempted": true,
+        "functionRollbackSucceeded": true,
+        "recoveredBuildId": "0.1.0+supabase.gd82e1ea83f32",
+        "gatewayPauseVerified": true,
+        "failureLeaseReleased": true
+      }
+    },
+    {
+      "name": "updated.json",
+      "sha256": "61604a026394a204d78d2d8817fa57d5a210dc4de58ad30c6bd9c2be909150a8",
+      "status": "verified",
+      "phase": "complete",
+      "expectedCurrentBuild": "0.1.0+supabase.gd82e1ea83f32",
+      "desiredBuildId": "0.1.0+supabase.gad449d6ec012",
+      "backupSha256": "6c05cec74b3d336a6309f015edeae4c76590e35d2c28b00a504c55a7e64fbe65",
+      "rpcCount": 39,
+      "restoreVerified": false,
+      "rollback": null
+    }
+  ],
+  "local": {
+    "scriptTests": 66,
+    "checkLogSha256": "4a3be9f464a42a54de8096ab3fcbce2434b29899dd48d0452cf2ab9e459ae9f1",
+    "canaryFilesChecked": 22
+  },
+  "ci": {
+    "commit": "ad449d6ec0124cd8257d371eaf0b0f0a003099db",
+    "push": 34752734222,
+    "pullRequest": 34752735288,
+    "codeql": [34752734206, 34752735286],
+    "conclusion": "success"
+  },
+  "boundaries": {
+    "databaseRestored": false,
+    "schemaChangeExercised": false,
+    "upstreamTrafficSent": false,
+    "cloudflareResourcesCreated": 0,
+    "mediaCenterRestored": false,
+    "merge": false,
+    "release": false
+  },
+  "cleanup": {
+    "supabaseProjectDeleted": true,
+    "supabaseProjectAbsenceVerified": true,
+    "mediaCenterStatus": "INACTIVE",
+    "existingBusinessProjectStatus": "ACTIVE_HEALTHY",
+    "cloudflareResourcesCreated": 0,
+    "localPrivateMaterialRemoved": false,
+    "localPrivateFileCount": 37,
+    "localCleanupBlockedByExecutionPolicy": true,
+    "globalCliCredentialsPreserved": true,
+    "previousRunLongPathResidueTouched": false
+  }
+}

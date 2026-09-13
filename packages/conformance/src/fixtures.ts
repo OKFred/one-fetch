@@ -96,6 +96,26 @@ export const HTTP_CONFORMANCE_FIXTURES: readonly HttpConformanceFixture[] =
       },
     },
     {
+      id: "query-space-and-plus-spelling",
+      description:
+        "Encoded spaces, literal plus and encoded plus retain their original query spelling and order",
+      tier: "smoke",
+      request: {
+        targetPath:
+          "/v1/echo?space=hello%20world&space=hello+world&plus=%2b&plus=%2B",
+        method: "GET",
+        fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
+      },
+      expected: {
+        status: 200,
+        source: "target",
+        bodyIncludes: [
+          '"path":"/v1/echo"',
+          '"rawQuery":"space=hello%20world&space=hello+world&plus=%2b&plus=%2B"',
+        ],
+      },
+    },
+    {
       id: "json-request-body",
       description: "JSON content type and bytes reach the target",
       tier: "smoke",

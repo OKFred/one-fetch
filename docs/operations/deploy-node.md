@@ -57,6 +57,23 @@ integrity-checks a live SQLite backup, retains the previous artifact, switches
 the pointer, and writes a restricted deployment journal. It never restores a
 database automatically.
 
+All mutating commands (`apply`, `verify --resume`, `rollback`) acquire the same
+private `.deployment-lock.json` in the canonical installation root. Only one
+updated helper can mutate that root at a time; expected-version checks run after
+acquisition, and pointer/lock ownership is rechecked before activation or traffic
+changes. This is a **cooperative single-host operation lock on local disk**, not
+a distributed lease. Do not use a network filesystem, mix older helpers that
+ignore the lock, or use different roots to manage the same service/database.
+
+Updates verify the existing database's full ledger and running Control identity
+before sending a pause request. The authenticated configuration must still match
+the verified instance/pair/revision; a stale ETag fails rather than accepting a
+new revision silently. Backups must match the confirmed paused identity. New
+archives cannot remove/rewrite applied migrations. Rollback validates both the
+active runtime and retained build/SQL before pausing, and requires exactly the
+same database schema. Failed candidates/backups are retained for diagnosis;
+an error is never an automatic database restore or permission to resume traffic.
+
 ```sh
 node one-fetch-node-deploy-0.1.0.mjs \
   --mode apply \
@@ -75,6 +92,42 @@ Restart the service, then run `--mode verify` with the Control URL. Add
 artifact cannot read the current schema; restore the recorded backup into a new
 database path and verify it separately instead.
 
+Verification requires an existing SQLite database, a complete contiguous ledger
+matching every packaged migration digest, and unchanged migration SQL files.
+Before optional resume it compares Control's protocol, provider, build version,
+instance ID, Control/Gateway pair ID and configuration version to the selected
+local database. Missing/corrupt/mismatched state fails without a resume request.
+Without a Control URL, the result is `offline-verified` with
+`runtimeVerified: false`, never a successful running-service check. Control
+requests reject redirects and have a ten-second deadline.
+
+These identity checks are not proof of the process's physical database path: a
+copied database can retain the same instance/pair IDs. Confirm service-manager
+arguments, database path and listener ownership independently. The lock covers
+one helper operation, not the interval spanning a service restart and later
+resume. There is no distributed or full-lifecycle deployment lease. Verification
+still checks the Control listener, not an independent Gateway build handshake,
+and never authorizes automatic database restoration. A plan/check result is not
+an upgrade/restore rehearsal.
+
+### Interrupted-operation recovery
+
+Normal completion and handled failure release only the matching owner lock.
+Process termination, incomplete lock initialization or lost ownership leaves
+the lock in place and blocks later mutations. It has **no TTL, stale-PID
+takeover or force-unlock flag**. A PID or old timestamp alone is not proof that
+it is safe to take ownership.
+
+Stop all deployment jobs/helpers and disable their automatic restarts first.
+Confirm the exact installation root, service/database ownership, active pointer,
+candidate versions, backup digests and journal. Keep Gateway paused if the
+interrupted operation might have changed it. An administrator may then preserve
+the exact orphan lock as incident evidence and remove only that confirmed lock.
+Do not delete backups, candidates or the whole root to bypass the guard. Re-run
+verification and review the next plan before explicitly authorizing traffic.
+If the operation failed before the normal journal was written, inspect the
+retained files independently; journal absence is not proof that no work happened.
+
 ## Start and bootstrap
 
 ```bash
@@ -92,6 +145,9 @@ permissions, refuses to overwrite it, and logs only its path. If the variable
 is omitted, the token is printed for an attended interactive bootstrap.
 
 ## Acceptance
+
+For downloaded CI/release artifacts, use the
+[archive and OCI acceptance runner](node-artifact-acceptance.md) before deploying.
 
 Verify both externally and from the service network:
 

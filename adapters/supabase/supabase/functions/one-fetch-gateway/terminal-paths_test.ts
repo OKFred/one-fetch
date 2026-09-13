@@ -51,10 +51,18 @@ function metadata(
     transport: "http",
     targetOrigin: "https://api.example",
     targetHeaders: [],
-    fetchOptions: { redirect: "manual", timeoutMs: 60_000 },
     body: { sizeBytes: 0 },
     hop: 0,
     ...overrides,
+    fetchOptions: {
+      redirect: "manual",
+      timeoutMs: 60_000,
+      ...overrides.fetchOptions,
+      adapter: {
+        ...overrides.fetchOptions?.adapter,
+        supabaseOriginalPathV1: "/terminal",
+      },
+    },
   };
 }
 

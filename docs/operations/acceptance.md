@@ -69,6 +69,15 @@ URL-encoded, multipart and binary bodies, target error classification,
 redirects, repeated `Set-Cookie`, target `Server-Timing`, and streaming. Add
 `--full` for 20 MiB boundaries, timeout, cancellation, and truncation checks.
 
+Add `--watch-reports --full` to explicitly enable the
+[bounded execution report watcher](../client-execution-reports.md) against the
+provided trusted `--control-url`. This also requires incomplete responses to
+finish within ten seconds, including terminal-report retrieval. A partial
+report after a long client timeout does not pass this stronger gate. Retain
+separate baseline reports without the flag; do not overwrite historical results.
+Incomplete reports must match the signed response's report ID, request ID and
+status in either mode.
+
 The output is strict `AcceptanceReportV1`. It contains adapter/build/config
 identity, a capabilities digest, bounded case observations, and cleanup state.
 It contains no request or response body, Header value, credential, or token.
@@ -98,3 +107,19 @@ resource identifiers.
 
 See the [2026-09-12 Cloudflare revalidation note](acceptance-2026-09-12.md)
 for the tested commit, explicit platform skip and cleanup evidence boundary.
+
+The [2026-09-13 Supabase report-aware run](supabase-report-watch-2026-09-13.md)
+records exact `320b91e` hosted results, CI client-byte identity, established-body
+limit/timeout/Stop probes and independently verified cleanup. Its opt-in
+workaround acceptance does not cover provider stream reset, protected update,
+restoration or upstream disconnect latency.
+
+The [2026-09-13 Node installed-artifact recovery](node-installed-recovery-2026-09-13.md)
+records real CI first-install and isolated SQLite recovery on AMD64 and emulated
+ARM64, alongside a retained failed verification baseline. It does not certify
+different-version updates, deployment leases or final Release provenance.
+
+The [Node operation-lock follow-up](node-operation-lock-2026-09-13.md) adds real
+packaged lock rejection and explicit Control pause/resume to the AMD64/emulated
+ARM64 recovery runs. The local operation lock is not a full deployment lease;
+cross-version application upgrade remains a separate gate.

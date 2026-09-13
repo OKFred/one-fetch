@@ -8,3 +8,5 @@ pnpm-lock.yaml
 *.sarif
 adapters/cloudflare/src/generated
 adapters/supabase/**/deno.lock
+adapters/supabase/supabase/.temp
+adapters/supabase/supabase/.branches

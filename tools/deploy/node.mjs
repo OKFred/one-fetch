@@ -1,14 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   access,
   chmod,
   mkdir,
   mkdtemp,
+  open,
   readFile,
+  realpath,
   rename,
   rm,
   stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -133,6 +136,68 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+// Single-host cooperative lock, not an expiring distributed lease. An orphan
+// stays fail-closed until an operator has stopped all helpers and recovers it.
+export async function withNodeDeploymentLock(rootValue, operation, work) {
+  if (!["apply", "resume", "rollback"].includes(operation))
+    throw new Error("Invalid deployment lock operation");
+  const requestedRoot = safeDeploymentRoot(rootValue);
+  await mkdir(requestedRoot, { recursive: true, mode: 0o700 });
+  const root = safeDeploymentRoot(await realpath(requestedRoot));
+  const path = join(root, ".deployment-lock.json");
+  let handle;
+  try {
+    handle = await open(path, "wx", 0o600);
+  } catch {
+    throw new Error(
+      "Deployment is locked or its lock cannot be created; inspect it without deleting an active lock",
+    );
+  }
+  const owner = randomUUID();
+  const lock = {
+    schemaVersion: 1,
+    owner,
+    operation,
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+  };
+  let initialized = false;
+  const assertOwned = async () => {
+    const current = await readJson(path).catch(() => undefined);
+    if (current?.schemaVersion !== 1 || current.owner !== owner)
+      throw new Error(
+        "Deployment lock ownership was lost; stop and inspect state",
+      );
+  };
+  try {
+    await handle.writeFile(JSON.stringify(lock) + "\n");
+    await handle.sync();
+    initialized = true;
+    return await work({ root, assertOwned });
+  } finally {
+    await handle.close();
+    // Incomplete initialization or changed ownership is never auto-repaired.
+    if (initialized) {
+      await assertOwned();
+      await unlink(path);
+    }
+  }
+}
+
+async function pointerSnapshot(root) {
+  try {
+    return await readFile(join(root, "current.json"), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function assertPointerUnchanged(root, snapshot) {
+  if ((await pointerSnapshot(root)) !== snapshot)
+    throw new Error("Active deployment pointer changed during the operation");
+}
+
 async function readCurrent(root) {
   const path = join(root, "current.json");
   if (!(await exists(path))) return undefined;
@@ -141,7 +206,9 @@ async function readCurrent(root) {
     value?.schemaVersion !== 1 ||
     !VERSION_PATTERN.test(value.version) ||
     typeof value.directory !== "string" ||
-    !value.directory.startsWith("versions/") ||
+    value.directory !== `versions/${value.version}` ||
+    (value.previousVersion !== undefined &&
+      !VERSION_PATTERN.test(value.previousVersion)) ||
     !/^[a-f0-9]{64}$/u.test(value.archiveSha256)
   ) {
     throw new Error("Current deployment pointer is invalid");
@@ -215,6 +282,8 @@ async function controlRequest(controlUrl, token, path, init = {}) {
         ...(init.headers ?? {}),
       },
       cache: "no-store",
+      redirect: "error",
+      signal: globalThis.AbortSignal.timeout(10_000),
     },
   );
   if (!response.ok)
@@ -222,8 +291,119 @@ async function controlRequest(controlUrl, token, path, init = {}) {
   return response.json();
 }
 
-async function setGatewayPaused(controlUrl, token, paused) {
+async function inspectInstalledMigrations(directory, expectedVersion) {
+  const manifest = await readJson(join(directory, "migration-manifest.json"));
+  if (
+    manifest.schemaVersion !== 1 ||
+    manifest.hashAlgorithm !== "sha256" ||
+    manifest.migrationsDirectory !== "migrations" ||
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 1 ||
+    !Array.isArray(manifest.migrations) ||
+    manifest.migrations.length !== expectedVersion
+  )
+    throw new Error(
+      "Installed migration manifest does not match the build schema",
+    );
+  for (const [index, entry] of manifest.migrations.entries()) {
+    if (
+      entry.version !== index + 1 ||
+      !new RegExp(
+        `^${String(index + 1).padStart(4, "0")}_[a-z0-9_]+\\.sql$`,
+        "u",
+      ).test(entry.file) ||
+      !Number.isInteger(entry.bytes) ||
+      entry.bytes < 1 ||
+      !/^[a-f0-9]{64}$/u.test(entry.artifactSha256)
+    )
+      throw new Error("Installed migration manifest entry is invalid");
+    const sql = await readFile(join(directory, "migrations", entry.file));
+    if (
+      sql.length !== entry.bytes ||
+      createHash("sha256").update(sql).digest("hex") !== entry.artifactSha256
+    )
+      throw new Error("Installed migration SQL integrity check failed");
+  }
+  return manifest;
+}
+
+async function inspectInstalledDatabase(path, directory, expectedVersion) {
+  if (!(await stat(path).catch(() => undefined))?.isFile())
+    throw new Error("An existing SQLite database is required for verification");
+  const manifest = await inspectInstalledMigrations(directory, expectedVersion);
+  const database = new DatabaseSync(path, { readOnly: true, timeout: 5_000 });
+  try {
+    database.exec("BEGIN");
+    if (
+      database.prepare("PRAGMA integrity_check").get()?.integrity_check !== "ok"
+    )
+      throw new Error("SQLite integrity_check failed");
+    const rows = database
+      .prepare(
+        "SELECT version, checksum FROM schema_migrations ORDER BY version",
+      )
+      .all();
+    if (
+      rows.length !== expectedVersion ||
+      rows.some(
+        (row, index) =>
+          row.version !== index + 1 ||
+          row.checksum !== manifest.migrations[index].artifactSha256,
+      )
+    )
+      throw new Error(
+        "Applied migration ledger does not match the installed build",
+      );
+    let identity;
+    try {
+      identity = JSON.parse(
+        database
+          .prepare("SELECT value_json FROM instance_config WHERE key = ?")
+          .get("configuration")?.value_json,
+      );
+    } catch {
+      throw new Error("Stored instance identity is invalid");
+    }
+    if (
+      [
+        identity?.instanceId,
+        identity?.controlGatewayPairId,
+        identity?.version,
+      ].some(
+        (value) =>
+          typeof value !== "string" || value.length === 0 || value.length > 256,
+      )
+    )
+      throw new Error("Stored instance identity is incomplete");
+    return {
+      schemaVersion: rows.length,
+      instanceId: identity.instanceId,
+      controlGatewayPairId: identity.controlGatewayPairId,
+      configVersion: identity.version,
+    };
+  } finally {
+    database.close();
+  }
+}
+
+async function setGatewayPaused(
+  controlUrl,
+  token,
+  paused,
+  identity,
+  beforeWrite,
+) {
   const current = await controlRequest(controlUrl, token, "/api/v1/config");
+  if (
+    current.instanceId !== identity.instanceId ||
+    current.controlGatewayPairId !== identity.controlGatewayPairId ||
+    current.version !== identity.configVersion
+  )
+    throw new Error(
+      "Control configuration changed or does not match the verified database",
+    );
+  if (current.gatewayPaused === paused) return current;
+  await beforeWrite();
   const updated = await controlRequest(
     controlUrl,
     token,
@@ -242,27 +422,13 @@ async function setGatewayPaused(controlUrl, token, paused) {
   return updated;
 }
 
-function checkDatabase(path) {
-  const database = new DatabaseSync(path, { readOnly: true });
-  try {
-    const integrity = database.prepare("PRAGMA integrity_check").get();
-    if (integrity?.integrity_check !== "ok")
-      throw new Error("SQLite integrity_check failed");
-    const migration = database
-      .prepare(
-        "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations",
-      )
-      .get();
-    if (!Number.isInteger(migration?.version))
-      throw new Error("SQLite migration ledger is invalid");
-    return migration.version;
-  } finally {
-    database.close();
-  }
-}
-
-async function backupDatabase(sourcePath, destinationPath) {
-  checkDatabase(sourcePath);
+async function backupDatabase(
+  sourcePath,
+  destinationPath,
+  directory,
+  expectedVersion,
+) {
+  await inspectInstalledDatabase(sourcePath, directory, expectedVersion);
   await mkdir(dirname(destinationPath), { recursive: true });
   const source = new DatabaseSync(sourcePath, { readOnly: true });
   try {
@@ -270,8 +436,12 @@ async function backupDatabase(sourcePath, destinationPath) {
   } finally {
     source.close();
   }
-  checkDatabase(destinationPath);
-  return digestFile(destinationPath);
+  const identity = await inspectInstalledDatabase(
+    destinationPath,
+    directory,
+    expectedVersion,
+  );
+  return { sha256: await digestFile(destinationPath), identity };
 }
 
 async function extractVersion(plan) {
@@ -298,16 +468,38 @@ async function tokenFromFile(path) {
 }
 
 export async function applyNodeDeployment(options) {
+  return withNodeDeploymentLock(options.root, "apply", (lock) =>
+    applyNodeDeploymentLocked({ ...options, root: lock.root }, lock),
+  );
+}
+
+async function applyNodeDeploymentLocked(options, lock) {
+  const snapshot = await pointerSnapshot(options.root);
+  const beforeWrite = async () => {
+    await lock.assertOwned();
+    await assertPointerUnchanged(options.root, snapshot);
+  };
   const plan = await createNodeDeploymentPlan(options);
   let pause;
   let token;
+  let verified;
   if (plan.requiresGatewayPause) {
     if (!options.controlUrl || !options.adminTokenFile)
       throw new Error(
         "Updates require Control URL and administrator token file",
       );
+    verified = await verifyNodeDeploymentUnlocked({
+      ...options,
+      resume: false,
+    });
     token = await tokenFromFile(options.adminTokenFile);
-    pause = await setGatewayPaused(options.controlUrl, token, true);
+    pause = await setGatewayPaused(
+      options.controlUrl,
+      token,
+      true,
+      verified.identity,
+      beforeWrite,
+    );
   }
   const activatedAt = new Date().toISOString();
   let backupRecord;
@@ -321,13 +513,47 @@ export async function applyNodeDeployment(options) {
       activatedAt.replaceAll(":", "-"),
       basename(database),
     );
+    const backedUp = await backupDatabase(
+      database,
+      backupPath,
+      join(plan.root, "versions", plan.previousVersion),
+      verified.databaseSchemaVersion,
+    );
+    if (
+      backedUp.identity.instanceId !== verified.identity.instanceId ||
+      backedUp.identity.controlGatewayPairId !==
+        verified.identity.controlGatewayPairId ||
+      backedUp.identity.configVersion !== pause.version
+    )
+      throw new Error(
+        "Backup identity does not match the confirmed paused instance",
+      );
     backupRecord = {
       path: relative(plan.root, backupPath).replaceAll("\\", "/"),
-      sha256: await backupDatabase(database, backupPath),
-      schemaVersion: checkDatabase(backupPath),
+      sha256: backedUp.sha256,
+      schemaVersion: backedUp.identity.schemaVersion,
     };
   }
+  await beforeWrite();
   await extractVersion(plan);
+  const migrations = await inspectInstalledMigrations(
+    plan.destination,
+    plan.databaseSchemaVersion,
+  );
+  if (verified) {
+    const previous = await inspectInstalledMigrations(
+      join(plan.root, "versions", plan.previousVersion),
+      verified.databaseSchemaVersion,
+    );
+    if (
+      migrations.migrations.length < previous.migrations.length ||
+      previous.migrations.some(
+        (entry, index) =>
+          entry.artifactSha256 !== migrations.migrations[index]?.artifactSha256,
+      )
+    )
+      throw new Error("Update would remove or rewrite an applied migration");
+  }
   const pointer = {
     schemaVersion: 1,
     version: plan.version,
@@ -339,6 +565,7 @@ export async function applyNodeDeployment(options) {
       ? { previousArchiveSha256: plan.previousArchiveSha256 }
       : {}),
   };
+  await beforeWrite();
   await writeJsonAtomic(join(plan.root, "current.json"), pointer);
   const journal = {
     schemaVersion: 1,
@@ -363,25 +590,46 @@ export async function applyNodeDeployment(options) {
 }
 
 export async function verifyNodeDeployment(options) {
+  if (options.resume === true)
+    return withNodeDeploymentLock(options.root, "resume", (lock) =>
+      verifyNodeDeploymentUnlocked({ ...options, root: lock.root }, lock),
+    );
+  return verifyNodeDeploymentUnlocked(options);
+}
+
+async function verifyNodeDeploymentUnlocked(options, lock) {
   const root = safeDeploymentRoot(options.root);
+  const snapshot = await pointerSnapshot(root);
+  const beforeWrite = async () => {
+    await lock?.assertOwned();
+    await assertPointerUnchanged(root, snapshot);
+  };
   const current = await readCurrent(root);
   if (!current) throw new Error("No active Node deployment exists");
   const directory = resolveCurrentDirectory(root, current);
   const metadata = await readJson(join(directory, "BUILD-METADATA.json"));
-  if (metadata.version !== current.version)
+  if (
+    metadata.schemaVersion !== 1 ||
+    metadata.entrypoint !== "dist/cli.js" ||
+    metadata.version !== current.version
+  )
     throw new Error("Active build metadata does not match current pointer");
   const database = resolve(
     options.database ?? join(root, "data", "one-fetch.sqlite"),
   );
-  const databaseSchemaVersion = (await exists(database))
-    ? checkDatabase(database)
-    : 0;
+  const identity = await inspectInstalledDatabase(
+    database,
+    directory,
+    metadata.databaseSchemaVersion,
+  );
   let capabilities;
   if (options.controlUrl) {
     const response = await globalThis.fetch(
       new globalThis.URL("/api/v1/capabilities", options.controlUrl),
       {
         cache: "no-store",
+        redirect: "error",
+        signal: globalThis.AbortSignal.timeout(10_000),
       },
     );
     if (!response.ok)
@@ -389,6 +637,16 @@ export async function verifyNodeDeployment(options) {
     capabilities = await response.json();
     if (capabilities.buildVersion !== current.version)
       throw new Error("Running Control build does not match current pointer");
+    if (
+      capabilities.protocolVersion !== 1 ||
+      capabilities.provider !== "node" ||
+      capabilities.instanceId !== identity.instanceId ||
+      capabilities.controlGatewayPairId !== identity.controlGatewayPairId ||
+      capabilities.configVersion !== identity.configVersion
+    )
+      throw new Error(
+        "Running Control identity does not match the selected database",
+      );
   }
   if (options.resume === true) {
     if (!options.controlUrl || !options.adminTokenFile)
@@ -399,20 +657,36 @@ export async function verifyNodeDeployment(options) {
       options.controlUrl,
       await tokenFromFile(options.adminTokenFile),
       false,
+      identity,
+      beforeWrite,
     );
   }
+  await beforeWrite();
   return {
     schemaVersion: 1,
-    state: "verified",
+    state: capabilities ? "verified" : "offline-verified",
     version: current.version,
-    databaseSchemaVersion,
+    databaseSchemaVersion: identity.schemaVersion,
+    runtimeVerified: Boolean(capabilities),
     runningBuildVersion: capabilities?.buildVersion,
     gatewayResumed: options.resume === true,
+    identity,
   };
 }
 
 export async function rollbackNodeDeployment(options) {
+  return withNodeDeploymentLock(options.root, "rollback", (lock) =>
+    rollbackNodeDeploymentLocked({ ...options, root: lock.root }, lock),
+  );
+}
+
+async function rollbackNodeDeploymentLocked(options, lock) {
   const root = safeDeploymentRoot(options.root);
+  const snapshot = await pointerSnapshot(root);
+  const beforeWrite = async () => {
+    await lock.assertOwned();
+    await assertPointerUnchanged(root, snapshot);
+  };
   const current = await readCurrent(root);
   if (!current || current.version !== options.expectedVersion)
     throw new Error("Rollback expected version does not match current pointer");
@@ -422,21 +696,44 @@ export async function rollbackNodeDeployment(options) {
     throw new Error("Previous archive digest is not recorded");
   if (!options.controlUrl || !options.adminTokenFile)
     throw new Error("Rollback requires paused Control verification");
-  const token = await tokenFromFile(options.adminTokenFile);
-  await setGatewayPaused(options.controlUrl, token, true);
+  const verified = await verifyNodeDeploymentUnlocked({
+    ...options,
+    resume: false,
+  });
   const previousDirectory = join(root, "versions", current.previousVersion);
   const previous = await readJson(
     join(previousDirectory, "BUILD-METADATA.json"),
   );
+  if (
+    previous.schemaVersion !== 1 ||
+    previous.version !== current.previousVersion ||
+    previous.entrypoint !== "dist/cli.js"
+  )
+    throw new Error(
+      "Previous build metadata does not match the rollback pointer",
+    );
   const database = resolve(
     options.database ?? join(root, "data", "one-fetch.sqlite"),
   );
-  const databaseSchemaVersion = checkDatabase(database);
-  if (databaseSchemaVersion > previous.databaseSchemaVersion) {
+  if (verified.databaseSchemaVersion !== previous.databaseSchemaVersion) {
     throw new Error(
       "Previous code cannot use the migrated database; restore an isolated backup explicitly",
     );
   }
+  await inspectInstalledDatabase(
+    database,
+    previousDirectory,
+    previous.databaseSchemaVersion,
+  );
+  const token = await tokenFromFile(options.adminTokenFile);
+  await setGatewayPaused(
+    options.controlUrl,
+    token,
+    true,
+    verified.identity,
+    beforeWrite,
+  );
+  await beforeWrite();
   await writeJsonAtomic(join(root, "current.json"), {
     schemaVersion: 1,
     version: current.previousVersion,
@@ -444,6 +741,7 @@ export async function rollbackNodeDeployment(options) {
     archiveSha256: current.previousArchiveSha256,
     activatedAt: new Date().toISOString(),
     previousVersion: current.version,
+    previousArchiveSha256: current.archiveSha256,
   });
   return {
     schemaVersion: 1,

@@ -20,6 +20,10 @@ function parseArguments(values) {
   for (let index = 0; index < values.length; index += 1) {
     const name = values[index];
     const value = values[index + 1];
+    if (name === "--watch-reports") {
+      options.watchReports = true;
+      continue;
+    }
     if (name === "--full") {
       options.suite = "full";
       continue;
@@ -88,6 +92,9 @@ const gateway = new OneFetchGatewayClient({
   token,
   capabilities: capabilities.fetchOptions,
   client: { name: "one-fetch-conformance", version: "0.1.0" },
+  ...(options.watchReports
+    ? { executionReports: { controlUrl: options.controlUrl } }
+    : {}),
 });
 const fixtures =
   options.suite === "full"
@@ -98,8 +105,11 @@ const suite = await runGatewayConformance(
   options.targetUrl,
   fixtures,
   {
+    ...(options.watchReports ? { maximumIncompleteDurationMs: 10_000 } : {}),
     getExecutionReport: (reportId) =>
-      control.getExecutionReport(reportId, token),
+      control.getExecutionReport(reportId, token, {
+        signal: globalThis.AbortSignal.timeout(2_000),
+      }),
     skipFixtures:
       options.targetProfile === "cloudflare-worker"
         ? {
