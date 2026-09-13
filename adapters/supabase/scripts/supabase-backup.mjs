@@ -6,7 +6,11 @@ import {
   writeEmptyBaselinePart,
 } from "./supabase-empty-baseline.mjs";
 import { captureRpcBackup } from "./supabase-rpc-backup.mjs";
-import { backupDigest, backupManifest } from "./backup-integrity.mjs";
+import {
+  backupDigest,
+  backupManifest,
+  verifyBackupIntegrity,
+} from "./backup-integrity.mjs";
 
 const BACKUP_SCHEMAS = "one_fetch,supabase_migrations";
 
@@ -120,11 +124,13 @@ export async function createLogicalBackup({
     rpc: { bytes: rpc.bytes, sha256: rpc.sha256, count: rpc.count },
     ...(emptyBaseline ? { emptyBaseline } : {}),
   });
-  return {
+  const backup = {
     ...manifest,
     schema,
     data,
     rpc,
     sha256: backupDigest(manifest),
   };
+  await verifyBackupIntegrity(backup, recorder.path);
+  return backup;
 }
