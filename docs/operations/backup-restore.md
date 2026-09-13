@@ -106,6 +106,39 @@ inventory accepts that exact recovery layout and the normal
 also verify that a subsequent protected update succeeds. See the separate
 [hosted update/restore/re-update evidence](supabase-hosted-update-restore-2026-09-13.md).
 
+### Automatic Function rollback is not database restoration
+
+The guarded updater records a Function **attempt before invoking the CLI**.
+A failed command can still have changed the remote Function. If an update fails
+after any attempt, it checks the captured recovery tree digest before deploying
+either old bundle. The digest frames filenames and byte lengths; changed files,
+symbolic links and an unsupported recovery root stop automatic recovery.
+
+The deployment CAS lease stays held during recovery and is renewed before each
+Function write. An expired/lost lease prevents those writes. Success requires the
+old Control/Gateway build handshake and a confirmed paused Gateway; CLI exit zero
+alone is not sufficient. First-install cleanup instead confirms that both owned
+Functions are absent. Failure handling attempts to release its own lease only
+after recovery settles, and records `failureLeaseReleased: false` if release
+cannot be confirmed. It must not be interpreted as a successful release.
+
+Inspect the deployment state after failure:
+
+- `attemptedFunctions` includes commands with uncertain remote outcomes;
+  `deployedFunctions` includes only commands that returned successfully.
+- `rollback.functionRollbackSucceeded` means the scoped code/absence checks
+  passed, **not** that the deployment succeeded or the database was restored.
+- `rollback.recoveredBuildId` and `gatewayPauseVerified` describe an update's
+  verified old runtime. If recovery or lease release is unconfirmed, keep traffic
+  paused, inspect provider state and resolve ownership before retrying.
+
+Do not change instance pepper/audit keys as part of this code rollback workflow.
+It does not recover previous provider secrets or reverse forward migrations.
+Confirm the old bundle can run against the resulting schema; incompatible
+migration recovery requires a separately authorized isolated database restore.
+After a verified rollback, rerun the normal protected updater with the actual
+old build as `--expected-current-build`; there is no bypass or automatic resume.
+
 Run the repeatable local regression (Docker required, no hosted credentials):
 
 ```sh
