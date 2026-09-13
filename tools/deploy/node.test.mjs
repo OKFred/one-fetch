@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -25,10 +26,35 @@ import {
   verifyNodeDeployment,
 } from "./node.mjs";
 
+const fixtureSql = "-- synthetic deployment migration\n";
+const fixtureChecksum = createHash("sha256").update(fixtureSql).digest("hex");
+const fixtureIdentity = {
+  instanceId: "deployment-test",
+  controlGatewayPairId: "deployment-pair",
+};
+
 async function archiveFixture(parent, version, databaseSchemaVersion = 1) {
   const source = join(parent, `source-${version}`);
   const root = join(source, "one-fetch");
   await mkdir(join(root, "dist"), { recursive: true });
+  await mkdir(join(root, "migrations"));
+  await writeFile(join(root, "migrations", "0001_fixture.sql"), fixtureSql);
+  await writeFile(
+    join(root, "migration-manifest.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      hashAlgorithm: "sha256",
+      migrationsDirectory: "migrations",
+      migrations: [
+        {
+          version: 1,
+          file: "0001_fixture.sql",
+          bytes: Buffer.byteLength(fixtureSql),
+          artifactSha256: fixtureChecksum,
+        },
+      ],
+    }),
+  );
   await writeFile(
     join(root, "BUILD-METADATA.json"),
     `${JSON.stringify({
@@ -57,7 +83,20 @@ function initializeDatabase(path) {
       .prepare(
         "INSERT INTO schema_migrations(version, checksum, applied_at) VALUES (1, ?, ?)",
       )
-      .run("a".repeat(64), new Date().toISOString());
+      .run(fixtureChecksum, new Date().toISOString());
+    database.exec(
+      "CREATE TABLE instance_config(key TEXT PRIMARY KEY, value_json TEXT NOT NULL) STRICT",
+    );
+    database
+      .prepare("INSERT INTO instance_config VALUES (?, ?)")
+      .run(
+        "configuration",
+        JSON.stringify({
+          ...fixtureIdentity,
+          version: "config-1",
+          gatewayPaused: false,
+        }),
+      );
   } finally {
     database.close();
   }
@@ -67,12 +106,21 @@ async function fakeControl() {
   let paused = false;
   let revision = 1;
   let buildVersion = "0.1.0";
+  let onConfiguration = () => {};
   const token = "admin-test-token-that-is-long-enough";
   const server = createServer(async (request, response) => {
     const url = new globalThis.URL(request.url ?? "/", "http://127.0.0.1");
     if (url.pathname === "/api/v1/capabilities") {
       response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ buildVersion }));
+      response.end(
+        JSON.stringify({
+          buildVersion,
+          protocolVersion: 1,
+          provider: "node",
+          ...fixtureIdentity,
+          configVersion: `config-${revision}`,
+        }),
+      );
       return;
     }
     if (request.headers.authorization !== `Bearer ${token}`) {
@@ -99,6 +147,11 @@ async function fakeControl() {
         globalThis.Buffer.concat(chunks).toString("utf8"),
       ).paused;
       revision += 1;
+      onConfiguration({
+        ...fixtureIdentity,
+        version: `config-${revision}`,
+        gatewayPaused: paused,
+      });
       response.setHeader("Content-Type", "application/json");
       response.end(
         JSON.stringify({
@@ -118,6 +171,9 @@ async function fakeControl() {
     token,
     setBuildVersion(value) {
       buildVersion = value;
+    },
+    observeConfiguration(callback) {
+      onConfiguration = callback;
     },
     isPaused: () => paused,
     close: () => new Promise((resolve) => server.close(resolve)),
@@ -162,6 +218,16 @@ test("Node install, guarded update, verification, and binary rollback are execut
     const database = join(root, "data", "one-fetch.sqlite");
     await mkdir(join(root, "data"), { recursive: true });
     initializeDatabase(database);
+    control.observeConfiguration((value) => {
+      const connection = new DatabaseSync(database);
+      try {
+        connection
+          .prepare("UPDATE instance_config SET value_json = ? WHERE key = ?")
+          .run(JSON.stringify(value), "configuration");
+      } finally {
+        connection.close();
+      }
+    });
 
     const tokenFile = join(temporary, "admin-token");
     await writeFile(tokenFile, control.token, { mode: 0o600 });

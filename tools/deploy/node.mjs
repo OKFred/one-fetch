@@ -215,11 +215,103 @@ async function controlRequest(controlUrl, token, path, init = {}) {
         ...(init.headers ?? {}),
       },
       cache: "no-store",
+      redirect: "error",
+      signal: globalThis.AbortSignal.timeout(10_000),
     },
   );
   if (!response.ok)
     throw new Error(`Control ${path} failed with HTTP ${response.status}`);
   return response.json();
+}
+
+async function inspectInstalledDatabase(path, directory, expectedVersion) {
+  if (!(await stat(path).catch(() => undefined))?.isFile())
+    throw new Error("An existing SQLite database is required for verification");
+  const manifest = await readJson(join(directory, "migration-manifest.json"));
+  if (
+    manifest.schemaVersion !== 1 ||
+    manifest.hashAlgorithm !== "sha256" ||
+    manifest.migrationsDirectory !== "migrations" ||
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 1 ||
+    !Array.isArray(manifest.migrations) ||
+    manifest.migrations.length !== expectedVersion
+  )
+    throw new Error(
+      "Installed migration manifest does not match the build schema",
+    );
+  for (const [index, entry] of manifest.migrations.entries()) {
+    if (
+      entry.version !== index + 1 ||
+      !new RegExp(
+        `^${String(index + 1).padStart(4, "0")}_[a-z0-9_]+\\.sql$`,
+        "u",
+      ).test(entry.file) ||
+      !Number.isInteger(entry.bytes) ||
+      entry.bytes < 1 ||
+      !/^[a-f0-9]{64}$/u.test(entry.artifactSha256)
+    )
+      throw new Error("Installed migration manifest entry is invalid");
+    const sql = await readFile(join(directory, "migrations", entry.file));
+    if (
+      sql.length !== entry.bytes ||
+      createHash("sha256").update(sql).digest("hex") !== entry.artifactSha256
+    )
+      throw new Error("Installed migration SQL integrity check failed");
+  }
+  const database = new DatabaseSync(path, { readOnly: true, timeout: 5_000 });
+  try {
+    database.exec("BEGIN");
+    if (
+      database.prepare("PRAGMA integrity_check").get()?.integrity_check !== "ok"
+    )
+      throw new Error("SQLite integrity_check failed");
+    const rows = database
+      .prepare(
+        "SELECT version, checksum FROM schema_migrations ORDER BY version",
+      )
+      .all();
+    if (
+      rows.length !== expectedVersion ||
+      rows.some(
+        (row, index) =>
+          row.version !== index + 1 ||
+          row.checksum !== manifest.migrations[index].artifactSha256,
+      )
+    )
+      throw new Error(
+        "Applied migration ledger does not match the installed build",
+      );
+    let identity;
+    try {
+      identity = JSON.parse(
+        database
+          .prepare("SELECT value_json FROM instance_config WHERE key = ?")
+          .get("configuration")?.value_json,
+      );
+    } catch {
+      throw new Error("Stored instance identity is invalid");
+    }
+    if (
+      [
+        identity?.instanceId,
+        identity?.controlGatewayPairId,
+        identity?.version,
+      ].some(
+        (value) =>
+          typeof value !== "string" || value.length === 0 || value.length > 256,
+      )
+    )
+      throw new Error("Stored instance identity is incomplete");
+    return {
+      schemaVersion: rows.length,
+      instanceId: identity.instanceId,
+      controlGatewayPairId: identity.controlGatewayPairId,
+      configVersion: identity.version,
+    };
+  } finally {
+    database.close();
+  }
 }
 
 async function setGatewayPaused(controlUrl, token, paused) {
@@ -368,20 +460,28 @@ export async function verifyNodeDeployment(options) {
   if (!current) throw new Error("No active Node deployment exists");
   const directory = resolveCurrentDirectory(root, current);
   const metadata = await readJson(join(directory, "BUILD-METADATA.json"));
-  if (metadata.version !== current.version)
+  if (
+    metadata.schemaVersion !== 1 ||
+    metadata.entrypoint !== "dist/cli.js" ||
+    metadata.version !== current.version
+  )
     throw new Error("Active build metadata does not match current pointer");
   const database = resolve(
     options.database ?? join(root, "data", "one-fetch.sqlite"),
   );
-  const databaseSchemaVersion = (await exists(database))
-    ? checkDatabase(database)
-    : 0;
+  const identity = await inspectInstalledDatabase(
+    database,
+    directory,
+    metadata.databaseSchemaVersion,
+  );
   let capabilities;
   if (options.controlUrl) {
     const response = await globalThis.fetch(
       new globalThis.URL("/api/v1/capabilities", options.controlUrl),
       {
         cache: "no-store",
+        redirect: "error",
+        signal: globalThis.AbortSignal.timeout(10_000),
       },
     );
     if (!response.ok)
@@ -389,6 +489,16 @@ export async function verifyNodeDeployment(options) {
     capabilities = await response.json();
     if (capabilities.buildVersion !== current.version)
       throw new Error("Running Control build does not match current pointer");
+    if (
+      capabilities.protocolVersion !== 1 ||
+      capabilities.provider !== "node" ||
+      capabilities.instanceId !== identity.instanceId ||
+      capabilities.controlGatewayPairId !== identity.controlGatewayPairId ||
+      capabilities.configVersion !== identity.configVersion
+    )
+      throw new Error(
+        "Running Control identity does not match the selected database",
+      );
   }
   if (options.resume === true) {
     if (!options.controlUrl || !options.adminTokenFile)
@@ -403,9 +513,10 @@ export async function verifyNodeDeployment(options) {
   }
   return {
     schemaVersion: 1,
-    state: "verified",
+    state: capabilities ? "verified" : "offline-verified",
     version: current.version,
-    databaseSchemaVersion,
+    databaseSchemaVersion: identity.schemaVersion,
+    runtimeVerified: Boolean(capabilities),
     runningBuildVersion: capabilities?.buildVersion,
     gatewayResumed: options.resume === true,
   };

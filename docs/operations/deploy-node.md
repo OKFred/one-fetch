@@ -75,6 +75,22 @@ Restart the service, then run `--mode verify` with the Control URL. Add
 artifact cannot read the current schema; restore the recorded backup into a new
 database path and verify it separately instead.
 
+Verification requires an existing SQLite database, a complete contiguous ledger
+matching every packaged migration digest, and unchanged migration SQL files.
+Before optional resume it compares Control's protocol, provider, build version,
+instance ID, Control/Gateway pair ID and configuration version to the selected
+local database. Missing/corrupt/mismatched state fails without a resume request.
+Without a Control URL, the result is `offline-verified` with
+`runtimeVerified: false`, never a successful running-service check. Control
+requests reject redirects and have a ten-second deadline.
+
+These identity checks are not proof of the process's physical database path: a
+copied database can retain the same instance/pair IDs. Confirm service-manager
+arguments, database path and listener ownership independently. Current helper
+limitations also remain: it has no deployment CAS/lease, validates only the
+Control listener's version, and does not perform or automatically authorize
+database restoration. A plan/check result is not an upgrade/restore rehearsal.
+
 ## Start and bootstrap
 
 ```bash
