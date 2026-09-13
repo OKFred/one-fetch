@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -100,7 +100,7 @@ test("fresh apply backs up, leases, deploys both functions, and verifies", async
       commands.push({ arguments_, options });
       if (arguments_.includes("query"))
         return JSON.stringify({
-          rows: arguments_.includes(RPC_CATALOG_QUERY)
+          rows: arguments_.includes("--file")
             ? []
             : [{ nspname: "supabase_migrations" }],
         });
@@ -242,8 +242,13 @@ test("failed update restores prior Functions and keeps Gateway paused", async ()
     let gatewayFailed = false;
     const runPnpm = (arguments_, options = {}) => {
       events.push(`cli:${options.label}`);
-      if (arguments_.includes(RPC_CATALOG_QUERY))
+      if (arguments_.includes("query") && arguments_.includes("--file")) {
+        assert.equal(
+          readFileSync(arguments_[arguments_.indexOf("--file") + 1], "utf8"),
+          RPC_CATALOG_QUERY,
+        );
         return JSON.stringify({ rows: rpcRows });
+      }
       if (arguments_.includes("download")) {
         const slug = arguments_[arguments_.indexOf("download") + 1];
         const workdir = arguments_[arguments_.indexOf("--workdir") + 1];

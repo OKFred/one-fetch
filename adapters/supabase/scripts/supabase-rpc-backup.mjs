@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
 
@@ -193,23 +193,33 @@ export async function captureRpcBackup({
 }) {
   if (!/^[a-z0-9]{20}$/u.test(projectRef))
     throw new Error("Explicit RPC backup project identity required");
-  const catalog = await runPnpm(
-    [
-      "exec",
-      "supabase",
-      "db",
-      "query",
-      "--linked",
-      "--workdir",
-      databaseLink.workdir,
-      "--project-ref",
-      projectRef,
-      "--output",
-      "json",
-      RPC_CATALOG_QUERY,
-    ],
-    { capture: true, label: "capture owned public RPC catalog" },
-  );
+  // Windows npm command shims can truncate a multiline SQL argument to SELECT.
+  // Keep the exact query in a private, exclusive file instead of shell argv.
+  const queryPath = `${path}.query.sql`;
+  await writeFile(queryPath, RPC_CATALOG_QUERY, { flag: "wx", mode: 0o600 });
+  let catalog;
+  try {
+    catalog = await runPnpm(
+      [
+        "exec",
+        "supabase",
+        "db",
+        "query",
+        "--linked",
+        "--workdir",
+        databaseLink.workdir,
+        "--project-ref",
+        projectRef,
+        "--output",
+        "json",
+        "--file",
+        queryPath,
+      ],
+      { capture: true, label: "capture owned public RPC catalog" },
+    );
+  } finally {
+    await unlink(queryPath);
+  }
   const result = serializeRpcCatalog(
     catalog,
     await ownedRpcNames(expectedCurrentBuild),

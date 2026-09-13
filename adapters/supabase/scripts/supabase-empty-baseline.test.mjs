@@ -140,9 +140,7 @@ test("absent schemas cannot hide remaining public RPCs on first installation", a
         runPnpm: (args) => {
           assert(args.includes("query"));
           return JSON.stringify({
-            rows: args.at(-1).includes("pg_proc")
-              ? [{ name: "of_unexpected" }]
-              : [],
+            rows: args.includes("--file") ? [{ name: "of_unexpected" }] : [],
           });
         },
       }),

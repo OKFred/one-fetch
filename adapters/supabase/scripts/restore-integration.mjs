@@ -196,7 +196,11 @@ try {
     expectedCurrentBuild: `0.1.0+supabase.g${report.commit}`,
     runPnpm: async (args) => {
       if (args.includes("query")) {
-        assert.equal(args.at(-1), RPC_CATALOG_QUERY);
+        assert.ok(args.includes("--file"));
+        assert.equal(
+          await readFile(args[args.indexOf("--file") + 1], "utf8"),
+          RPC_CATALOG_QUERY,
+        );
         return JSON.stringify({ rows: JSON.parse(catalog("rpc_source")) });
       }
       assert.ok(args.includes("dump"));
