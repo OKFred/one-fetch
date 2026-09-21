@@ -116,9 +116,8 @@ try {
   // a real rename failure after pause/backup without rewriting either archive.
   await chmod(join(root, "versions"), 0o500);
   try {
-    await assert.rejects(
-      applyNodeDeployment(update),
-      (error) => ["EACCES", "EPERM"].includes(error.code),
+    await assert.rejects(applyNodeDeployment(update), (error) =>
+      ["EACCES", "EPERM"].includes(error.code),
     );
   } finally {
     await chmod(join(root, "versions"), 0o700);

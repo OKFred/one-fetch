@@ -15,10 +15,18 @@ The published v0.1.0 artifacts and historical acceptance receipts are immutable.
   hardcoded 0.1.0 value. Node health, capabilities and OpenAPI agree; Cloudflare
   OpenAPI follows the same build binding as health and capabilities.
 
+## Candidate acceptance
+
+The Node cross-version runner now exercises actual published 0.1.0 and clean
+0.1.1 archives, including activation failure, explicit recovery and code
+rollback. See [the repeatable procedure](node-cross-version-acceptance.md).
+Exact tested commits and receipt hashes belong in dated evidence; passing this
+runner does not replace final-commit CI or full platform acceptance.
+
 ## Release gates still open
 
-- Actual published 0.1.0 to candidate 0.1.1 Node installation/update rehearsal,
-  including retained credentials, policy, audit signatures and code rollback.
+- Repeat the published 0.1.0 to candidate 0.1.1 Node rehearsal on the final
+  release artifact, including retained credentials, policy and audit signatures.
 - Interrupted-update recovery and the gap between activation, restart and
   explicit resume; the current local operation lock is not a lifecycle lease.
 - Final-commit three-platform acceptance, checksums and provenance verification.
