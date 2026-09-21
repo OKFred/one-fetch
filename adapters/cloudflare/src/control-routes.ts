@@ -52,10 +52,13 @@ registerTokenRoutes(controlApp);
 registerObservabilityRoutes(controlApp);
 registerControlOpenApi(controlApp);
 
-controlApp.doc31("/api/v1/openapi.json", {
-  info: { title: "one-fetch Control API", version: "0.1.0" },
+controlApp.doc31("/api/v1/openapi.json", (context) => ({
+  info: {
+    title: "one-fetch Control API",
+    version: context.env.ADAPTER_VERSION,
+  },
   openapi: "3.1.0",
-});
+}));
 controlApp.notFound(() =>
   controlError(404, "not_found", "The Control resource was not found"),
 );

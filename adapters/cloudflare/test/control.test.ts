@@ -70,7 +70,15 @@ describe("Cloudflare canonical Control API", () => {
       >;
       components: { securitySchemes: Record<string, unknown> };
     }>();
-    expect(openapi).toMatchObject({ openapi: "3.1.0" });
+    expect(openapi).toMatchObject({
+      openapi: "3.1.0",
+      info: { version: env.ADAPTER_VERSION },
+    });
+    expect(capabilities.buildVersion).toBe(env.ADAPTER_VERSION);
+    const health = await SELF.fetch("https://control.example/api/v1/health");
+    expect(await health.json()).toMatchObject({
+      version: env.ADAPTER_VERSION,
+    });
     expect(openapi.paths).toHaveProperty("/api/v1/config/gateway-paused");
     expect(openapi.paths).toHaveProperty("/api/v1/auth/sessions/{sessionId}");
     expect(openapi.paths).toHaveProperty("/api/v1/tokens/execution/{tokenId}");
