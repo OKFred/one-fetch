@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "one-fetch Control API",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Canonical one-fetch Control API. Runtime capabilities remain authoritative."
   },
   "openapi": "3.1.0",
