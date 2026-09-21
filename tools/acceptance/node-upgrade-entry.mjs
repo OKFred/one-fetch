@@ -73,7 +73,9 @@ try {
     expectedVersion: "none",
   });
   await mkdir(join(root, "data"), { recursive: true, mode: 0o700 });
+  phase = "published-runtime-startup";
   const directory = await start(fromVersion);
+  phase = "published-session-setup";
   session = await createUpgradeSession(
     runtime,
     directory,
@@ -85,7 +87,9 @@ try {
     mode: 0o600,
   });
   tokenWritten = true;
+  phase = "published-http-baseline";
   await session.assertPreserved(fromVersion, false, false);
+  phase = "published-audit-baseline";
   const originalEvents = await session.audit();
   report.publishedBaselineVerified = true;
   phase = "pre-pause-rejections";

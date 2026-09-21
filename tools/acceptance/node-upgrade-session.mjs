@@ -5,6 +5,25 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+export function assertUpgradeTargetResponse(result) {
+  assert.equal(result.status, 201);
+  assert.equal(result.classification.source, "target");
+  assert.deepEqual(JSON.parse(result.text), {
+    url: "/arbitrary/v1?key=one&key=two",
+    method: "POST",
+    body: '{"synthetic":true}',
+  });
+  const headers = result.classification.target.headers;
+  assert.equal(
+    headers.filter((header) => header.name.toLowerCase() === "set-cookie")
+      .length,
+    2,
+  );
+  assert.ok(
+    headers.some((header) => header.name.toLowerCase() === "server-timing"),
+  );
+}
+
 export async function createUpgradeSession(
   runtime,
   directory,
@@ -209,25 +228,8 @@ export async function createUpgradeSession(
         assert.notEqual(result.status, 201);
         assert.equal(hits, beforeHits);
       } else {
-        assert.equal(result.status, 201);
+        assertUpgradeTargetResponse(result);
         assert.equal(hits, beforeHits + 1);
-        assert.equal(result.classification.source, "target");
-        assert.deepEqual(JSON.parse(result.text), {
-          url: "/arbitrary/v1?key=one&key=two",
-          method: "POST",
-          body: '{"synthetic":true}',
-        });
-        const headers = result.classification.metadata.targetHeaders;
-        assert.equal(
-          headers.filter((header) => header.name.toLowerCase() === "set-cookie")
-            .length,
-          2,
-        );
-        assert.ok(
-          headers.some(
-            (header) => header.name.toLowerCase() === "server-timing",
-          ),
-        );
       }
       const beforeDenied = hits;
       const denied = await gateway(revoked.token);

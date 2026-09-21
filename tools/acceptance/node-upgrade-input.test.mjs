@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { assertUpgradeTargetResponse } from "./node-upgrade-session.mjs";
 import {
   checkedFile,
   parseUpgradeArguments,
@@ -19,6 +20,36 @@ const metadata = () => ({
   },
   archive: { filename: "one-fetch-node-0.1.1.tar.gz", sha256: "b".repeat(64) },
   deploymentHelper: { sha256: "c".repeat(64) },
+});
+
+test("upgrade checks signed target headers without flattening Set-Cookie", () => {
+  const result = {
+    status: 201,
+    text: JSON.stringify({
+      url: "/arbitrary/v1?key=one&key=two",
+      method: "POST",
+      body: '{"synthetic":true}',
+    }),
+    classification: {
+      source: "target",
+      target: {
+        headers: [
+          { name: "Set-Cookie", value: "first=synthetic" },
+          { name: "Set-Cookie", value: "second=synthetic" },
+          { name: "Server-Timing", value: "synthetic;dur=1" },
+        ],
+      },
+    },
+  };
+  assertUpgradeTargetResponse(result);
+  assert.throws(() =>
+    assertUpgradeTargetResponse({
+      ...result,
+      classification: { source: "intermediary" },
+    }),
+  );
+  result.classification.target.headers.shift();
+  assert.throws(() => assertUpgradeTargetResponse(result));
 });
 
 test("upgrade accepts only exact clean build metadata", () => {
