@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -110,6 +110,25 @@ try {
   assert.equal((await session.request("/api/v1/config")).gatewayPaused, false);
   assert.equal((await readPointer()).version, fromVersion);
   report.invalidUpdateLeavesTrafficUnchanged = true;
+
+  phase = "post-pause-filesystem-failure";
+  // UID 1000 cannot activate into a read-only versions directory. This injects
+  // a real rename failure after pause/backup without rewriting either archive.
+  await chmod(join(root, "versions"), 0o500);
+  try {
+    await assert.rejects(
+      applyNodeDeployment(update),
+      (error) => ["EACCES", "EPERM"].includes(error.code),
+    );
+  } finally {
+    await chmod(join(root, "versions"), 0o700);
+  }
+  assert.equal((await readPointer()).version, fromVersion);
+  await session.assertPreserved(fromVersion, true, false);
+  await verifyNodeDeployment({ ...options, resume: true });
+  await session.assertPreserved(fromVersion, false, false);
+  report.activationFailureRetainsPausedOldVersion = true;
+  report.explicitFailureRecoveryVerified = true;
 
   phase = "protected-update";
   const applied = await applyNodeDeployment(update);
