@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 
+import { BUILD_VERSION } from "./build-version.js";
 import { createCapabilities } from "./capabilities.js";
 import { registerControlAuthRoutes } from "./control-auth-routes.js";
 import { registerControlManagementRoutes } from "./control-management-routes.js";
@@ -71,7 +72,7 @@ export const createControlApp = (
           instanceId: dependencies.config.instanceId,
           service: "one-fetch-control" as const,
           status: "ok" as const,
-          version: "0.1.0",
+          version: BUILD_VERSION,
         },
         200,
       ),
@@ -109,7 +110,7 @@ export const createControlApp = (
     },
   });
   app.doc31("/api/v1/openapi.json", {
-    info: { title: "one-fetch Control API", version: "0.1.0" },
+    info: { title: "one-fetch Control API", version: BUILD_VERSION },
     openapi: "3.1.0",
   });
   app.onError((error, context) => {
