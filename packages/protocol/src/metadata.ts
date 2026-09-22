@@ -320,12 +320,16 @@ export const TargetResponseV1Schema = z.discriminatedUnion("kind", [
 ]);
 export type TargetResponseV1 = z.infer<typeof TargetResponseV1Schema>;
 
+export const BrowserResponseModeV1Schema = z.literal("browser-envelope-v1");
+
 const ResponseMetaBase = z
   .object({
     protocolVersion: z.literal(PROTOCOL_VERSION),
     requestId: RequestIdSchema,
     nonce: NonceSchema,
     outcome: z.enum(["target", "relay-error"]),
+    // Present only for explicit browser negotiation; omitted in legacy wire data.
+    responseMode: BrowserResponseModeV1Schema.optional(),
     target: TargetResponseV1Schema.optional(),
     error: OneFetchProblemV1Schema.optional(),
     timing: OneFetchTimingV1Schema,

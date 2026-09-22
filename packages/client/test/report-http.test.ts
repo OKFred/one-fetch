@@ -1,7 +1,10 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import { describe, expect, it } from "vitest";
-import { createSignedResponseMetadata } from "@one-fetch/core";
+import {
+  BROWSER_RESPONSE_CAPABILITY,
+  createSignedResponseMetadata,
+} from "@one-fetch/core";
 import {
   ONE_FETCH_REQUEST_HEADER,
   ONE_FETCH_RESPONSE_HEADER,
@@ -27,9 +30,14 @@ async function close(server: Server): Promise<void> {
 }
 
 describe("execution report watcher over real local HTTP", () => {
-  it.each(["partial", "timeout"] as const)(
-    "aborts a live socket after an authenticated %s report",
-    async (outcome) => {
+  it.each(
+    (["partial", "timeout"] as const).flatMap((outcome) => [
+      { outcome, envelope: false },
+      { outcome, envelope: true },
+    ]),
+  )(
+    "aborts a live socket after an authenticated $outcome report (envelope=$envelope)",
+    async ({ outcome, envelope }) => {
       const token = "of_synthetic_local_http_report_secret";
       let report: ExecutionReportV1 | undefined;
       let disconnected = false;
@@ -87,6 +95,9 @@ describe("execution report watcher over real local HTTP", () => {
               requestId: metadata.requestId,
               nonce: metadata.nonce,
               outcome: "target",
+              ...(envelope
+                ? { responseMode: "browser-envelope-v1" as const }
+                : {}),
               target: {
                 kind: "http",
                 status: 503,
@@ -103,7 +114,7 @@ describe("execution report watcher over real local HTTP", () => {
             },
             token,
           );
-          response.writeHead(503, {
+          response.writeHead(envelope ? 200 : 503, {
             "Content-Type": "application/octet-stream",
             [ONE_FETCH_RESPONSE_HEADER]: encodeResponseMetadata(signed),
           });
@@ -121,11 +132,21 @@ describe("execution report watcher over real local HTTP", () => {
           gatewayUrl,
           token,
           executionReports: { controlUrl },
+          capabilities: [
+            BROWSER_RESPONSE_CAPABILITY,
+            { option: "redirect", fidelity: "exact" },
+            { option: "timeoutMs", fidelity: "exact" },
+          ],
         });
         const result = await client.executeHttp({
           method: "GET",
           targetUrl: "https://synthetic.example/data",
-          fetchOptions: { timeoutMs: 5_000 },
+          fetchOptions: {
+            timeoutMs: 5_000,
+            ...(envelope
+              ? { adapter: { browserResponse: "envelope-v1" } }
+              : {}),
+          },
         });
         const reader = result.response.body!.getReader();
         const started = performance.now();
@@ -141,7 +162,7 @@ describe("execution report watcher over real local HTTP", () => {
         });
         expect(performance.now() - started).toBeLessThan(3_000);
         expect(result.classification.source).toBe("target");
-        expect(result.response.status).toBe(503);
+        expect(result.response.status).toBe(envelope ? 200 : 503);
         await expect.poll(() => disconnected, { timeout: 1_000 }).toBe(true);
         expect(reportCalls).toBe(1);
         expect(failures).toEqual([]);

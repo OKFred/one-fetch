@@ -12,6 +12,7 @@ import {
 } from "@one-fetch/protocol";
 import {
   classifyFetchOptions,
+  browserResponseMetadata,
   classifyOneFetchResponse,
   randomNonce,
   type FetchOptionsClassification,
@@ -163,6 +164,14 @@ export class OneFetchGatewayClient {
       this.#capabilities === undefined
         ? undefined
         : classifyFetchOptions(fetchOptions, this.#capabilities);
+    if (
+      fetchOptions.adapter?.browserResponse !== undefined &&
+      this.#capabilities === undefined
+    ) {
+      throw new TypeError(
+        "Browser response mode requires advertised Gateway capabilities",
+      );
+    }
     if (optionClassification !== undefined && !optionClassification.allowed) {
       const names = optionClassification.assessments
         .filter(({ fidelity }) => fidelity === "unsupported")
@@ -225,10 +234,16 @@ export class OneFetchGatewayClient {
           nonce: metadata.nonce,
         },
       );
+      const expectedResponseMode =
+        browserResponseMetadata(fetchOptions).responseMode;
       if (
-        classification.source === "target" &&
-        (classification.target.kind !== "http" ||
-          classification.target.status !== response.status)
+        classification.source !== "intermediary" &&
+        (classification.metadata.responseMode !== expectedResponseMode ||
+          (expectedResponseMode !== undefined && response.status !== 200) ||
+          (classification.source === "target" &&
+            (classification.target.kind !== "http" ||
+              (expectedResponseMode === undefined &&
+                classification.target.status !== response.status))))
       ) {
         return {
           response: trackResponseBody(response, abort, progress),
@@ -243,6 +258,11 @@ export class OneFetchGatewayClient {
         };
       }
       const watchReports = this.#watchReports;
+      const targetStatus =
+        classification.source === "target" &&
+        classification.target.kind === "http"
+          ? classification.target.status
+          : undefined;
       const reportId =
         classification.source === "target"
           ? classification.metadata.reportId
@@ -252,16 +272,13 @@ export class OneFetchGatewayClient {
           response,
           abort,
           progress,
-          classification.source === "target" &&
-            classification.target.kind === "http" &&
-            reportId !== undefined &&
-            watchReports
+          targetStatus !== undefined && reportId !== undefined && watchReports
             ? () =>
                 watchReports(
                   {
                     reportId,
                     requestId: metadata.requestId,
-                    status: response.status,
+                    status: targetStatus,
                   },
                   this.#token,
                   (error) => abort.cancel(error),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   encodeResponseMetadata,
+  OneFetchUnsignedResponseMetaV1Schema,
   type OneFetchUnsignedResponseMetaV1,
 } from "@one-fetch/protocol";
 
@@ -31,6 +32,39 @@ const unsigned: OneFetchUnsignedResponseMetaV1 = {
 };
 
 describe("signed response source distinction", () => {
+  it("rejects unknown response mode versions", () => {
+    expect(
+      OneFetchUnsignedResponseMetaV1Schema.safeParse({
+        ...unsigned,
+        responseMode: "browser-envelope-v2",
+      }).success,
+    ).toBe(false);
+  });
+  it("binds the browser response mode into the signature", async () => {
+    const metadata = await createSignedResponseMetadata(
+      { ...unsigned, responseMode: "browser-envelope-v1" },
+      "secret-token",
+    );
+    const stripped = { ...metadata };
+    delete stripped.responseMode;
+    expect(
+      await verifySignedResponseMetadata(stripped, {
+        token: "secret-token",
+        requestId: unsigned.requestId,
+        nonce: unsigned.nonce,
+      }),
+    ).toBe(false);
+    expect(
+      await classifyOneFetchResponse(encodeResponseMetadata(metadata), {
+        token: "secret-token",
+        requestId: unsigned.requestId,
+        nonce: unsigned.nonce,
+      }),
+    ).toMatchObject({
+      source: "target",
+      metadata: { responseMode: "browser-envelope-v1" },
+    });
+  });
   it("classifies a signed target 5xx as a target response", async () => {
     const metadata = await createSignedResponseMetadata(
       unsigned,
