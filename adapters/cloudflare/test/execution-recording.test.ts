@@ -6,6 +6,45 @@ import { describe, expect, it } from "vitest";
 import { createCredential, expectControlError } from "./control-fixtures";
 
 describe("Cloudflare terminal execution recording", () => {
+  it.each(["response_too_large", "upstream_network", "unknown-secret-canary"])(
+    "preserves only safe structured terminal causes: %s",
+    async (errorCode) => {
+      const { credential } = await createCredential("partial-report-token");
+      const reportId = crypto.randomUUID();
+      await workerExports.ControlService.releaseExecutionJson(
+        JSON.stringify({
+          tokenId: credential.credential.id,
+          requestId: crypto.randomUUID(),
+          reportId,
+          outcome: "partial",
+          status: 200,
+          requestBytes: 0,
+          responseBytes: 20_971_521,
+          durationMs: 10,
+          timing: { phases: [], serverTiming: [] },
+          bodyComplete: false,
+          errorCode,
+        }),
+      );
+      const response = await SELF.fetch(
+        `https://control.example/api/v1/reports/${reportId}`,
+        {
+          headers: { Authorization: `Bearer ${credential.token}` },
+        },
+      );
+      const report = ExecutionReportV1Schema.parse(await response.json());
+      expect(report).toMatchObject({
+        outcome: "partial",
+        bodyComplete: false,
+        problem: {
+          code: errorCode.startsWith("unknown") ? "internal" : errorCode,
+          stage: "upstream-body",
+        },
+      });
+      expect(report.bodySha256).toBeUndefined();
+      expect(JSON.stringify(report)).not.toContain("unknown-secret-canary");
+    },
+  );
   it("returns a report only to its owning execution token", async () => {
     const { pair, credential } = await createCredential("report-token");
     const reportId = crypto.randomUUID();
