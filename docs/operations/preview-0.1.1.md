@@ -11,6 +11,9 @@ The published v0.1.0 artifacts and historical acceptance receipts are immutable.
 - Protected Supabase updates with deployment CAS and verified code rollback.
 - Node signed early token denials, strict installed identity/migration checks,
   cooperative operation locks and packaged pause/resume/recovery acceptance.
+- Node write-ahead intent/confirmation journals cover update, rollback and
+  explicit resume. Strong process-termination regressions cover source and
+  standalone helpers without automatic lock takeover or database restoration.
 - Runtime version identity follows installed/bundled metadata rather than a
   hardcoded 0.1.0 value. Node health, capabilities and OpenAPI agree; Cloudflare
   OpenAPI follows the same build binding as health and capabilities.
@@ -27,8 +30,10 @@ runner does not replace final-commit CI or full platform acceptance.
 
 - Repeat the published 0.1.0 to candidate 0.1.1 Node rehearsal on the final
   release artifact, including retained credentials, policy and audit signatures.
-- Interrupted-update recovery and the gap between activation, restart and
-  explicit resume; the current local operation lock is not a lifecycle lease.
+- Repeat interrupted-update recovery against final packaged runtimes. Source
+  and standalone-helper fixtures now cover forced process termination; the gap
+  between activation, restart and explicit resume remains an operator-managed
+  boundary, not a full-lifecycle lease or a power-loss durability guarantee.
 - Final-commit three-platform acceptance, checksums and provenance verification.
 - Explicitly disclose Supabase provider stream-reset limitations and skipped
   probes; client report watching is not proof of upstream socket disconnect.

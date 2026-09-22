@@ -54,8 +54,10 @@ node one-fetch-node-deploy-0.1.0.mjs --mode launch --root /opt/one-fetch
 For an update, pass the exact active version plus the Control URL and a private
 administrator-token file. The helper pauses Gateway through Control, makes and
 integrity-checks a live SQLite backup, retains the previous artifact, switches
-the pointer, and writes a restricted deployment journal. It never restores a
-database automatically.
+the pointer, and records each intent/confirmation in a restricted deployment
+journal. It never restores a database automatically. The 0.1.1 helper is built
+from small modules into one standalone ESM file; no checkout or development
+dependencies are needed to run the downloaded helper.
 
 All mutating commands (`apply`, `verify --resume`, `rollback`) acquire the same
 private `.deployment-lock.json` in the canonical installation root. Only one
@@ -127,6 +129,40 @@ Do not delete backups, candidates or the whole root to bypass the guard. Re-run
 verification and review the next plan before explicitly authorizing traffic.
 If the operation failed before the normal journal was written, inspect the
 retained files independently; journal absence is not proof that no work happened.
+
+Starting with the 0.1.1 helper, the lock's `owner` identifies
+`journal/<owner>.json`. `apply`, `rollback` and explicit resume each have their
+own record. Each update flushes a private temporary file before atomically
+replacing the journal; the active pointer uses the same write primitive.
+These process-interruption tests do **not** establish power-loss/filesystem
+durability (directory entries are not fsynced, and Windows differs).
+
+| Last durable phase      | Required interpretation                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| `preparing` / `planned` | No successful deployment is established.                                                      |
+| `pause-requested`       | Pause may have succeeded despite a lost response; query actual state.                         |
+| `pause-confirmed`       | Pause was acknowledged at the recorded config version.                                        |
+| `backup-started`        | A backup path is reserved; it is not yet verified.                                            |
+| `backup-verified`       | Backup passed identity/integrity checks; verify its recorded SHA-256 again before recovery.   |
+| `extracting`            | A partial stage or retained candidate may exist; it is not necessarily active.                |
+| `activation-requested`  | Pointer replacement may have happened; inspect `current.json` and the actual running process. |
+| `restart-required`      | Pointer was replaced; this is not proof the new service started.                              |
+| `resume-requested`      | Traffic may already be resumed despite a lost response; inspect Control immediately.          |
+| `resume-confirmed`      | Resume was acknowledged; this is a historical observation, not a continuing health guarantee. |
+
+`gatewayStatus` is the last acknowledged observation, not a live probe.
+Handled errors set `failed-needs-inspection` without storing exception text;
+forced termination leaves the last intent/confirmation and orphan lock intact.
+Journal write failure prevents the next operation; if storage or lock ownership
+is lost, the previous record remains uncertain. Do not auto-unlock or auto-resume
+based on any phase, PID, timestamp or apparent successful pointer write.
+
+Regression coverage uses real child-process termination at eight deterministic
+barriers for both source and standalone helpers. The barriers exist only in
+the test harness, not production. Synthetic SQLite/Control fixtures verify
+pause uncertainty, backup digest, selected version, credential-free journals
+and blocked retries. This complements, but does not replace, the packaged
+cross-version runtime rehearsal or final Linux/container acceptance.
 
 ## Start and bootstrap
 
