@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-22T04:40:29.558Z",
+  "commit": "b680b1b20ca0d3c42da659e7bd8869f97690dc42",
+  "adapter": "cloudflare",
+  "buildVersion": "0.1.1+b680b1b.install",
+  "protocolVersion": 1,
+  "instanceId": "8610b21c-b535-4300-8416-935e5b82c806",
+  "configVersion": "20260922T043931420Z-2-6a988ed8",
+  "capabilitiesSha256": "2455a1a5365e8406bbfacafe0ef41dec9f05c3556d2981586e161e730d92d9a1",
+  "endpoints": {
+    "controlOrigin": "https://of011-20260922-c4f73b2a-control.this-time.workers.dev",
+    "gatewayOrigin": "https://of011-20260922-c4f73b2a-gateway.this-time.workers.dev",
+    "targetOrigin": "https://one-fetch-fixture-c4f73b2a6e91.this-time.workers.dev"
+  },
+  "suite": {
+    "passed": true,
+    "results": [
+      {
+        "id": "arbitrary-v1-path-and-duplicate-query",
+        "passed": true,
+        "failures": [],
+        "durationMs": 2681.6998,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 662
+        }
+      },
+      {
+        "id": "leading-slashes-stay-in-target-path",
+        "passed": true,
+        "failures": [],
+        "durationMs": 832.8125,
+        "observed": {
+          "source": "target",
+          "status": 404,
+          "responseBytes": 104
+        }
+      },
+      {
+        "id": "query-space-and-plus-spelling",
+        "passed": true,
+        "failures": [],
+        "durationMs": 989.1331999999993,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 596
+        }
+      },
+      {
+        "id": "json-request-body",
+        "passed": true,
+        "failures": [],
+        "durationMs": 905.7974000000004,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 584
+        }
+      },
+      {
+        "id": "urlencoded-request-body",
+        "passed": true,
+        "failures": [],
+        "durationMs": 1014.2111000000004,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 614
+        }
+      },
+      {
+        "id": "multipart-request-body",
+        "passed": true,
+        "failures": [],
+        "durationMs": 824.6511999999993,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 1029
+        }
+      },
+      {
+        "id": "target-401-is-not-relay-failure",
+        "passed": true,
+        "failures": [],
+        "durationMs": 749.0622999999996,
+        "observed": {
+          "source": "target",
+          "status": 401,
+          "responseBytes": 17
+        }
+      },
+      {
+        "id": "target-429-is-not-relay-failure",
+        "passed": true,
+        "failures": [],
+        "durationMs": 823.0267999999996,
+        "observed": {
+          "source": "target",
+          "status": 429,
+          "responseBytes": 17
+        }
+      },
+      {
+        "id": "target-503-is-not-relay-failure",
+        "passed": true,
+        "failures": [],
+        "durationMs": 823.1456999999991,
+        "observed": {
+          "source": "target",
+          "status": 503,
+          "responseBytes": 17
+        }
+      },
+      {
+        "id": "manual-redirect-is-a-target-result",
+        "passed": true,
+        "failures": [],
+        "durationMs": 778.2807000000012,
+        "observed": {
+          "source": "target",
+          "status": 302,
+          "responseBytes": 0
+        }
+      },
+      {
+        "id": "repeated-set-cookie-metadata",
+        "passed": true,
+        "failures": [],
+        "durationMs": 793.5007000000005,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 7
+        }
+      },
+      {
+        "id": "server-timing-preserved",
+        "passed": true,
+        "failures": [],
+        "durationMs": 777.1635000000006,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 5
+        }
+      },
+      {
+        "id": "streaming-response",
+        "passed": true,
+        "failures": [],
+        "durationMs": 774.5990999999995,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 65536
+        }
+      },
+      {
+        "id": "response-limit-20-mib",
+        "passed": true,
+        "failures": [],
+        "durationMs": 7418.1661,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 20971520
+        }
+      },
+      {
+        "id": "response-limit-20-mib-plus-one",
+        "passed": true,
+        "failures": [],
+        "durationMs": 7672.520500000002,
+        "observed": {
+          "source": "target",
+          "status": 200,
+          "responseBytes": 20971520,
+          "reportOutcome": "partial",
+          "bodyComplete": false
+        }
+      },
+      {
+        "id": "timeout",
+        "passed": true,
+        "failures": [],
+        "durationMs": 116.13290000000052,
+        "observed": {
+          "source": "client",
+          "errorCode": "TimeoutError"
+        }
+      },
+      {
+        "id": "cancellation",
+        "passed": true,
+        "failures": [],
+        "durationMs": 29.550999999999476,
+        "observed": {
+          "source": "client",
+          "errorCode": "AbortError"
+        }
+      },
+      {
+        "id": "truncated-response",
+        "passed": true,
+        "failures": [],
+        "durationMs": 0,
+        "skipped": "Cloudflare Workers normalizes a synthetic errored response stream to a completed response before the Gateway receives it."
+      }
+    ]
+  },
+  "cleanup": {
+    "state": "verified",
+    "resources": [
+      {
+        "kind": "worker",
+        "id": "of011-20260922-c4f73b2a-control"
+      },
+      {
+        "kind": "worker",
+        "id": "of011-20260922-c4f73b2a-gateway"
+      },
+      {
+        "kind": "d1",
+        "id": "0e7e784d-0f98-4175-96b0-a23ac8e47e43"
+      },
+      {
+        "kind": "worker",
+        "id": "one-fetch-fixture-c4f73b2a6e91"
+      }
+    ]
+  }
+}

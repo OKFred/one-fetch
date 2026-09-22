@@ -36,6 +36,14 @@ emulated ARM64, preserving orphan-lock evidence before explicit recovery.
 See [CI candidate evidence](node-ci-candidate-2026-09-22.md); this is not final
 Release provenance, a server-process crash or a power-loss guarantee.
 
+Cloudflare candidate `b680b1b` passes a real temporary install/update workflow,
+both full HTTP suites (17 executed passes plus one declared platform skip each),
+signed audit preservation, separate D1 backup restoration and paused code
+rollback. All temporary Workers, D1 databases and DO namespaces were removed.
+See [the hosted evidence](cloudflare-candidate-2026-09-22.md). The two deployments
+use the same candidate source with different build IDs; this is not published
+cross-version or final-release artifact acceptance.
+
 ## Release gates still open
 
 - Repeat the published 0.1.0 to candidate 0.1.1 Node rehearsal on the final
@@ -44,6 +52,8 @@ Release provenance, a server-process crash or a power-loss guarantee.
   Release artifacts. The gap between activation, restart and explicit resume
   remains operator-managed, not a full-lifecycle lease or power-loss guarantee.
 - Final-commit three-platform acceptance, checksums and provenance verification.
+- Cloudflare deployment coordination still lacks a distributed CAS/lease;
+  local checkpoints and drift checks do not authorize concurrent deployments.
 - Explicitly disclose Supabase provider stream-reset limitations and skipped
   probes; client report watching is not proof of upstream socket disconnect.
 
