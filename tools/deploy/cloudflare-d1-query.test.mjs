@@ -12,7 +12,7 @@ const state = {
     databaseId: "01234567-89ab-cdef-0123-456789abcdef",
   },
 };
-const token = "private-api-canary-123456789";
+const token = globalThis.crypto.randomUUID();
 const runWrangler = async (args) => {
   assert.deepEqual(args, ["auth", "token", "--json"]);
   return { type: "oauth", token };
@@ -67,10 +67,28 @@ test("D1 errors, oversized bodies and malformed acknowledgements are redacted an
       },
     });
     await assert.rejects(query("SELECT 1", []), (error) => {
-      assert.doesNotMatch(error.message, /private-api-canary/u);
+      assert.equal(error.message.includes(token), false);
       assert.match(error.message, /outcome may be unknown/u);
       return true;
     });
     assert.equal(calls, 1);
   }
+});
+
+test("Wrangler authentication failures never expose captured credentials", async () => {
+  await assert.rejects(
+    createCloudflareD1Query(state, {
+      runWrangler: async () => {
+        throw new Error(token);
+      },
+    }),
+    (error) => {
+      assert.equal(
+        error.message,
+        "Cloudflare coordination authentication failed",
+      );
+      assert.equal(error.stack.includes(token), false);
+      return true;
+    },
+  );
 });
