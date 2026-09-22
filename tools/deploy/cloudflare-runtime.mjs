@@ -67,6 +67,8 @@ export async function setPaused(
   const currentResponse = await fetch(configurationUrl, {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
     cache: "no-store",
+    redirect: "error",
+    signal: globalThis.AbortSignal.timeout(15_000),
   });
   if (!currentResponse.ok)
     throw new Error(
@@ -93,6 +95,8 @@ export async function setPaused(
       },
       body: JSON.stringify({ schemaVersion: 1, paused }),
       cache: "no-store",
+      redirect: "error",
+      signal: globalThis.AbortSignal.timeout(15_000),
     },
   );
   if (!response.ok)

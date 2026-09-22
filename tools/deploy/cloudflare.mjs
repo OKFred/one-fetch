@@ -11,7 +11,6 @@ import {
   parseWorkersUrl,
   readDeploymentState,
   resetDeploymentLifecycle,
-  sha256File,
   stateDirectory,
   validateBuildId,
   validateSecretsFile,
@@ -26,6 +25,10 @@ import {
   workerExists,
   writeConfigs,
 } from "./cloudflare-runtime.mjs";
+import {
+  assertActiveVersions,
+  inventoryCloudflareUpdate,
+} from "./cloudflare-update.mjs";
 
 function parseArguments(values) {
   const result = new Map();
@@ -154,69 +157,6 @@ async function inventoryFresh(plan, values) {
   };
 }
 
-async function inventoryUpdate(plan, values, state) {
-  const token = await readToken(required(values, "--admin-token-file"));
-  await setPaused(state, token, true);
-  const directory = stateDirectory(repositoryRoot, plan.deploymentId);
-  const currentState = resetDeploymentLifecycle(state);
-  const pausedState = { ...currentState, gatewayPaused: true };
-  await writePrivateJson(join(directory, "state.json"), pausedState);
-  const stamp = new Date().toISOString().replaceAll(":", "-");
-  const backup = join(directory, `d1-${stamp}.sql`);
-  const bookmark = await runWrangler(
-    ["d1", "time-travel", "info", state.resources.databaseId, "--json"],
-    { json: true },
-  );
-  await runWrangler([
-    "d1",
-    "export",
-    state.resources.databaseId,
-    "--remote",
-    "--output",
-    backup,
-    "-y",
-  ]);
-  const previous = {
-    buildId: state.buildId,
-    controlVersionId: await currentVersionId(state.resources.control),
-    gatewayVersionId: await currentVersionId(state.resources.gateway),
-    databaseBookmark: bookmark.bookmark ?? bookmark,
-    databaseBackup: backup,
-    databaseBackupSha256: await sha256File(backup),
-  };
-  const configs = await writeConfigs(
-    directory,
-    values,
-    plan.deploymentId,
-    plan.buildId,
-    state.resources.databaseId,
-  );
-  await runWrangler([
-    "d1",
-    "migrations",
-    "apply",
-    "DB",
-    "--remote",
-    "--config",
-    configs.control,
-  ]);
-  await runWrangler(["deploy", "--config", configs.control]);
-  await runWrangler(["deploy", "--config", configs.gateway]);
-  return {
-    ...currentState,
-    buildId: plan.buildId,
-    status: "awaiting-verification",
-    gatewayPaused: true,
-    previous,
-    workerVersions: {
-      control: await currentVersionId(state.resources.control),
-      gateway: await currentVersionId(state.resources.gateway),
-    },
-    configs,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
 export async function applyCloudflareDeployment(values) {
   const plan = await createCloudflareDeploymentPlan(values);
   const previous = await optionalState(plan.deploymentId);
@@ -225,7 +165,7 @@ export async function applyCloudflareDeployment(values) {
     state =
       previous === undefined
         ? await inventoryFresh(plan, values)
-        : await inventoryUpdate(plan, values, previous);
+        : await inventoryCloudflareUpdate(plan, values, previous);
     await writePrivateJson(
       join(stateDirectory(repositoryRoot, plan.deploymentId), "state.json"),
       state,
@@ -250,13 +190,26 @@ export async function verifyCloudflareDeployment(values) {
   const expectedBuild = validateBuildId(required(values, "--expected-build"));
   let state = await readDeploymentState(repositoryRoot, deploymentId);
   assertExpectedBuild(state, expectedBuild);
+  if (
+    !["awaiting-verification", "verified", "rolled-back"].includes(state.status)
+  )
+    throw new Error(
+      "Recover the incomplete Cloudflare deployment before verification or resume",
+    );
+  await assertActiveVersions(state);
   const [healthResponse, capabilitiesResponse] = await Promise.all([
     globalThis.fetch(new globalThis.URL("/api/v1/health", state.controlUrl), {
       cache: "no-store",
+      redirect: "error",
+      signal: globalThis.AbortSignal.timeout(15_000),
     }),
     globalThis.fetch(
       new globalThis.URL("/api/v1/capabilities", state.controlUrl),
-      { cache: "no-store" },
+      {
+        cache: "no-store",
+        redirect: "error",
+        signal: globalThis.AbortSignal.timeout(15_000),
+      },
     ),
   ]);
   if (!healthResponse.ok || !capabilitiesResponse.ok)
@@ -310,6 +263,11 @@ export async function rollbackCloudflareDeployment(values) {
     "--yes",
   ]);
   state.buildId = state.previous.buildId;
+  state.workerVersions = {
+    control: state.previous.controlVersionId,
+    gateway: state.previous.gatewayVersionId,
+  };
+  await assertActiveVersions(state);
   state.status = "rolled-back";
   state.gatewayPaused = true;
   state.rolledBackAt = new Date().toISOString();

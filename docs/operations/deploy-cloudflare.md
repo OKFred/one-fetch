@@ -91,6 +91,24 @@ An update changes `--expected-build` to the currently deployed build and require
 IDs, D1 Time Travel bookmark, a SQL export, and its SHA-256 before migrations or
 deployment. Verification leaves Gateway paused unless `--resume` is explicit.
 
+Rollback points come from `wrangler deployments status`, not the latest uploaded
+version. Exactly one version must carry 100% traffic; split deployments and
+out-of-band changes to the recorded Worker versions require operator review.
+An update requires a verified or explicitly rolled-back starting state.
+
+The helper flushes a local checkpoint before pause, migrations and each Worker
+deployment. It records the backup path, SHA-256, Time Travel bookmark and old
+active versions before changing schema or code. `gatewayPaused: null` means a
+pause was requested but its outcome is unknown, not that traffic is stopped.
+After an interrupted update, `buildId` stays at the old build until both Worker
+deployments finish; `update.targetBuildId` and `update.phase` identify the attempt.
+Do not use `verify --resume` to bypass an incomplete/failed lifecycle. Inspect the
+remote state and use explicit code rollback when a backup point is recorded.
+
+These checkpoints are local recovery evidence, not a distributed deployment
+lease or an OS power-loss guarantee. Do not run concurrent helpers or dashboard
+deployments. D1 exports remain sensitive local files and need restricted access.
+
 Rollback restores the recorded Control and Gateway Worker versions only. It
 keeps Gateway paused and reports `databaseRestored: false`; D1 restoration is a
 separate reviewed procedure into an isolated database.

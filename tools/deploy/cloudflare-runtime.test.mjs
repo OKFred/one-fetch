@@ -23,6 +23,8 @@ test("Cloudflare pause updates use the current strong configuration ETag", async
   const requests = [];
   const fetch = (url, init) => {
     requests.push({ url: String(url), init });
+    assert.equal(init.redirect, "error");
+    assert.ok(init.signal instanceof globalThis.AbortSignal);
     if (init.method === "PUT") {
       assert.equal(init.headers["If-Match"], '"config-1"');
       return Promise.resolve(

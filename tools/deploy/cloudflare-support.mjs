@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat, writeFile, mkdir, rename } from "node:fs/promises";
+import { readFile, stat, open, mkdir, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 
@@ -170,11 +170,13 @@ export async function sha256File(path) {
 export async function writePrivateJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
+  const handle = await open(temporary, "wx", 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
   await rename(temporary, path);
 }
 

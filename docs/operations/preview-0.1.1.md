@@ -9,6 +9,9 @@ The published v0.1.0 artifacts and historical acceptance receipts are immutable.
 - Supabase empty-install validation, original path/query binding, opt-in
   terminal-report watching, complete logical backup and isolated RPC recovery.
 - Protected Supabase updates with deployment CAS and verified code rollback.
+- Cloudflare rollback points use actually deployed versions. Update checkpoints
+  preserve pause uncertainty and backup/rollback identifiers before schema or
+  Worker changes; interrupted updates cannot be marked verified or resumed.
 - Node signed early token denials, strict installed identity/migration checks,
   cooperative operation locks and packaged pause/resume/recovery acceptance.
 - Node write-ahead intent/confirmation journals cover update, rollback and
