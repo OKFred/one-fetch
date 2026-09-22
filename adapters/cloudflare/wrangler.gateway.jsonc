@@ -10,7 +10,7 @@
   "workers_dev": true,
   "vars": {
     "ADAPTER_NAME": "cloudflare",
-    "ADAPTER_VERSION": "0.1.0",
+    "ADAPTER_VERSION": "0.1.1",
     "MAX_METADATA_BYTES": "49152",
     "MAX_REQUEST_BYTES": "20971520",
     "MAX_RESPONSE_BYTES": "20971520",

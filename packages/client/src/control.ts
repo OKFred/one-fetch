@@ -370,11 +370,18 @@ export class OneFetchControlClient {
   async getExecutionReport(
     reportId: string,
     executionToken: string,
+    options: { signal?: AbortSignal } = {},
   ): Promise<ExecutionReportV1> {
     return this.requestJson(
       CONTROL_ROUTES_V1.executionReport(reportId),
       ExecutionReportV1Schema,
-      { headers: { Authorization: `Bearer ${executionToken}` } },
+      {
+        headers: { Authorization: `Bearer ${executionToken}` },
+        redirect: "error",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      },
     );
   }
 

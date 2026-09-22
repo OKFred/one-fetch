@@ -30,11 +30,8 @@ import type {
   StoredConfiguration,
 } from "./configuration.js";
 import type { ExecutionReportStore } from "./execution-reports.js";
-import {
-  abortedGatewayFailure,
-  failure,
-  GatewayFailure,
-} from "./gateway-error.js";
+import { failure } from "./gateway-error.js";
+import { classifyGatewayFailure } from "./gateway-failure.js";
 import {
   sendRelayError,
   setTargetResponseMetadata,
@@ -49,11 +46,7 @@ import { setCookieValues, validateTargetHeaders } from "./headers.js";
 import type { QuotaCoordinator, QuotaLease } from "./quota.js";
 import { parseServerTiming } from "./server-timing.js";
 import { requireRequestMetadata } from "./gateway-request-metadata.js";
-import {
-  executeUpstream,
-  resolveApprovedTarget,
-  TargetPolicyDeniedError,
-} from "./upstream.js";
+import { executeUpstream, resolveApprovedTarget } from "./upstream.js";
 
 export interface GatewayDependencies {
   audit: AuditLedger;
@@ -297,6 +290,9 @@ const handleGatewayRequest = async (
         "Execution token is required",
         401,
       );
+    // Bind early authentication failures to an actual configuration version.
+    // A presented token enables response signing, never authorization.
+    configuration = await dependencies.configuration.get();
     const credential = await dependencies.auth.authenticateExecution(token);
     if (!credential)
       throw failure(
@@ -305,7 +301,6 @@ const handleGatewayRequest = async (
         "Execution token is invalid",
         401,
       );
-    configuration = await dependencies.configuration.get();
     if (configuration.gatewayPaused) {
       request.resume();
       throw failure(
@@ -440,25 +435,7 @@ const handleGatewayRequest = async (
       abort.signal,
     );
   } catch (error) {
-    const gatewayError =
-      error instanceof GatewayFailure
-        ? error
-        : error instanceof TargetPolicyDeniedError
-          ? failure(
-              "target_not_allowed",
-              "policy",
-              "Resolved target addresses were denied by policy",
-              403,
-            )
-          : abort.signal.aborted
-            ? abortedGatewayFailure(abort.signal)
-            : failure(
-                "upstream_network",
-                "internal",
-                "Gateway request failed",
-                502,
-                true,
-              );
+    const gatewayError = classifyGatewayFailure(error, abort.signal);
     if (!response.headersSent && metadata && token && configuration) {
       responseContext ??= {
         auditState: "unknown",

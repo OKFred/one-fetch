@@ -6,7 +6,7 @@ import process from "node:process";
 import { promisify } from "node:util";
 import {
   createCloudflareConfigs,
-  latestVersionId,
+  activeVersionId,
   writePrivateJson,
 } from "./cloudflare-support.mjs";
 
@@ -26,7 +26,13 @@ export async function runWrangler(arguments_, options = {}) {
       cwd: adapterRoot,
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
-      env: { ...process.env, NO_COLOR: "1" },
+      env: {
+        ...process.env,
+        NO_COLOR: "1",
+        ...(options.accountId
+          ? { CLOUDFLARE_ACCOUNT_ID: options.accountId }
+          : {}),
+      },
     },
   );
   return options.json === true
@@ -34,9 +40,9 @@ export async function runWrangler(arguments_, options = {}) {
     : `${result.stdout}\n${result.stderr}`;
 }
 
-export async function workerExists(name) {
+export async function workerExists(name, run = runWrangler) {
   try {
-    await runWrangler(["versions", "list", "--name", name, "--json"], {
+    await run(["versions", "list", "--name", name, "--json"], {
       json: true,
     });
     return true;
@@ -67,6 +73,8 @@ export async function setPaused(
   const currentResponse = await fetch(configurationUrl, {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
     cache: "no-store",
+    redirect: "error",
+    signal: globalThis.AbortSignal.timeout(15_000),
   });
   if (!currentResponse.ok)
     throw new Error(
@@ -93,6 +101,8 @@ export async function setPaused(
       },
       body: JSON.stringify({ schemaVersion: 1, paused }),
       cache: "no-store",
+      redirect: "error",
+      signal: globalThis.AbortSignal.timeout(15_000),
     },
   );
   if (!response.ok)
@@ -108,6 +118,7 @@ function configOptions(values, deploymentId, buildId, databaseId) {
     deploymentId,
     buildId,
     databaseId,
+    accountId: values.get("--account-id"),
     adminAllowedOrigins:
       values.get("--admin-origins") ?? "http://localhost:5173",
     xpanelAllowedOrigins:
@@ -136,9 +147,9 @@ export async function writeConfigs(
   return { control, gateway };
 }
 
-export async function currentVersionId(name) {
-  return latestVersionId(
-    await runWrangler(["versions", "list", "--name", name, "--json"], {
+export async function currentVersionId(name, run = runWrangler) {
+  return activeVersionId(
+    await run(["deployments", "status", "--name", name, "--json"], {
       json: true,
     }),
   );

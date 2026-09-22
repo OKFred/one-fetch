@@ -96,6 +96,8 @@ jobs:
         run: pnpm --filter @one-fetch/adapter-supabase start
       - name: Database and function integration
         run: pnpm --filter @one-fetch/adapter-supabase test:integration
+      - name: Isolated PostgreSQL logical backup and RPC restore
+        run: pnpm --filter @one-fetch/adapter-supabase test:restore
       - name: Remove ephemeral local Function secrets
         if: always()
         run: rm -f adapters/supabase/supabase/functions/.env
@@ -195,6 +197,8 @@ jobs:
       - run: node --test tools/release/*.test.mjs
       - run: pnpm check:openapi
       - run: pnpm --filter @one-fetch/conformance... build
+      - name: Test deployment and artifact acceptance safety checks
+        run: node --test tools/deploy/*.test.mjs tools/acceptance/*.test.mjs
       - run: pnpm exec eslint .
       - run: pnpm exec prettier --check .
 

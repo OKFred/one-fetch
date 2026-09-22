@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import {
@@ -7,25 +6,31 @@ import {
   assertExpectedBuild,
   deploymentNames,
   failedDeploymentState,
-  parseD1CreateOutput,
-  parseWorkersUrl,
   readDeploymentState,
   resetDeploymentLifecycle,
-  sha256File,
   stateDirectory,
   validateBuildId,
-  validateSecretsFile,
-  writePrivateJson,
 } from "./cloudflare-support.mjs";
 import {
-  currentVersionId,
   readToken,
   repositoryRoot,
-  runWrangler,
-  setPaused,
-  workerExists,
   writeConfigs,
 } from "./cloudflare-runtime.mjs";
+import {
+  assertActiveVersions,
+  inventoryCloudflareUpdate,
+} from "./cloudflare-update.mjs";
+import {
+  cloudflareAccount,
+  guardedCloudflareOperation,
+} from "./cloudflare-guard.mjs";
+import { installCloudflareDeployment } from "./cloudflare-install.mjs";
+import { cleanupCloudflareDeployment } from "./cloudflare-cleanup.mjs";
+import {
+  adoptCloudflareCoordination,
+  inspectCloudflareCoordination,
+} from "./cloudflare-adopt.mjs";
+export { cleanupCloudflareDeployment } from "./cloudflare-cleanup.mjs";
 
 function parseArguments(values) {
   const result = new Map();
@@ -67,11 +72,16 @@ export async function createCloudflareDeploymentPlan(values) {
   const names = deploymentNames(deploymentId);
   const state = await optionalState(deploymentId);
   assertExpectedBuild(state, expectedBuild);
+  if (state !== undefined && state.buildId === buildId)
+    throw new Error(
+      "An update requires a distinct build ID; never reuse deployed build identifiers",
+    );
+  const context = await cloudflareAccount(values, state);
   if (state === undefined) {
     const [control, gateway, databases] = await Promise.all([
-      workerExists(names.control),
-      workerExists(names.gateway),
-      runWrangler(["d1", "list", "--json"], { json: true }),
+      context.exists(names.control),
+      context.exists(names.gateway),
+      context.run(["d1", "list", "--json"], { json: true }),
     ]);
     const database = databases.some((item) => item.name === names.database);
     if (control || gateway || database)
@@ -83,166 +93,50 @@ export async function createCloudflareDeploymentPlan(values) {
     deploymentId,
     buildId,
     expectedBuild,
+    accountId: context.accountId,
     resources: names,
     gatewayPauseRequired: state !== undefined,
     databaseRestoreAutomatic: false,
   };
 }
 
-async function inventoryFresh(plan, values) {
-  const secretsPath = resolve(required(values, "--secrets-file"));
-  await validateSecretsFile(secretsPath);
-  const directory = stateDirectory(repositoryRoot, plan.deploymentId);
-  await mkdir(directory, { recursive: true });
-  const databaseOutput = await runWrangler([
-    "d1",
-    "create",
-    plan.resources.database,
-    "--location",
-    "apac",
-  ]);
-  const databaseId = parseD1CreateOutput(databaseOutput);
-  const provisional = {
-    schemaVersion: 1,
-    deploymentId: plan.deploymentId,
-    buildId: plan.buildId,
-    status: "provisioning",
-    gatewayPaused: true,
-    resources: { ...plan.resources, databaseId },
-    createdAt: new Date().toISOString(),
-  };
-  await writePrivateJson(join(directory, "state.json"), provisional);
-  const configs = await writeConfigs(
-    directory,
-    values,
-    plan.deploymentId,
-    plan.buildId,
-    databaseId,
-  );
-  await runWrangler([
-    "d1",
-    "migrations",
-    "apply",
-    "DB",
-    "--remote",
-    "--config",
-    configs.control,
-  ]);
-  const controlOutput = await runWrangler([
-    "deploy",
-    "--config",
-    configs.control,
-    "--secrets-file",
-    secretsPath,
-  ]);
-  const gatewayOutput = await runWrangler([
-    "deploy",
-    "--config",
-    configs.gateway,
-  ]);
-  return {
-    ...provisional,
-    status: "awaiting-verification",
-    controlUrl: parseWorkersUrl(controlOutput),
-    gatewayUrl: parseWorkersUrl(gatewayOutput),
-    workerVersions: {
-      control: await currentVersionId(plan.resources.control),
-      gateway: await currentVersionId(plan.resources.gateway),
-    },
-    configs,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-async function inventoryUpdate(plan, values, state) {
-  const token = await readToken(required(values, "--admin-token-file"));
-  await setPaused(state, token, true);
-  const directory = stateDirectory(repositoryRoot, plan.deploymentId);
-  const currentState = resetDeploymentLifecycle(state);
-  const pausedState = { ...currentState, gatewayPaused: true };
-  await writePrivateJson(join(directory, "state.json"), pausedState);
-  const stamp = new Date().toISOString().replaceAll(":", "-");
-  const backup = join(directory, `d1-${stamp}.sql`);
-  const bookmark = await runWrangler(
-    ["d1", "time-travel", "info", state.resources.databaseId, "--json"],
-    { json: true },
-  );
-  await runWrangler([
-    "d1",
-    "export",
-    state.resources.databaseId,
-    "--remote",
-    "--output",
-    backup,
-    "-y",
-  ]);
-  const previous = {
-    buildId: state.buildId,
-    controlVersionId: await currentVersionId(state.resources.control),
-    gatewayVersionId: await currentVersionId(state.resources.gateway),
-    databaseBookmark: bookmark.bookmark ?? bookmark,
-    databaseBackup: backup,
-    databaseBackupSha256: await sha256File(backup),
-  };
-  const configs = await writeConfigs(
-    directory,
-    values,
-    plan.deploymentId,
-    plan.buildId,
-    state.resources.databaseId,
-  );
-  await runWrangler([
-    "d1",
-    "migrations",
-    "apply",
-    "DB",
-    "--remote",
-    "--config",
-    configs.control,
-  ]);
-  await runWrangler(["deploy", "--config", configs.control]);
-  await runWrangler(["deploy", "--config", configs.gateway]);
-  return {
-    ...currentState,
-    buildId: plan.buildId,
-    status: "awaiting-verification",
-    gatewayPaused: true,
-    previous,
-    workerVersions: {
-      control: await currentVersionId(state.resources.control),
-      gateway: await currentVersionId(state.resources.gateway),
-    },
-    configs,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
 export async function applyCloudflareDeployment(values) {
   const plan = await createCloudflareDeploymentPlan(values);
   const previous = await optionalState(plan.deploymentId);
-  let state;
-  try {
-    state =
-      previous === undefined
-        ? await inventoryFresh(plan, values)
-        : await inventoryUpdate(plan, values, previous);
-    await writePrivateJson(
-      join(stateDirectory(repositoryRoot, plan.deploymentId), "state.json"),
-      state,
-    );
-    return state;
-  } catch (error) {
-    const partial = (await optionalState(plan.deploymentId)) ?? previous;
-    if (partial !== undefined) {
-      await writePrivateJson(
-        join(stateDirectory(repositoryRoot, plan.deploymentId), "state.json"),
-        {
-          ...failedDeploymentState(partial),
-        },
-      );
-    }
-    throw error;
-  }
+  const context = await cloudflareAccount(
+    new Map([...values, ["--account-id", plan.accountId]]),
+    previous,
+  );
+  if (previous === undefined)
+    return installCloudflareDeployment(plan, values, context);
+  // A lock loser must not mark the winning operation's state as failed.
+  return guardedCloudflareOperation(
+    previous,
+    values,
+    context,
+    "apply",
+    async (guard) => {
+      try {
+        return await inventoryCloudflareUpdate(plan, context.values, previous, {
+          runWrangler: guard.run,
+          currentVersionId: guard.current,
+          setPaused: guard.pause,
+          writePrivateJson: guard.write,
+          writeConfigs: async (...args) => {
+            await guard.lock.assertOwned();
+            return writeConfigs(...args);
+          },
+        });
+      } catch (error) {
+        const partial = (await optionalState(plan.deploymentId)) ?? previous;
+        await guard.write(
+          join(stateDirectory(repositoryRoot, plan.deploymentId), "state.json"),
+          failedDeploymentState(partial),
+        );
+        throw error;
+      }
+    },
+  );
 }
 
 export async function verifyCloudflareDeployment(values) {
@@ -250,41 +144,66 @@ export async function verifyCloudflareDeployment(values) {
   const expectedBuild = validateBuildId(required(values, "--expected-build"));
   let state = await readDeploymentState(repositoryRoot, deploymentId);
   assertExpectedBuild(state, expectedBuild);
-  const [healthResponse, capabilitiesResponse] = await Promise.all([
-    globalThis.fetch(new globalThis.URL("/api/v1/health", state.controlUrl), {
-      cache: "no-store",
-    }),
-    globalThis.fetch(
-      new globalThis.URL("/api/v1/capabilities", state.controlUrl),
-      { cache: "no-store" },
-    ),
-  ]);
-  if (!healthResponse.ok || !capabilitiesResponse.ok)
-    throw new Error("Cloudflare Control verification failed");
-  const [health, capabilities] = await Promise.all([
-    healthResponse.json(),
-    capabilitiesResponse.json(),
-  ]);
-  assertHttpPreviewCapabilities(capabilities, expectedBuild);
-  if (values.get("--resume") === true) {
-    const token = await readToken(required(values, "--admin-token-file"));
-    await setPaused(state, token, false);
-    state.gatewayPaused = false;
-  }
-  state = resetDeploymentLifecycle(state);
-  state.status = "verified";
-  state.verifiedAt = new Date().toISOString();
-  await writePrivateJson(
-    join(stateDirectory(repositoryRoot, deploymentId), "state.json"),
+  if (
+    !["awaiting-verification", "verified", "rolled-back"].includes(state.status)
+  )
+    throw new Error(
+      "Recover the incomplete Cloudflare deployment before verification or resume",
+    );
+  const context = await cloudflareAccount(values, state);
+  return guardedCloudflareOperation(
     state,
+    values,
+    context,
+    "verify",
+    async (guard) => {
+      await assertActiveVersions(state, guard.current);
+      const [healthResponse, capabilitiesResponse] = await Promise.all([
+        globalThis.fetch(
+          new globalThis.URL("/api/v1/health", state.controlUrl),
+          {
+            cache: "no-store",
+            redirect: "error",
+            signal: globalThis.AbortSignal.timeout(15_000),
+          },
+        ),
+        globalThis.fetch(
+          new globalThis.URL("/api/v1/capabilities", state.controlUrl),
+          {
+            cache: "no-store",
+            redirect: "error",
+            signal: globalThis.AbortSignal.timeout(15_000),
+          },
+        ),
+      ]);
+      if (!healthResponse.ok || !capabilitiesResponse.ok)
+        throw new Error("Cloudflare Control verification failed");
+      const [health, capabilities] = await Promise.all([
+        healthResponse.json(),
+        capabilitiesResponse.json(),
+      ]);
+      assertHttpPreviewCapabilities(capabilities, expectedBuild);
+      if (values.get("--resume") === true) {
+        const token = await readToken(required(values, "--admin-token-file"));
+        await guard.pause(state, token, false);
+        state.gatewayPaused = false;
+      }
+      state = resetDeploymentLifecycle(state);
+      state.status = "verified";
+      state.verifiedAt = new Date().toISOString();
+      await guard.write(
+        join(stateDirectory(repositoryRoot, deploymentId), "state.json"),
+        state,
+      );
+      return {
+        schemaVersion: 1,
+        deploymentId,
+        buildId: expectedBuild,
+        health: health.status,
+        gatewayResumed: !state.gatewayPaused,
+      };
+    },
   );
-  return {
-    schemaVersion: 1,
-    deploymentId,
-    buildId: expectedBuild,
-    health: health.status,
-    gatewayResumed: !state.gatewayPaused,
-  };
 }
 
 export async function rollbackCloudflareDeployment(values) {
@@ -293,82 +212,51 @@ export async function rollbackCloudflareDeployment(values) {
   assertExpectedBuild(state, required(values, "--expected-build"));
   if (!state.previous)
     throw new Error("No previous Cloudflare Worker versions are recorded");
-  const token = await readToken(required(values, "--admin-token-file"));
-  await setPaused(state, token, true);
-  await runWrangler([
-    "rollback",
-    state.previous.gatewayVersionId,
-    "--name",
-    state.resources.gateway,
-    "--yes",
-  ]);
-  await runWrangler([
-    "rollback",
-    state.previous.controlVersionId,
-    "--name",
-    state.resources.control,
-    "--yes",
-  ]);
-  state.buildId = state.previous.buildId;
-  state.status = "rolled-back";
-  state.gatewayPaused = true;
-  state.rolledBackAt = new Date().toISOString();
-  await writePrivateJson(
-    join(stateDirectory(repositoryRoot, deploymentId), "state.json"),
+  const context = await cloudflareAccount(values, state);
+  return guardedCloudflareOperation(
     state,
+    values,
+    context,
+    "rollback",
+    async (guard) => {
+      const token = await readToken(required(values, "--admin-token-file"));
+      await guard.pause(state, token, true);
+      await guard.run([
+        "rollback",
+        state.previous.gatewayVersionId,
+        "--name",
+        state.resources.gateway,
+        "--yes",
+      ]);
+      await guard.run([
+        "rollback",
+        state.previous.controlVersionId,
+        "--name",
+        state.resources.control,
+        "--yes",
+      ]);
+      state.buildId = state.previous.buildId;
+      state.workerVersions = {
+        control: state.previous.controlVersionId,
+        gateway: state.previous.gatewayVersionId,
+      };
+      await assertActiveVersions(state, guard.current);
+      state.status = "rolled-back";
+      state.gatewayPaused = true;
+      state.rolledBackAt = new Date().toISOString();
+      await guard.write(
+        join(stateDirectory(repositoryRoot, deploymentId), "state.json"),
+        state,
+      );
+      return {
+        schemaVersion: 1,
+        deploymentId,
+        buildId: state.buildId,
+        gatewayPaused: true,
+        databaseRestored: false,
+      };
+    },
   );
-  return {
-    schemaVersion: 1,
-    deploymentId,
-    buildId: state.buildId,
-    gatewayPaused: true,
-    databaseRestored: false,
-  };
-}
-
-export async function cleanupCloudflareDeployment(values) {
-  const deploymentId = required(values, "--deployment-id");
-  if (required(values, "--confirm-id") !== deploymentId)
-    throw new Error("Cleanup confirmation must exactly match deployment ID");
-  const state = await readDeploymentState(repositoryRoot, deploymentId);
-  const failures = [];
-  for (const name of [state.resources.gateway, state.resources.control]) {
-    try {
-      await runWrangler(["delete", name, "--force"]);
-    } catch (error) {
-      failures.push(`${name}: ${error.message}`);
-    }
-  }
-  try {
-    await runWrangler(["d1", "delete", state.resources.databaseId, "-y"]);
-  } catch (error) {
-    failures.push(`${state.resources.database}: ${error.message}`);
-  }
-  const [control, gateway, databases] = await Promise.all([
-    workerExists(state.resources.control),
-    workerExists(state.resources.gateway),
-    runWrangler(["d1", "list", "--json"], { json: true }),
-  ]);
-  if (
-    control ||
-    gateway ||
-    databases.some(
-      (item) =>
-        item.uuid === state.resources.databaseId ||
-        item.name === state.resources.database,
-    )
-  )
-    failures.push("Remote inventory still contains deployment resources");
-  state.status = failures.length === 0 ? "cleanup-verified" : "cleanup-failed";
-  state.cleanupFailures = failures;
-  state.cleanedAt = new Date().toISOString();
-  await writePrivateJson(
-    join(stateDirectory(repositoryRoot, deploymentId), "state.json"),
-    state,
-  );
-  if (failures.length > 0)
-    throw new Error(`Cloudflare cleanup incomplete: ${failures.join("; ")}`);
-  return { schemaVersion: 1, deploymentId, cleanupVerified: true };
 }
 
 async function main() {
@@ -380,6 +268,8 @@ async function main() {
     verify: verifyCloudflareDeployment,
     rollback: rollbackCloudflareDeployment,
     cleanup: cleanupCloudflareDeployment,
+    adopt: adoptCloudflareCoordination,
+    coordination: inspectCloudflareCoordination,
   };
   const handler = handlers[mode];
   if (!handler)

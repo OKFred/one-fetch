@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { URL } from "node:url";
 
 import {
   injectBuildVersion,
@@ -10,9 +12,16 @@ import {
   parseMode,
 } from "./check-bundles.mjs";
 
-test("bundle mode is explicit", () => {
+test("bundle mode is explicit", async () => {
   assert.equal(parseMode(["--check"]), "check");
   assert.equal(parseMode(["--stage"]), "stage");
+  const manifest = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(
+    parseBundleOptions(["--stage"]).buildVersion,
+    `${manifest.version}-preview`,
+  );
   assert.deepEqual(
     parseBundleOptions([
       "--stage",

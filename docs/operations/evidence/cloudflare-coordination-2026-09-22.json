@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "107871d61140243b6a357104937f6336e01ad075",
+  "initialBuild": "0.1.1+107871d.install",
+  "updatedBuild": "0.1.1+107871d.update",
+  "sameSourceRedeployment": true,
+  "releaseProvenanceVerified": false,
+  "fullHttpConformanceRepeated": false,
+  "hosted": {
+    "installVerified": true,
+    "contenders": 4,
+    "acquiredOwners": 1,
+    "lostAcknowledgementRetainsLock": true,
+    "wrongRecoveryRevisionRejected": true,
+    "explicitRecoveryVerified": true,
+    "updateVerified": true,
+    "staleBuildRejected": true,
+    "rollbackActiveVersionsVerified": true,
+    "rollbackGatewayPaused": true,
+    "explicitResumeVerified": true,
+    "emptyAllowlistConfirmed": true,
+    "legacyAdoptionTested": false
+  },
+  "backup": {
+    "sha256": "c4f226f78c0e9f57d596e8d1909d87fbc6371867e2c535231f5270bc89790fa4",
+    "timeTravelBookmarkCaptured": true,
+    "isolatedLocalSqliteIntegrity": "ok",
+    "heldLockPreserved": true,
+    "replacementDatabaseIdentityRejected": true,
+    "cloudDatabaseRestored": false
+  },
+  "cleanup": {
+    "verified": true,
+    "workersAbsent": [
+      "of011-lock-6dd393f0a191-control",
+      "of011-lock-6dd393f0a191-gateway"
+    ],
+    "databasesAbsent": ["e5b817b6-7da3-4baf-bc6e-804042bcb321"],
+    "durableObjectNamespacesAbsent": [
+      "74ef4dd6e02346be93b30d25ec3052ed",
+      "43f36f3759eb45edbf4a765f28917d33"
+    ],
+    "namespaceInventoryCheckedAt": "2026-09-22T06:02:43.194Z",
+    "localCredentialAndBackupFilesDeleted": 4,
+    "existingSupabaseProjectsChanged": false
+  },
+  "localEvidenceSha256": {
+    "hostedReceipt": "4801c8ebd4daedbb560525086671772553b2ba978f1e2dfe3a0184a1bdc3530c",
+    "acceptanceScript": "b31723508869da7906f780e7d1b0e78c238efd384944ab3a06f87df6fd0dfae5",
+    "namespaceAbsence": "6381b6db9436fbaa60f9c179feadac9231ea1da6c5d9739f095d0c4239f2a13f",
+    "fullCheck107871d": "67a8071a28ac2fc6a867c2f839e7d62dec10f5c8a4888e2bf54303b73e0ac7e7",
+    "fullCheckE892e92": "fc5c6fe214af142c555f089d0f12e3a8f904c14a92e2227de112659d7c379ecf"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-22",
+  "runnerCommit": "5efb41f7bddd4ac752f97fb55c7af65e310c1ab2",
+  "runnerDirty": false,
+  "from": {
+    "version": "0.1.0",
+    "commit": "21e6b985f32e0dcfab5389dd7b2a77b89f72377b",
+    "archiveSha256": "ddb122ada1614b8585958473383a6a4ac64ceb9e40ab13a2ebb8efe535c8bb5c",
+    "archiveAttestationVerifiedSeparately": true,
+    "attestationReceiptSha256": "e230b3c357a519b0524a96974df9d5eb0ad82c591d78a17def6356625db325fb"
+  },
+  "to": {
+    "version": "0.1.1",
+    "commit": "67f078dd1e645c5b0db32acb7e0a6e259b9367b9",
+    "archiveSha256": "6a7f2d5fe09da9af2e4098e7169c4e09075697cf6f94c4e5678afb2356fadf4a",
+    "helperSha256": "39061967bf75eb4e94f2e1c0c29d88b69bbdcf1189f410daec0a3a07d5954974",
+    "builtLocally": true,
+    "provenanceVerified": false
+  },
+  "runs": [
+    {
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "receiptSha256": "cc226ac50851d93a73e17d665e867986f2c607c9b321d95a97136396fd06c219",
+      "originalAuditEventsPreserved": 7,
+      "finalAuditSignaturesVerified": 19,
+      "cleanupVerified": true
+    },
+    {
+      "platform": "linux/arm64",
+      "emulated": true,
+      "passed": true,
+      "receiptSha256": "74876d0518418056971652d1323494d69467500e24c6f62c60222e008d9d2ab6",
+      "originalAuditEventsPreserved": 7,
+      "finalAuditSignaturesVerified": 19,
+      "cleanupVerified": true
+    }
+  ],
+  "initialFailedRunnerReceiptSha256": "f62494f81f5298e35e6d562e0d5f35ebf6eebe3a64ca8a507f1c1505cf9e83d2",
+  "exploratoryDirtyRunnerReceiptSha256": "52d0e71c384edddd92615b94d629caf257b8dab0b56a325a5a2bc748d3abaca5",
+  "checkLogSha256": "cb4c58868b89f02c02ece7b180e4b8f813d42468fa16822d51cd4a86e6c5ce41",
+  "processKillTested": false,
+  "schemaChangeTested": false,
+  "cliLauncherTested": false,
+  "databaseRestoredInPlace": false,
+  "hostCredentialsCreated": false,
+  "publicGatewayCreated": false,
+  "finalReleaseAcceptance": false
+}

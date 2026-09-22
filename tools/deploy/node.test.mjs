@@ -1,15 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { createServer } from "node:http";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -25,104 +15,11 @@ import {
   verifyNodeDeployment,
 } from "./node.mjs";
 
-async function archiveFixture(parent, version, databaseSchemaVersion = 1) {
-  const source = join(parent, `source-${version}`);
-  const root = join(source, "one-fetch");
-  await mkdir(join(root, "dist"), { recursive: true });
-  await writeFile(
-    join(root, "BUILD-METADATA.json"),
-    `${JSON.stringify({
-      schemaVersion: 1,
-      version,
-      entrypoint: "dist/cli.js",
-      databaseSchemaVersion,
-    })}\n`,
-  );
-  await writeFile(join(root, "dist", "cli.js"), "export {};\n");
-  const archive = join(parent, `one-fetch-node-${version}.tar.gz`);
-  execFileSync("tar", ["-czf", archive, "-C", source, "one-fetch"]);
-  const sha256 = createHash("sha256")
-    .update(await readFile(archive))
-    .digest("hex");
-  return { archive, sha256 };
-}
-
-function initializeDatabase(path) {
-  const database = new DatabaseSync(path);
-  try {
-    database.exec(
-      "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL) STRICT;",
-    );
-    database
-      .prepare(
-        "INSERT INTO schema_migrations(version, checksum, applied_at) VALUES (1, ?, ?)",
-      )
-      .run("a".repeat(64), new Date().toISOString());
-  } finally {
-    database.close();
-  }
-}
-
-async function fakeControl() {
-  let paused = false;
-  let revision = 1;
-  let buildVersion = "0.1.0";
-  const token = "admin-test-token-that-is-long-enough";
-  const server = createServer(async (request, response) => {
-    const url = new globalThis.URL(request.url ?? "/", "http://127.0.0.1");
-    if (url.pathname === "/api/v1/capabilities") {
-      response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ buildVersion }));
-      return;
-    }
-    if (request.headers.authorization !== `Bearer ${token}`) {
-      response.writeHead(401).end();
-      return;
-    }
-    if (url.pathname === "/api/v1/config" && request.method === "GET") {
-      response.setHeader("Content-Type", "application/json");
-      response.end(
-        JSON.stringify({
-          version: `config-${revision}`,
-          gatewayPaused: paused,
-        }),
-      );
-      return;
-    }
-    if (
-      url.pathname === "/api/v1/config/gateway-paused" &&
-      request.method === "PUT"
-    ) {
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      paused = JSON.parse(
-        globalThis.Buffer.concat(chunks).toString("utf8"),
-      ).paused;
-      revision += 1;
-      response.setHeader("Content-Type", "application/json");
-      response.end(
-        JSON.stringify({
-          version: `config-${revision}`,
-          gatewayPaused: paused,
-        }),
-      );
-      return;
-    }
-    response.writeHead(404).end();
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
-  return {
-    controlUrl: `http://127.0.0.1:${address.port}`,
-    token,
-    setBuildVersion(value) {
-      buildVersion = value;
-    },
-    isPaused: () => paused,
-    close: () => new Promise((resolve) => server.close(resolve)),
-  };
-}
+import {
+  archiveFixture,
+  fakeControl,
+  initializeDatabase,
+} from "./node-test-fixtures.mjs";
 
 test("Node deployment boundaries reject unsafe runtimes, roots, and archives", () => {
   assert.doesNotThrow(() => assertDeploymentRuntime("24.20.0"));
@@ -162,6 +59,16 @@ test("Node install, guarded update, verification, and binary rollback are execut
     const database = join(root, "data", "one-fetch.sqlite");
     await mkdir(join(root, "data"), { recursive: true });
     initializeDatabase(database);
+    control.observeConfiguration((value) => {
+      const connection = new DatabaseSync(database);
+      try {
+        connection
+          .prepare("UPDATE instance_config SET value_json = ? WHERE key = ?")
+          .run(JSON.stringify(value), "configuration");
+      } finally {
+        connection.close();
+      }
+    });
 
     const tokenFile = join(temporary, "admin-token");
     await writeFile(tokenFile, control.token, { mode: 0o600 });
@@ -202,6 +109,15 @@ test("Node install, guarded update, verification, and binary rollback are execut
     assert.equal(rolledBack.version, "0.1.0");
     assert.equal(rolledBack.databaseRestored, false);
     assert.equal(control.isPaused(), true);
+    control.setBuildVersion("0.1.0");
+    const undoneRollback = await rollbackNodeDeployment({
+      root,
+      database,
+      controlUrl: control.controlUrl,
+      adminTokenFile: tokenFile,
+      expectedVersion: "0.1.0",
+    });
+    assert.equal(undoneRollback.version, "0.1.1");
   } finally {
     await control.close();
     await rm(temporary, { recursive: true, force: true });

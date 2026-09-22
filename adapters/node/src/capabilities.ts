@@ -6,6 +6,7 @@ import {
 
 import type { NodeAdapterConfig } from "./config.js";
 import type { StoredConfiguration } from "./configuration.js";
+import { BUILD_VERSION } from "./build-version.js";
 
 const fetchOptions: FetchOptionCapabilityV1[] = [
   { option: "redirect", fidelity: "translated" },
@@ -80,7 +81,7 @@ export const createCapabilities = (
   protocolVersion: 1,
   instanceId: config.instanceId,
   provider: "node",
-  buildVersion: "0.1.0",
+  buildVersion: BUILD_VERSION,
   controlGatewayPairId: stored.controlGatewayPairId,
   configVersion: stored.version,
   configUpdatedAt: stored.updatedAt,

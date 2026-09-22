@@ -91,6 +91,73 @@ An update changes `--expected-build` to the currently deployed build and require
 IDs, D1 Time Travel bookmark, a SQL export, and its SHA-256 before migrations or
 deployment. Verification leaves Gateway paused unless `--resume` is explicit.
 
+Rollback points come from `wrangler deployments status`, not the latest uploaded
+version. Exactly one version must carry 100% traffic; split deployments and
+out-of-band changes to the recorded Worker versions require operator review.
+An update requires a verified or explicitly rolled-back starting state.
+
+The helper flushes a local checkpoint before pause, migrations and each Worker
+deployment. It records the backup path, SHA-256, Time Travel bookmark and old
+active versions before changing schema or code. `gatewayPaused: null` means a
+pause was requested but its outcome is unknown, not that traffic is stopped.
+After an interrupted update, `buildId` stays at the old build until both Worker
+deployments finish; `update.targetBuildId` and `update.phase` identify the attempt.
+Do not use `verify --resume` to bypass an incomplete/failed lifecycle. Inspect the
+remote state and use explicit code rollback when a backup point is recorded.
+
+The current helper also uses a shared D1 compare-and-swap lock across install,
+update, verify/resume, rollback and cleanup. Account, D1 UUID, deployment names
+and expected build are pinned. An update must use a distinct build ID. There is
+no expiry or automatic stale-process takeover: errors, lost acknowledgements
+and process death retain the lock. Local operation journals record its owner
+and revision, not credentials.
+
+This is cooperative coordination, not a platform fencing guarantee or an OS
+power-loss guarantee. Cloudflare deployment APIs cannot check our D1 revision;
+dashboard changes, older helpers and privileged SQL can bypass it. Do not run
+those concurrently. D1 exports remain sensitive and need restricted access.
+
+### Adopting an older deployment
+
+Older deployment records have no pinned account or coordination table. Normal
+mutations refuse them. Stop **all** deployment helpers first, verify the account
+and recorded active versions, then explicitly adopt:
+
+```sh
+pnpm deploy:cloudflare adopt --deployment-id one-fetch-preview-a1 \
+  --account-id ACCOUNT_ID --expected-build 0.1.0+COMMIT \
+  --confirm-stopped one-fetch-preview-a1 \
+  --admin-token-file /restricted/admin-token
+```
+
+Adoption requires a verified/rolled-back starting state, pauses Gateway, exports
+and hashes D1 before creating the coordination table, and leaves traffic paused.
+Existing tables are never overwritten, including empty or malformed ones.
+Adoption itself requires operator-enforced quiescence because the shared lock
+does not yet exist. Incomplete legacy installations require manual review.
+
+### Recovering a retained lock
+
+Inspect without mutation:
+
+```sh
+pnpm deploy:cloudflare coordination --deployment-id one-fetch-preview-a1
+```
+
+After confirming every old helper has stopped, append all three options to
+`rollback`, `cleanup`, or an otherwise valid `verify`:
+`--recover-owner OWNER_UUID --recover-revision REVISION --confirm-stopped ID`.
+Recovery performs a CAS on that exact owner/revision; ordinary `apply` cannot
+take over. A very old timestamp is not permission to recover. If verification
+is ineligible because the lifecycle is incomplete, use rollback or cleanup.
+Missing/malformed rows or an unacknowledged table initialization require manual
+inspection, not dropping/recreating the table or rerunning an install.
+
+A SQL backup includes the coordination row as it existed while the operation
+held its lock. An isolated restore therefore retains the old database identity
+and owner; do not treat that copy as an unlocked deployment. Review/rebind a
+replacement identity explicitly, with all helpers stopped, before any cutover.
+
 Rollback restores the recorded Control and Gateway Worker versions only. It
 keeps Gateway paused and reports `databaseRestored: false`; D1 restoration is a
 separate reviewed procedure into an isolated database.
@@ -104,8 +171,11 @@ pnpm deploy:cloudflare cleanup --deployment-id one-fetch-preview-a1 \
 ```
 
 The command deletes only the journaled Workers and D1 UUID, then re-lists the
-account and fails unless all three are absent. A partial failure remains recorded
-as `cleanup-failed` for manual recovery.
+account and fails unless all three are absent. Worker deletion must be confirmed
+before D1 is deleted, preserving the lock on a partial Worker failure. If the
+database deletion acknowledgement or final local write is lost, inspect the
+exact account inventory manually; an absent D1 cannot provide another lock and
+the helper will not infer permission to delete a same-name replacement.
 
 ## Acceptance and cleanup
 

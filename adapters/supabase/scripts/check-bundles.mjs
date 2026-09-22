@@ -23,7 +23,12 @@ const functionsRoot = join(adapterRoot, "supabase", "functions");
 const functionNames = ["one-fetch-control", "one-fetch-gateway"];
 const maxBundleBytes = 10 * 1024 * 1024;
 const buildVersionMarker = "__ONE_FETCH_BUILD_VERSION__";
-const previewBuildVersion = "0.1.0-preview";
+const adapterManifest = JSON.parse(
+  await readFile(join(adapterRoot, "package.json"), "utf8"),
+);
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(adapterManifest.version))
+  throw new Error("Supabase adapter package version is invalid");
+const previewBuildVersion = `${adapterManifest.version}-preview`;
 
 export function parseBundleOptions(argv) {
   const modeArgument = argv[0];

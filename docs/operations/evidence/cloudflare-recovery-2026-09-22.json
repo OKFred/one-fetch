@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "b680b1b20ca0d3c42da659e7bd8869f97690dc42",
+  "initialBuild": "0.1.1+b680b1b.install",
+  "updatedBuild": "0.1.1+b680b1b.update",
+  "sameSourceRedeployment": true,
+  "releaseProvenanceVerified": false,
+  "workerVersions": {
+    "initialControl": "745a73a5-d9b5-4f7f-9ae7-dce3f41497ff",
+    "initialGateway": "d96d704d-e4c9-4ca2-a909-c5af35bfc304",
+    "updatedControl": "b26a9ebc-51c5-4d5a-8691-75daf898fbba",
+    "updatedGateway": "ff3f835d-2390-4740-8271-00604862fe8e"
+  },
+  "audit": {
+    "beforeUpdateVerified": 36,
+    "afterUpdateVerified": 38,
+    "afterRollbackVerified": 69,
+    "originalEventsPreserved": 36,
+    "credentialCanariesAbsent": true
+  },
+  "backup": {
+    "bytes": 86465,
+    "sha256": "2d3a37fbbc81a76e10537077ed44744919ea7863cad63b4c97db225144de81e0",
+    "timeTravelBookmarkCaptured": true,
+    "isolatedRestoreTablesVerified": 14,
+    "originalDatabaseRestored": false
+  },
+  "rollback": {
+    "originalActiveVersionsVerified": true,
+    "gatewayPaused": true,
+    "signedRejectionVerified": true,
+    "errorCode": "forbidden"
+  },
+  "cleanup": {
+    "verified": true,
+    "workersAbsent": [
+      "of011-20260922-c4f73b2a-control",
+      "of011-20260922-c4f73b2a-gateway",
+      "one-fetch-fixture-c4f73b2a6e91"
+    ],
+    "databasesAbsent": [
+      "0e7e784d-0f98-4175-96b0-a23ac8e47e43",
+      "b8f86602-2958-42a3-9e26-d27ea2cfdeed"
+    ],
+    "durableObjectNamespacesAbsent": [
+      "3648c48313ea4be4ab18265b10b255de",
+      "67f59f406c774e2184108cf86ad4a877"
+    ],
+    "namespaceInventoryCheckedAt": "2026-09-22T04:47:40.844Z"
+  },
+  "localReceiptSha256": {
+    "isolatedRestore": "8e1b56dc7e5e585af0a2cd12665fc4f5a91ddd4e95a3ccc8a98e3d31ceae2529",
+    "auditBefore": "fb9e828722ebe7f01cbd78a2558432861078d5dc680b6b34c0d7424b61f43c38",
+    "auditAfterUpdate": "bf206e9257007c61ee90cfc97ee64b19a78a8f8f384b38f355379bc76fb564fd",
+    "auditAfterRollback": "92d7965e74a8dea718f61c753f1380d3694b80a48d3a52349e1dba06816f881d",
+    "pausedRollback": "47f9323db6faa7f0b64344416f778b28a3ba44b81036998d95b6cd56813ca3f5",
+    "namespacesBeforeCleanup": "5da9fd614e40ae2ff7d13fe44624933602f80775c7049fb7af625dc9daea42e0",
+    "namespacesAfterCleanup": "8aa8dd5fa93d9f8d069fb941e0f9029bbc46db409e722fdafba4b11dbfaf3481"
+  }
+}

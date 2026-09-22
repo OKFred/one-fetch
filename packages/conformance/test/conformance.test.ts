@@ -14,6 +14,7 @@ import {
 
 import {
   handleConformanceTarget,
+  HTTP_CONFORMANCE_FIXTURES,
   HTTP_RESILIENCE_FIXTURES,
   parseServerTiming,
   runGatewayConformance,
@@ -129,6 +130,32 @@ describe("portable Gateway conformance suite", () => {
     ]);
   });
 
+  it("detects form reserialization of an otherwise equivalent query", async () => {
+    const fixture = HTTP_CONFORMANCE_FIXTURES.find(
+      ({ id }) => id === "query-space-and-plus-spelling",
+    );
+    expect(fixture).toBeDefined();
+    const reference = inMemoryGatewayFetch();
+    const client = new OneFetchGatewayClient({
+      gatewayUrl: "https://gateway.test",
+      token: TOKEN,
+      fetch: (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input);
+        url.search = url.searchParams.toString();
+        return reference(url, init);
+      },
+    });
+    const report = await runGatewayConformance(client, "https://target.test", [
+      fixture!,
+    ]);
+    expect(report.passed).toBe(false);
+    expect(report.results[0]).toMatchObject({
+      passed: false,
+      observed: { source: "target", status: 200 },
+    });
+    expect(report.results[0]?.failures.join(" ")).toContain("rawQuery");
+  });
+
   it("uses the terminal report when a client cannot observe a partial body", async () => {
     const client = new OneFetchGatewayClient({
       gatewayUrl: "https://gateway.test",
@@ -142,7 +169,12 @@ describe("portable Gateway conformance suite", () => {
     const report = await runGatewayConformance(
       client,
       "https://target.test",
-      [fixture!],
+      [
+        {
+          ...fixture!,
+          request: { ...fixture!.request, requestId: "request-truncated" },
+        },
+      ],
       {
         getExecutionReport: () =>
           Promise.resolve({

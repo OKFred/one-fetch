@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat, writeFile, mkdir, rename } from "node:fs/promises";
+import { readFile, stat, open, mkdir, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 
@@ -58,33 +58,33 @@ export function parseWorkersUrl(output) {
   return new globalThis.URL(url).origin;
 }
 
-export function latestVersionId(value) {
-  const list = Array.isArray(value) ? value : value?.items;
-  const candidates = Array.isArray(list)
-    ? list.filter(
-        (item) =>
-          typeof (item?.id ?? item?.version_id) === "string" &&
-          (item.id ?? item.version_id).length > 0,
-      )
-    : [];
-  const numbered = candidates.filter(({ number }) => Number.isInteger(number));
-  const candidate =
-    numbered.length === candidates.length && numbered.length > 0
-      ? numbered.reduce((latest, item) =>
-          item.number > latest.number ? item : latest,
-        )
-      : candidates.length === 1
-        ? candidates[0]
-        : undefined;
-  const id = candidate?.id ?? candidate?.version_id;
-  if (typeof id !== "string" || id.length === 0)
-    throw new Error("Wrangler did not return a Worker version ID");
-  return id;
+export function activeVersionId(deployment) {
+  const versions = deployment?.versions;
+  if (
+    !Array.isArray(versions) ||
+    versions.length !== 1 ||
+    versions[0]?.percentage !== 100 ||
+    typeof versions[0]?.version_id !== "string" ||
+    !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(
+      versions[0].version_id,
+    )
+  ) {
+    throw new Error(
+      "Expected exactly one active Worker version at 100% traffic; split or missing deployments require operator review",
+    );
+  }
+  return versions[0].version_id;
 }
 
 export function createCloudflareConfigs(options) {
   const names = deploymentNames(options.deploymentId);
+  if (
+    options.accountId !== undefined &&
+    !/^[a-f0-9]{32}$/u.test(options.accountId)
+  )
+    throw new Error("Invalid Cloudflare account ID");
   const common = {
+    ...(options.accountId ? { account_id: options.accountId } : {}),
     compatibility_date: "2026-09-04",
     workers_dev: true,
     observability: { enabled: false },
@@ -176,11 +176,13 @@ export async function sha256File(path) {
 export async function writePrivateJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
+  const handle = await open(temporary, "wx", 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
   await rename(temporary, path);
 }
 

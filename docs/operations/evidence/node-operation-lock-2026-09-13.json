@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "kind": "node-operation-lock-acceptance-evidence",
+  "recordedOn": "2026-09-13",
+  "repository": "OKFred/one-fetch",
+  "artifactCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+  "runnerCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+  "implementationCommit": "cabf3cb7bb07e4bff36a5fa5cea87ec9c3f39201",
+  "ci": {
+    "push": 34758815478,
+    "pullRequest": 34758817074,
+    "codeqlPush": 34758815456,
+    "codeqlPullRequest": 34758817143,
+    "allSucceeded": true,
+    "artifactId": 10317659018,
+    "artifactBytes": 164381028
+  },
+  "reviewBundle": {
+    "filesVerified": 18,
+    "manifestSubjectsVerified": 15,
+    "sha256Verified": true,
+    "sha512Verified": true,
+    "manifestSha256": "f22e977e5385bab5e7d7c482c86064969a6048fe3567099aac00dbefa75d6aa8",
+    "archiveSha256": "a4c6049ff0a232a760090dc5dd52cf3e5d64f94658f0b8f254032384ea91fe12",
+    "ociSha256": "7bae7d34c4f57e7900e96413320d44e0f93fa37069966a1b48ca0ffa090e811b",
+    "deploymentHelperSha256": "39061967bf75eb4e94f2e1c0c29d88b69bbdcf1189f410daec0a3a07d5954974",
+    "ociIndex": "sha256:54afe273bf331eed8f33bc2a85b9f971305a0a1833e072d4d3523541c68ac208",
+    "provenanceVerified": false,
+    "releaseAsset": false
+  },
+  "localChecks": {
+    "fullPnpmCheck": true,
+    "commit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+    "checkLogSha256": "45b629f470559171ff1b07ed7d9b68cd9afa8ea88921f481b2e3bd7c68c3877a",
+    "toolTests": 135,
+    "nodeDeploymentTests": 39,
+    "newLockAndUpdateGuardCases": 20,
+    "realProcessLockRace": true,
+    "killedOwnerRemainsLocked": true,
+    "deployHelperLines": 823,
+    "noAuthoredFileAbove1000": true
+  },
+  "runs": [
+    {
+      "receipt": "node-aca73e0-operation-lock-baseline.json",
+      "receiptSha256": "eeee3666fb06249b7b9caa4a0bfeb5ca36fad837296bf3f98f4f9021bbce95ea",
+      "runnerCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+      "runnerDirty": false,
+      "artifactCommit": "aca73e082ef3b48e5574fdfa82cf9e147d67f6db",
+      "startedAt": "2026-09-13T13:04:29.556Z",
+      "finishedAt": "2026-09-13T13:04:37.679Z",
+      "mode": "installed",
+      "platform": "linux/amd64",
+      "passed": false,
+      "runtime": {
+        "nodeVersion": "v24.20.0",
+        "architecture": "x64",
+        "uid": "1000",
+        "readOnlyRoot": true,
+        "loopbackOnly": true
+      },
+      "containerId": "73f75aff5f1802291fbaa34fc10cc591d3539152602664ffb7d4d5b23b16a13e",
+      "fileTransport": "docker-exec-stdin",
+      "manifestSha256": "67b1a753d501d2dae27b6242b530d8332e007b368a744bd421eb5be87ef393f6",
+      "deploymentHelperSha256": "c8e0c9293983339eeb09b71f3cb581b68b4b9969eb576137bf4c1edde4f5efe4",
+      "httpCases": 18,
+      "httpPassed": 18,
+      "authenticationVerified": true,
+      "revocationVerified": false,
+      "verifiedAuditEvents": 0,
+      "installedChecks": {
+        "schemaVersion": 1,
+        "passed": false,
+        "databaseRestoredInPlace": false,
+        "offlineVerified": true,
+        "runningIdentityVerified": true,
+        "databaseSchemaVersion": 7,
+        "failurePhase": "packaged-operation-lock"
+      },
+      "failure": {
+        "phase": "installed-verification-and-restore",
+        "code": "runtime_acceptance_failed"
+      },
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-5f3bcfa-operation-lock-amd64.json",
+      "receiptSha256": "9c1cd97e357ec58c22c04e4f0371967f53b85bb1b0f60a80b050d7638e35a9a5",
+      "runnerCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+      "runnerDirty": false,
+      "artifactCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+      "startedAt": "2026-09-13T13:12:34.750Z",
+      "finishedAt": "2026-09-13T13:12:43.108Z",
+      "mode": "installed",
+      "platform": "linux/amd64",
+      "passed": true,
+      "runtime": {
+        "nodeVersion": "v24.20.0",
+        "architecture": "x64",
+        "uid": "1000",
+        "readOnlyRoot": true,
+        "loopbackOnly": true
+      },
+      "containerId": "8c1e85beabadd17485e47a1f9be3e20bf7915918b799bcfca0add27b0638ed70",
+      "fileTransport": "docker-exec-stdin",
+      "manifestSha256": "f22e977e5385bab5e7d7c482c86064969a6048fe3567099aac00dbefa75d6aa8",
+      "deploymentHelperSha256": "39061967bf75eb4e94f2e1c0c29d88b69bbdcf1189f410daec0a3a07d5954974",
+      "httpCases": 18,
+      "httpPassed": 18,
+      "authenticationVerified": true,
+      "revocationVerified": true,
+      "verifiedAuditEvents": 40,
+      "installedChecks": {
+        "schemaVersion": 1,
+        "passed": true,
+        "databaseRestoredInPlace": false,
+        "offlineVerified": true,
+        "runningIdentityVerified": true,
+        "databaseSchemaVersion": 7,
+        "packagedOperationLockVerified": true,
+        "packagedResumeVerified": true,
+        "missingDatabaseRejected": true,
+        "backupSha256": "73a04110cb9cb4431ab3ff16496bc60c7a366a67e7ae15c80cb40a4f2c4d6a93",
+        "corruptLedgerRejected": true,
+        "differentInstanceRejected": true,
+        "isolatedRestoredRuntimeVerified": true,
+        "originalSessionAndPolicyPreserved": true,
+        "revokedExecutionTokenStillDenied": true,
+        "restoredAuditSignaturesVerified": 42,
+        "installationPointerUnchanged": true
+      },
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-5f3bcfa-operation-lock-arm64.json",
+      "receiptSha256": "15df143223318a7561e615c5e85a05c38fb0785bf52296583a5a6c2d4edbbae8",
+      "runnerCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+      "runnerDirty": false,
+      "artifactCommit": "5f3bcfab21968801e9893d1b142c8447a89ca122",
+      "startedAt": "2026-09-13T13:13:03.012Z",
+      "finishedAt": "2026-09-13T13:13:41.762Z",
+      "mode": "installed",
+      "platform": "linux/arm64",
+      "passed": true,
+      "runtime": {
+        "nodeVersion": "v24.20.0",
+        "architecture": "arm64",
+        "uid": "1000",
+        "readOnlyRoot": true,
+        "loopbackOnly": true
+      },
+      "containerId": "6c6fa01cffd26ec121b292e1eade29a612deef145802f49c4319d78157035de8",
+      "fileTransport": "docker-exec-stdin",
+      "manifestSha256": "f22e977e5385bab5e7d7c482c86064969a6048fe3567099aac00dbefa75d6aa8",
+      "deploymentHelperSha256": "39061967bf75eb4e94f2e1c0c29d88b69bbdcf1189f410daec0a3a07d5954974",
+      "httpCases": 18,
+      "httpPassed": 18,
+      "authenticationVerified": true,
+      "revocationVerified": true,
+      "verifiedAuditEvents": 39,
+      "installedChecks": {
+        "schemaVersion": 1,
+        "passed": true,
+        "databaseRestoredInPlace": false,
+        "offlineVerified": true,
+        "runningIdentityVerified": true,
+        "databaseSchemaVersion": 7,
+        "packagedOperationLockVerified": true,
+        "packagedResumeVerified": true,
+        "missingDatabaseRejected": true,
+        "backupSha256": "e8c930e795c55ad5068e3e9e659bf99d6dba029337da9b6ddfd1ea523a029d9d",
+        "corruptLedgerRejected": true,
+        "differentInstanceRejected": true,
+        "isolatedRestoredRuntimeVerified": true,
+        "originalSessionAndPolicyPreserved": true,
+        "revokedExecutionTokenStillDenied": true,
+        "restoredAuditSignaturesVerified": 41,
+        "installationPointerUnchanged": true
+      },
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    }
+  ],
+  "containment": {
+    "allOwnedContainersAbsent": true,
+    "hostCredentialFilesCreated": false,
+    "temporaryContainerTokenFileUsedForResume": true,
+    "cloudResourcesCreated": false,
+    "mediaCenterRestored": false,
+    "priorSupabaseTemporaryDirectoryCleanup": "pending-operator",
+    "releaseOrMainMutation": false
+  },
+  "limitations": [
+    "local-cooperative-operation-lock-only",
+    "no-automatic-orphan-lock-takeover",
+    "no-full-lifecycle-or-distributed-lease",
+    "different-version-upgrade-not-accepted",
+    "node-runtime-version-still-hardcoded",
+    "physical-database-path-not-proven",
+    "native-arm64-hardware-not-tested",
+    "release-provenance-not-verified",
+    "prior-local-cleanup-pending"
+  ]
+}

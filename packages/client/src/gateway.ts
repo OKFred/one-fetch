@@ -19,6 +19,12 @@ import {
 } from "@one-fetch/core";
 
 import { buildGatewayUrl, serviceBaseUrl } from "./url.js";
+import { bindGatewayPath } from "./path-binding.js";
+import { composeAbortSignal, trackResponseBody } from "./response-stream.js";
+import {
+  createExecutionReportWatcher,
+  type ExecutionReportWatchOptions,
+} from "./execution-reports.js";
 
 export type GatewayProgressPhase =
   | "preparing"
@@ -63,6 +69,7 @@ export interface OneFetchGatewayClientOptions {
   fetch?: typeof globalThis.fetch;
   capabilities?: FetchOptionCapabilityV1[];
   client?: { name: string; version: string };
+  executionReports?: ExecutionReportWatchOptions;
 }
 
 function bodyContentType(
@@ -94,121 +101,6 @@ function withUrlUserinfoHeader(
   return [...headers, { name: "Authorization", value: `Basic ${credentials}` }];
 }
 
-function composeAbortSignal(
-  parent: AbortSignal | undefined,
-  timeoutMs: number,
-): {
-  signal: AbortSignal;
-  cancel: (reason?: unknown) => void;
-  cleanup: () => void;
-} {
-  const controller = new AbortController();
-  const cleanup = (): void => {
-    globalThis.clearTimeout(timer);
-    parent?.removeEventListener("abort", abortFromParent);
-  };
-  const cancel = (reason?: unknown): void => {
-    if (controller.signal.aborted) return;
-    controller.abort(
-      reason ?? new DOMException("Request cancelled", "AbortError"),
-    );
-  };
-  const abortFromParent = (): void => cancel(parent?.reason);
-  controller.signal.addEventListener("abort", cleanup, { once: true });
-  parent?.addEventListener("abort", abortFromParent, { once: true });
-  const timer = globalThis.setTimeout(
-    () =>
-      cancel(
-        new DOMException(`Request exceeded ${timeoutMs} ms`, "TimeoutError"),
-      ),
-    timeoutMs,
-  );
-  if (parent?.aborted === true) abortFromParent();
-  return { signal: controller.signal, cancel, cleanup };
-}
-
-function responseLength(response: Response): number | undefined {
-  const value = response.headers.get("Content-Length");
-  if (value === null || !/^(?:0|[1-9][0-9]*)$/u.test(value)) return undefined;
-  const length = Number(value);
-  return Number.isSafeInteger(length) ? length : undefined;
-}
-
-function trackResponseBody(
-  response: Response,
-  abort: ReturnType<typeof composeAbortSignal>,
-  progress: (
-    phase: GatewayProgressPhase,
-    loadedBytes?: number,
-    totalBytes?: number,
-  ) => void,
-): Response {
-  const totalBytes = responseLength(response);
-  progress("downloading", 0, totalBytes);
-  if (response.body === null) {
-    abort.cleanup();
-    progress("complete", 0, totalBytes);
-    return response;
-  }
-
-  const reader = response.body.getReader();
-  let loadedBytes = 0;
-  let finished = false;
-  let abortListener: (() => void) | undefined;
-  const finish = (): void => {
-    if (finished) return;
-    finished = true;
-    if (abortListener !== undefined)
-      abort.signal.removeEventListener("abort", abortListener);
-    abort.cleanup();
-  };
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      abortListener = () => {
-        if (finished) return;
-        finish();
-        void reader.cancel(abort.signal.reason).catch(() => undefined);
-        controller.error(abort.signal.reason);
-      };
-      if (abort.signal.aborted) abortListener();
-      else
-        abort.signal.addEventListener("abort", abortListener, { once: true });
-    },
-    async pull(controller) {
-      if (finished) return;
-      try {
-        const item = await reader.read();
-        if (finished) return;
-        if (item.done) {
-          finish();
-          progress("complete", loadedBytes, totalBytes);
-          controller.close();
-          return;
-        }
-        loadedBytes += item.value.byteLength;
-        progress("downloading", loadedBytes, totalBytes);
-        controller.enqueue(item.value);
-      } catch (error) {
-        if (!finished) {
-          finish();
-          controller.error(error);
-        }
-      }
-    },
-    async cancel(reason) {
-      if (finished) return;
-      finish();
-      abort.cancel(reason);
-      await reader.cancel(reason);
-    },
-  });
-  return new Response(body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
-}
-
 export class OneFetchGatewayClient {
   readonly gatewayOrigin: string;
   readonly gatewayBaseUrl: string;
@@ -216,6 +108,9 @@ export class OneFetchGatewayClient {
   readonly #fetch: typeof globalThis.fetch;
   readonly #capabilities: FetchOptionCapabilityV1[] | undefined;
   readonly #client: { name: string; version: string } | undefined;
+  readonly #watchReports:
+    | ReturnType<typeof createExecutionReportWatcher>
+    | undefined;
 
   constructor(options: OneFetchGatewayClientOptions) {
     this.gatewayBaseUrl = serviceBaseUrl(options.gatewayUrl, "Gateway URL");
@@ -226,6 +121,10 @@ export class OneFetchGatewayClient {
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#capabilities = options.capabilities;
     this.#client = options.client;
+    this.#watchReports =
+      options.executionReports === undefined
+        ? undefined
+        : createExecutionReportWatcher(options.executionReports);
   }
 
   async executeHttp(input: GatewayHttpRequest): Promise<GatewayHttpResult> {
@@ -250,11 +149,16 @@ export class OneFetchGatewayClient {
       throw new TypeError(`${method} requests cannot carry a body`);
     }
     const targetHeaders = withUrlUserinfoHeader(target, input.headers ?? []);
-    const fetchOptions: FetchOptionsV1 = {
-      redirect: input.fetchOptions?.redirect ?? "follow",
-      timeoutMs: input.fetchOptions?.timeoutMs ?? ONE_FETCH_LIMITS_V1.timeoutMs,
-      ...input.fetchOptions,
-    };
+    const fetchOptions: FetchOptionsV1 = bindGatewayPath(
+      target,
+      {
+        redirect: input.fetchOptions?.redirect ?? "follow",
+        timeoutMs:
+          input.fetchOptions?.timeoutMs ?? ONE_FETCH_LIMITS_V1.timeoutMs,
+        ...input.fetchOptions,
+      },
+      this.#capabilities,
+    );
     const optionClassification =
       this.#capabilities === undefined
         ? undefined
@@ -338,8 +242,32 @@ export class OneFetchGatewayClient {
           },
         };
       }
+      const watchReports = this.#watchReports;
+      const reportId =
+        classification.source === "target"
+          ? classification.metadata.reportId
+          : undefined;
       return {
-        response: trackResponseBody(response, abort, progress),
+        response: trackResponseBody(
+          response,
+          abort,
+          progress,
+          classification.source === "target" &&
+            classification.target.kind === "http" &&
+            reportId !== undefined &&
+            watchReports
+            ? () =>
+                watchReports(
+                  {
+                    reportId,
+                    requestId: metadata.requestId,
+                    status: response.status,
+                  },
+                  this.#token,
+                  (error) => abort.cancel(error),
+                )
+            : undefined,
+        ),
         requestMetadata: metadata,
         classification,
         ...(optionClassification === undefined ? {} : { optionClassification }),

@@ -5,6 +5,9 @@ export const ONE_FETCH_RESPONSE_HEADER = "One-Fetch-Response" as const;
 export const ONE_FETCH_TOKEN_HEADER = "One-Fetch-Token" as const;
 export const ONE_FETCH_WEBSOCKET_PROTOCOL = "one-fetch.v1" as const;
 
+/** Negotiated adapter extension; the strict protocol V1 envelope is unchanged. */
+export const SUPABASE_ORIGINAL_PATH_V1 = "supabaseOriginalPathV1" as const;
+
 export const ONE_FETCH_LIMITS_V1 = Object.freeze({
   metadataBytes: 49_152,
   requestBodyBytes: 20_971_520,

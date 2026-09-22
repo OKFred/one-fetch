@@ -25,6 +25,7 @@ import {
   materializePortableNodeModules,
 } from "./portable-node-modules.mjs";
 import { runSharedPnpmDeploy } from "./pnpm-shared-deploy.mjs";
+import { bundleNodeDeploymentHelper } from "./bundle-node-helper.mjs";
 
 const adapterDirectory = join(repositoryRoot, "adapters", "node");
 const dockerfilePath = join(adapterDirectory, "Dockerfile");
@@ -432,7 +433,7 @@ export async function buildNodeDistribution(outputDirectory, version) {
   );
   await writeFile(versionedDockerignore, `*\n!${filenames.archive}\n`, "utf8");
   const versionedDeploy = join(safeOutputDirectory, filenames.deploy);
-  await copyFile(deploymentScriptPath, versionedDeploy);
+  await bundleNodeDeploymentHelper(deploymentScriptPath, versionedDeploy);
   const commit = git("rev-parse", "HEAD");
   await writeJson(join(safeOutputDirectory, filenames.metadata), {
     schemaVersion: 1,

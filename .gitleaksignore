@@ -1,0 +1,4 @@
+# Historical, synthetic test-only canary. It was never issued by a provider.
+# Replaced with a runtime-generated value; retain the non-rewritten commit history.
+# This fingerprint exempts exactly one old finding, not a path or a credential rule.
+fc1499440466e5bf2a69654481df83bd8861819e:tools/deploy/cloudflare-d1-query.test.mjs:generic-api-key:15

@@ -10,6 +10,7 @@ import {
 } from "@one-fetch/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { BUILD_VERSION } from "./build-version.js";
 import { createControlApp } from "./control.js";
 import {
   createTestServices,
@@ -33,10 +34,11 @@ describe("Node Control API", () => {
       instanceId: "test-node",
       service: "one-fetch-control",
       status: "ok",
+      version: BUILD_VERSION,
     });
     expect(
       app.getOpenAPI31Document({
-        info: { title: "one-fetch Control API", version: "0.1.0" },
+        info: { title: "one-fetch Control API", version: BUILD_VERSION },
         openapi: "3.1.0",
       }),
     ).toMatchObject({ openapi: "3.1.0" });
@@ -51,7 +53,15 @@ describe("Node Control API", () => {
       openapi?: string;
       paths?: Record<string, { get?: unknown; post?: unknown }>;
     };
-    expect(openapi).toMatchObject({ openapi: "3.1.0" });
+    expect(openapi).toMatchObject({
+      openapi: "3.1.0",
+      info: { version: BUILD_VERSION },
+    });
+    const capabilities = await app.request("/api/v1/capabilities");
+    expect(capabilities.status).toBe(200);
+    expect(await capabilities.json()).toMatchObject({
+      buildVersion: BUILD_VERSION,
+    });
     expect(openapi.components?.securitySchemes).toHaveProperty("adminBearer");
     expect(openapi.components?.securitySchemes).toHaveProperty(
       "executionBearer",
