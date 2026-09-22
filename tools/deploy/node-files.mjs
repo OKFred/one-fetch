@@ -8,7 +8,6 @@ import {
   rename,
   stat,
   unlink,
-  writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, parse, relative, resolve } from "node:path";
@@ -74,7 +73,7 @@ export async function withNodeDeploymentLock(rootValue, operation, work) {
     await handle.writeFile(JSON.stringify(lock) + "\n");
     await handle.sync();
     initialized = true;
-    return await work({ root, assertOwned });
+    return await work({ root, owner, operation, assertOwned });
   } finally {
     await handle.close();
     // Incomplete initialization or changed ownership is never auto-repaired.
@@ -127,12 +126,14 @@ export function resolveCurrentDirectory(root, current) {
 
 export async function writeJsonAtomic(path, value) {
   await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: 0o600,
-    flag: "wx",
-  });
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  const handle = await open(temporary, "wx", 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
   await rename(temporary, path);
   if (process.platform !== "win32") await chmod(path, 0o600);
 }

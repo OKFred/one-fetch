@@ -1,4 +1,5 @@
 import { basename, join, relative, resolve } from "node:path";
+import { withNodeDeploymentJournal } from "./node-journal.mjs";
 import {
   assertPointerUnchanged,
   pointerSnapshot,
@@ -20,17 +21,25 @@ import {
 
 export async function applyNodeDeployment(options) {
   return withNodeDeploymentLock(options.root, "apply", (lock) =>
-    applyNodeDeploymentLocked({ ...options, root: lock.root }, lock),
+    withNodeDeploymentJournal(lock, (journal) =>
+      applyNodeDeploymentLocked({ ...options, root: lock.root }, lock, journal),
+    ),
   );
 }
 
-async function applyNodeDeploymentLocked(options, lock) {
+async function applyNodeDeploymentLocked(options, lock, journal) {
   const snapshot = await pointerSnapshot(options.root);
   const beforeWrite = async () => {
     await lock.assertOwned();
     await assertPointerUnchanged(options.root, snapshot);
   };
   const plan = await createNodeDeploymentPlan(options);
+  await journal.advance("planned", {
+    action: plan.action,
+    version: plan.version,
+    previousVersion: plan.previousVersion,
+    archiveSha256: plan.archiveSha256,
+  });
   let pause;
   let token;
   let verified;
@@ -44,6 +53,7 @@ async function applyNodeDeploymentLocked(options, lock) {
       resume: false,
     });
     token = await tokenFromFile(options.adminTokenFile);
+    await journal.advance("pause-requested");
     pause = await setGatewayPaused(
       options.controlUrl,
       token,
@@ -51,6 +61,10 @@ async function applyNodeDeploymentLocked(options, lock) {
       verified.identity,
       beforeWrite,
     );
+    await journal.advance("pause-confirmed", {
+      gatewayStatus: "confirmed-paused",
+      configVersion: pause.version,
+    });
   }
   const activatedAt = new Date().toISOString();
   let backupRecord;
@@ -64,6 +78,10 @@ async function applyNodeDeploymentLocked(options, lock) {
       activatedAt.replaceAll(":", "-"),
       basename(database),
     );
+    await beforeWrite();
+    await journal.advance("backup-started", {
+      backup: { path: relative(plan.root, backupPath).replaceAll("\\", "/") },
+    });
     const backedUp = await backupDatabase(
       database,
       backupPath,
@@ -84,8 +102,10 @@ async function applyNodeDeploymentLocked(options, lock) {
       sha256: backedUp.sha256,
       schemaVersion: backedUp.identity.schemaVersion,
     };
+    await journal.advance("backup-verified", { backup: backupRecord });
   }
   await beforeWrite();
+  await journal.advance("extracting");
   await extractVersion(plan);
   const migrations = await inspectInstalledMigrations(
     plan.destination,
@@ -117,8 +137,9 @@ async function applyNodeDeploymentLocked(options, lock) {
       : {}),
   };
   await beforeWrite();
+  await journal.advance("activation-requested", { activatedAt });
   await writeJsonAtomic(join(plan.root, "current.json"), pointer);
-  const journal = {
+  const result = {
     schemaVersion: 1,
     state: "restart-required",
     action: plan.action,
@@ -133,22 +154,25 @@ async function applyNodeDeploymentLocked(options, lock) {
       previousArtifactRetained: plan.previousVersion !== undefined,
     },
   };
-  await writeJsonAtomic(
-    join(plan.root, "journal", `${activatedAt.replaceAll(":", "-")}.json`),
-    journal,
-  );
-  return { ...journal, root: plan.root, current: pointer };
+  await journal.advance("restart-required", { state: "restart-required" });
+  return { ...result, root: plan.root, current: pointer };
 }
 
 export async function verifyNodeDeployment(options) {
   if (options.resume === true)
     return withNodeDeploymentLock(options.root, "resume", (lock) =>
-      verifyNodeDeploymentUnlocked({ ...options, root: lock.root }, lock),
+      withNodeDeploymentJournal(lock, (journal) =>
+        verifyNodeDeploymentUnlocked(
+          { ...options, root: lock.root },
+          lock,
+          journal,
+        ),
+      ),
     );
   return verifyNodeDeploymentUnlocked(options);
 }
 
-async function verifyNodeDeploymentUnlocked(options, lock) {
+async function verifyNodeDeploymentUnlocked(options, lock, journal) {
   const root = safeDeploymentRoot(options.root);
   const snapshot = await pointerSnapshot(root);
   const beforeWrite = async () => {
@@ -204,13 +228,21 @@ async function verifyNodeDeploymentUnlocked(options, lock) {
       throw new Error(
         "Resume requires Control URL and administrator token file",
       );
-    await setGatewayPaused(
+    const token = await tokenFromFile(options.adminTokenFile);
+    await journal.advance("resume-requested", { version: current.version });
+    const resumed = await setGatewayPaused(
       options.controlUrl,
-      await tokenFromFile(options.adminTokenFile),
+      token,
       false,
       identity,
       beforeWrite,
     );
+    await beforeWrite();
+    await journal.advance("resume-confirmed", {
+      state: "completed",
+      gatewayStatus: "confirmed-resumed",
+      configVersion: resumed.version,
+    });
   }
   await beforeWrite();
   return {
@@ -227,11 +259,17 @@ async function verifyNodeDeploymentUnlocked(options, lock) {
 
 export async function rollbackNodeDeployment(options) {
   return withNodeDeploymentLock(options.root, "rollback", (lock) =>
-    rollbackNodeDeploymentLocked({ ...options, root: lock.root }, lock),
+    withNodeDeploymentJournal(lock, (journal) =>
+      rollbackNodeDeploymentLocked(
+        { ...options, root: lock.root },
+        lock,
+        journal,
+      ),
+    ),
   );
 }
 
-async function rollbackNodeDeploymentLocked(options, lock) {
+async function rollbackNodeDeploymentLocked(options, lock, journal) {
   const root = safeDeploymentRoot(options.root);
   const snapshot = await pointerSnapshot(root);
   const beforeWrite = async () => {
@@ -277,14 +315,23 @@ async function rollbackNodeDeploymentLocked(options, lock) {
     previous.databaseSchemaVersion,
   );
   const token = await tokenFromFile(options.adminTokenFile);
-  await setGatewayPaused(
+  await journal.advance("pause-requested", {
+    version: current.previousVersion,
+    previousVersion: current.version,
+  });
+  const pause = await setGatewayPaused(
     options.controlUrl,
     token,
     true,
     verified.identity,
     beforeWrite,
   );
+  await journal.advance("pause-confirmed", {
+    gatewayStatus: "confirmed-paused",
+    configVersion: pause.version,
+  });
   await beforeWrite();
+  await journal.advance("activation-requested");
   await writeJsonAtomic(join(root, "current.json"), {
     schemaVersion: 1,
     version: current.previousVersion,
@@ -294,6 +341,7 @@ async function rollbackNodeDeploymentLocked(options, lock) {
     previousVersion: current.version,
     previousArchiveSha256: current.archiveSha256,
   });
+  await journal.advance("restart-required", { state: "restart-required" });
   return {
     schemaVersion: 1,
     state: "restart-required",
