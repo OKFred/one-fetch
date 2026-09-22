@@ -44,8 +44,8 @@ export async function assertControlBuild(state, fetch = globalThis.fetch) {
   assertHttpPreviewCapabilities(await response.json(), state.buildId);
 }
 
-// Checkpoints are durable local evidence, not a distributed deployment lease.
-// Unknown remote outcomes stay unknown until an operator verifies or rolls back.
+// The CLI holds the D1 coordinator while this routine records local recovery
+// evidence. Unknown outcomes remain unknown until explicit verification/rollback.
 export async function inventoryCloudflareUpdate(
   plan,
   values,

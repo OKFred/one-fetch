@@ -12,6 +12,10 @@ The published v0.1.0 artifacts and historical acceptance receipts are immutable.
 - Cloudflare rollback points use actually deployed versions. Update checkpoints
   preserve pause uncertainty and backup/rollback identifiers before schema or
   Worker changes; interrupted updates cannot be marked verified or resumed.
+- Cloudflare helper mutations now share an account/identity-bound D1 CAS lock.
+  Crashes retain ownership; takeover requires exact owner/revision and explicit
+  stopped-helper confirmation. Older deployments require paused, backed-up
+  adoption. This does not fence dashboard operations or older tools.
 - Node signed early token denials, strict installed identity/migration checks,
   cooperative operation locks and packaged pause/resume/recovery acceptance.
 - Node write-ahead intent/confirmation journals cover update, rollback and
@@ -52,8 +56,8 @@ cross-version or final-release artifact acceptance.
   Release artifacts. The gap between activation, restart and explicit resume
   remains operator-managed, not a full-lifecycle lease or power-loss guarantee.
 - Final-commit three-platform acceptance, checksums and provenance verification.
-- Cloudflare deployment coordination still lacks a distributed CAS/lease;
-  local checkpoints and drift checks do not authorize concurrent deployments.
+- Repeat Cloudflare install/update/rollback/cleanup acceptance with the new
+  D1 coordination integrated; earlier hosted receipts predate that change.
 - Explicitly disclose Supabase provider stream-reset limitations and skipped
   probes; client report watching is not proof of upstream socket disconnect.
 
