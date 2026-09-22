@@ -1,4 +1,7 @@
-import { ExecutionReportV1Schema } from "@one-fetch/protocol";
+import {
+  ExecutionReportV1Schema,
+  OneFetchProblemCodeV1Schema,
+} from "@one-fetch/protocol";
 
 import { auditInsertWhenExecutionIsUnfinished, buildAuditEvent } from "./audit";
 import { ensureInstance, reportJson } from "./storage";
@@ -162,6 +165,9 @@ function completionReport(
   finishedAt: Date,
   auditState: "recorded" | "degraded",
 ) {
+  const code = input.errorCode
+    ? OneFetchProblemCodeV1Schema.safeParse(input.errorCode)
+    : undefined;
   return ExecutionReportV1Schema.parse({
     schemaVersion: 1,
     reportId: input.reportId,
@@ -175,6 +181,25 @@ function completionReport(
     responseBytes: input.responseBytes,
     bodyComplete: input.bodyComplete,
     ...(input.bodySha256 ? { bodySha256: input.bodySha256 } : {}),
+    ...(code
+      ? {
+          problem: {
+            code: code.success ? code.data : "internal",
+            origin: "one-fetch",
+            stage:
+              input.errorCode === "timeout"
+                ? "timeout"
+                : input.errorCode === "cancelled"
+                  ? "cancellation"
+                  : input.outcome === "partial"
+                    ? "upstream-body"
+                    : "internal",
+            // Reports never serialize an upstream exception or target body.
+            message: "Execution ended without a complete response.",
+            retryable: false,
+          },
+        }
+      : {}),
     timing: input.timing,
     finishedAt: finishedAt.toISOString(),
     auditState,
