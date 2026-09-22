@@ -103,6 +103,14 @@ test("upgrade CLI requires explicit identities and rejects ambiguous input", () 
     "receipt.json",
   ];
   assert.equal(parseUpgradeArguments(args).platform, "linux/amd64");
+  assert.equal(parseUpgradeArguments(args).scenario, "standard");
+  assert.equal(
+    parseUpgradeArguments([...args, "--scenario", "interrupted"]).scenario,
+    "interrupted",
+  );
+  assert.throws(() =>
+    parseUpgradeArguments([...args, "--scenario", "unknown"]),
+  );
   assert.throws(() => parseUpgradeArguments(args.slice(0, -2)));
   assert.throws(() =>
     parseUpgradeArguments([...args, "--output", "second.json"]),

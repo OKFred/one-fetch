@@ -51,6 +51,7 @@ export async function runNodeUpgrade(options) {
   const receipt = {
     schemaVersion: 1,
     kind: "node-cross-version-upgrade",
+    scenario: options.scenario ?? "standard",
     passed: false,
     runnerCommit: execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: repository,
@@ -152,13 +153,33 @@ export async function runNodeUpgrade(options) {
       [options["to-archive"], "new.tar.gz", to.archive.sha256],
       [options.helper, "deployment.mjs", helper.sha256],
       [
-        resolve(repository, "tools/acceptance/node-upgrade-entry.mjs"),
+        resolve(
+          repository,
+          options.scenario === "interrupted"
+            ? "tools/acceptance/node-upgrade-interrupted-entry.mjs"
+            : "tools/acceptance/node-upgrade-entry.mjs",
+        ),
         "upgrade-entry.mjs",
       ],
       [
         resolve(repository, "tools/acceptance/node-upgrade-session.mjs"),
         "upgrade-session.mjs",
       ],
+      ...(options.scenario === "interrupted"
+        ? [
+            [
+              resolve(
+                repository,
+                "tools/acceptance/node-upgrade-interruptions.mjs",
+              ),
+              "upgrade-interruptions.mjs",
+            ],
+            [
+              resolve(repository, "tools/deploy/node-interruption-child.mjs"),
+              "interruption-child.mjs",
+            ],
+          ]
+        : []),
     ])
       await copyRuntimeFile(id, source, `/tmp/acceptance/${target}`, digest);
     phase = "cross-version-rehearsal";

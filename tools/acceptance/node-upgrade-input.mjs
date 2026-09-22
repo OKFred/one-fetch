@@ -70,12 +70,16 @@ export function parseUpgradeArguments(values) {
   for (let index = 0; index < values.length; index += 2) {
     const name = values[index]?.replace(/^--/u, "");
     const value = values[index + 1];
-    assert.ok(values[index]?.startsWith("--") && keys.includes(name));
+    assert.ok(
+      values[index]?.startsWith("--") && [...keys, "scenario"].includes(name),
+    );
     assert.ok(value && !value.startsWith("--") && options[name] === undefined);
     options[name] = value;
   }
   assert.ok(keys.every((key) => options[key]));
   assert.match(options.image, /^sha256:[a-f0-9]{64}$/u);
   assert.ok(["linux/amd64", "linux/arm64"].includes(options.platform));
+  options.scenario ??= "standard";
+  assert.ok(["standard", "interrupted"].includes(options.scenario));
   return options;
 }
