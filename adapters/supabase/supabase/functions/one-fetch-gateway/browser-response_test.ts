@@ -17,7 +17,10 @@ async function fixture(envelope: boolean) {
     "verify",
   ]);
   const key = "privateKey" in keys ? keys.privateKey : keys;
-  const complete = Promise.withResolvers<Record<string, unknown>>();
+  let resolveComplete!: (record: Record<string, unknown>) => void;
+  const complete = new Promise<Record<string, unknown>>((resolve) => {
+    resolveComplete = resolve;
+  });
   const context: GatewayContext = {
     environment: {
       instanceId: crypto.randomUUID(),
@@ -40,7 +43,7 @@ async function fixture(envelope: boolean) {
     database: {
       rpc: <T>(name: string, parameters: Record<string, unknown> = {}) => {
         assert(name === "of_finalize_execution", "Unexpected RPC");
-        complete.resolve(parameters);
+        resolveComplete(parameters);
         return Promise.resolve({
           status: "finalized",
           auditState: "recorded",
@@ -84,7 +87,7 @@ async function fixture(envelope: boolean) {
     requestMethod: "GET",
     targetPathAndQuery: "/status",
   };
-  return { context, complete: complete.promise };
+  return { context, complete };
 }
 
 for (const envelope of [false, true]) {
