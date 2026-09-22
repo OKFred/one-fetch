@@ -48,6 +48,13 @@ See [the hosted evidence](cloudflare-candidate-2026-09-22.md). The two deploymen
 use the same candidate source with different build IDs; this is not published
 cross-version or final-release artifact acceptance.
 
+Cloudflare helper `107871d` additionally passes hosted D1 contention,
+acknowledgement-loss retention, explicit recovery, guarded install/update,
+rollback/resume and verified cleanup. See [coordination evidence](cloudflare-coordination-2026-09-22.md).
+An isolated local SQL restore retains the old lock and rejects a replacement
+database identity. This run does not repeat the full HTTP suite or prove legacy
+adoption on a separate hosted deployment.
+
 ## Release gates still open
 
 - Repeat the published 0.1.0 to candidate 0.1.1 Node rehearsal on the final
@@ -56,8 +63,8 @@ cross-version or final-release artifact acceptance.
   Release artifacts. The gap between activation, restart and explicit resume
   remains operator-managed, not a full-lifecycle lease or power-loss guarantee.
 - Final-commit three-platform acceptance, checksums and provenance verification.
-- Repeat Cloudflare install/update/rollback/cleanup acceptance with the new
-  D1 coordination integrated; earlier hosted receipts predate that change.
+- Verify legacy Cloudflare coordination adoption in a hosted rehearsal and
+  repeat final-commit deployment/HTTP acceptance with the integrated D1 lock.
 - Explicitly disclose Supabase provider stream-reset limitations and skipped
   probes; client report watching is not proof of upstream socket disconnect.
 
