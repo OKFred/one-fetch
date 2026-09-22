@@ -55,10 +55,35 @@ tmpfs and removed on exit. Container administrators still control the runtime.
 Cleanup checks the exact container's ownership label, removes it and confirms
 absence; no global pruning is used. Loaded non-secret images are retained.
 
-## Limits
+## Interrupted-upgrade variant
+
+Add `--scenario interrupted` with a new output receipt to run five real helper
+process terminations against the two packaged servers: pause response lost,
+backup verified, update pointer replaced, resume response lost, and rollback
+pointer replaced. The candidate helper is copied byte-for-byte; only a separate
+test child intercepts filesystem/Fetch calls to hold deterministic checkpoints.
+The server keeps running while its deployment helper receives SIGKILL.
+
+Each checkpoint confirms actual Control/Gateway behavior, historical journal
+state and the selected pointer, then checks that all mutating retries are blocked.
+Only inside the owned disposable `/tmp/installed` fixture, after the only helper
+child has exited, the runner simulates an operator preserving the exact orphan
+lock into `interruption-evidence/`. It verifies runtime identity before explicit
+resume; it never adds force-unlock behavior to the production helper, restores a
+database in place, or runs recovery against a host installation. Stale-runtime
+resume is rejected both after update and rollback activation. Original sessions,
+policy, token revocation and signed audit records must survive every checkpoint.
+
+The receipt separates helper-process termination from **server-process** crash,
+container/OS power loss, CLI/service-manager restart and schema-changing recovery;
+the latter are not covered by this variant. Its source runner commit and the
+CI artifact commit remain independent identities. Keep failed attempts as failed.
+
+## Shared limits
 
 The server is started via its packaged exported startup function, not its CLI
-or a service manager. This is not a process-kill/power-loss test, full-lifecycle
+or a service manager. The standard scenario is not a process-kill test; neither
+scenario establishes power-loss guarantees, a full-lifecycle
 deployment lease, schema-changing rollback, independent Gateway handshake,
 whole HTTP conformance suite, OCI application-entrypoint test, final release
 acceptance or provenance verification. Those gates remain separate.
