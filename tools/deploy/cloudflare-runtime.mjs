@@ -6,7 +6,7 @@ import process from "node:process";
 import { promisify } from "node:util";
 import {
   createCloudflareConfigs,
-  latestVersionId,
+  activeVersionId,
   writePrivateJson,
 } from "./cloudflare-support.mjs";
 
@@ -136,9 +136,9 @@ export async function writeConfigs(
   return { control, gateway };
 }
 
-export async function currentVersionId(name) {
-  return latestVersionId(
-    await runWrangler(["versions", "list", "--name", name, "--json"], {
+export async function currentVersionId(name, run = runWrangler) {
+  return activeVersionId(
+    await run(["deployments", "status", "--name", name, "--json"], {
       json: true,
     }),
   );

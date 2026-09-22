@@ -9,7 +9,7 @@ import {
   createCloudflareConfigs,
   deploymentNames,
   failedDeploymentState,
-  latestVersionId,
+  activeVersionId,
   parseD1CreateOutput,
   parseWorkersUrl,
   readDeploymentState,
@@ -111,21 +111,26 @@ test("Wrangler output parsers reject ambiguous results", () => {
     parseWorkersUrl("Uploaded https://preview-a1-control.example.workers.dev"),
     "https://preview-a1-control.example.workers.dev",
   );
-  assert.equal(latestVersionId([{ id: "version-one" }]), "version-one");
-  assert.equal(
-    latestVersionId([
-      { id: "old-version", number: 1 },
-      { id: "new-version", number: 2 },
-    ]),
-    "new-version",
-  );
-  assert.equal(
-    latestVersionId({ items: [{ version_id: "version-two" }] }),
-    "version-two",
-  );
   assert.throws(() => parseD1CreateOutput("nothing"));
   assert.throws(() => parseWorkersUrl("https://example.com"));
-  assert.throws(() => latestVersionId([]));
+});
+
+test("Cloudflare rollback points require a single actually deployed version", () => {
+  const id = "01234567-89ab-cdef-0123-456789abcdef";
+  const active = { versions: [{ version_id: id, percentage: 100 }] };
+  assert.equal(activeVersionId(active), id);
+  for (const invalid of [
+    undefined,
+    [],
+    { items: [{ id, number: 10 }] },
+    { versions: [] },
+    { versions: [{ version_id: id, percentage: 50 }] },
+    { versions: [{ version_id: id, percentage: "100" }] },
+    { versions: [{ version_id: "invalid", percentage: 100 }] },
+    { versions: [...active.versions, { version_id: id, percentage: 0 }] },
+  ]) {
+    assert.throws(() => activeVersionId(invalid), /active Worker version/u);
+  }
 });
 
 test("Cloudflare secrets and deployment state remain private and strict", async () => {
