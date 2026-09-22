@@ -37,6 +37,7 @@ export async function handleGatewayRequest(
   const token = request.headers.get(ONE_FETCH_TOKEN_HEADER) ?? "";
   let requestId: string = crypto.randomUUID();
   let nonce = randomNonce();
+  let fetchOptions: OneFetchRequestMetaV1["fetchOptions"] | undefined;
   let reportId: string | undefined;
   let authorization: AuthorizationResult | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -86,6 +87,7 @@ export async function handleGatewayRequest(
       );
     }
     const meta = decodeRequestMetadata(rawMetadata);
+    fetchOptions = meta.fetchOptions;
     armTimeout(meta.fetchOptions.timeoutMs);
     requestId = meta.requestId;
     nonce = meta.nonce;
@@ -305,6 +307,7 @@ export async function handleGatewayRequest(
         })),
     ];
     const response = await targetResponse({
+      fetchOptions: meta.fetchOptions,
       response: upstream.response,
       token,
       requestId,
@@ -391,6 +394,7 @@ export async function handleGatewayRequest(
       authorization = { ...authorization, configVersion };
     }
     return relayErrorResponse({
+      ...(fetchOptions ? { fetchOptions } : {}),
       problem: gatewayProblem.problem,
       status: gatewayProblem.status,
       token,

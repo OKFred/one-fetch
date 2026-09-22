@@ -6,7 +6,7 @@
   "workers_dev": true,
   "vars": {
     "ADAPTER_NAME": "cloudflare",
-    "ADAPTER_VERSION": "0.1.1",
+    "ADAPTER_VERSION": "0.1.2",
     "ADMIN_ALLOWED_ORIGINS": "http://localhost:5173",
     "DEFAULT_ACCESS_TTL_SECONDS": "900",
     "DEFAULT_REFRESH_TTL_SECONDS": "2592000",

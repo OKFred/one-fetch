@@ -3,12 +3,14 @@ import {
   type FetchOptionCapabilityV1,
   type OneFetchCapabilitiesV1,
 } from "@one-fetch/protocol";
+import { BROWSER_RESPONSE_CAPABILITY } from "@one-fetch/core";
 
 import type { NodeAdapterConfig } from "./config.js";
 import type { StoredConfiguration } from "./configuration.js";
 import { BUILD_VERSION } from "./build-version.js";
 
 const fetchOptions: FetchOptionCapabilityV1[] = [
+  BROWSER_RESPONSE_CAPABILITY,
   { option: "redirect", fidelity: "translated" },
   { option: "timeoutMs", fidelity: "exact" },
   {

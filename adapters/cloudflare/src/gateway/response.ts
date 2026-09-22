@@ -1,4 +1,9 @@
-import { createSignedResponseMetadata } from "@one-fetch/core";
+import {
+  createSignedResponseMetadata,
+  browserResponseMetadata,
+  browserEnvelopeHeaders,
+  httpTransportStatus,
+} from "@one-fetch/core";
 import {
   encodeResponseMetadata,
   ONE_FETCH_RESPONSE_HEADER,
@@ -6,6 +11,7 @@ import {
   type OneFetchProblemV1,
   type OneFetchTimingV1,
   type OneFetchUnsignedResponseMetaV1,
+  type FetchOptionsV1,
 } from "@one-fetch/protocol";
 
 import type { AuthorizationResult, CompletionInput } from "../types";
@@ -16,8 +22,10 @@ import {
   targetHeaderEntries,
 } from "./headers";
 import { metadataExceedsAdapterLimit } from "./metadata";
+import { responseBodyDigest } from "./body-digest";
 
 export interface TargetResponseInput {
+  fetchOptions?: Pick<FetchOptionsV1, "adapter">;
   response: Response;
   token: string;
   requestId: string;
@@ -66,11 +74,16 @@ export async function targetResponse(
     );
   }
   const targetHeaders = targetHeaderEntries(input.response.headers);
+  const options = input.fetchOptions ?? {};
+  const envelope = browserResponseMetadata(options);
+  const status = httpTransportStatus(input.response.status, options);
+  const statusText = envelope.responseMode ? "OK" : input.response.statusText;
   const setCookie = getSetCookie(input.response.headers);
   const unsigned: OneFetchUnsignedResponseMetaV1 = {
     protocolVersion: 1,
     requestId: input.requestId,
     nonce: input.nonce,
+    ...envelope,
     outcome: "target",
     target: {
       kind: "http",
@@ -102,22 +115,30 @@ export async function targetResponse(
     );
   }
 
-  const headers = outerResponseHeaders(input.response.headers);
+  const headers = envelope.responseMode
+    ? browserEnvelopeHeaders()
+    : outerResponseHeaders(input.response.headers);
   headers.set(ONE_FETCH_RESPONSE_HEADER, encoded);
   headers.set("Cache-Control", "no-store");
+  const digest = responseBodyDigest();
   if (!input.response.body) {
-    input.ctx.waitUntil(finalize(input, 0, "target"));
+    input.ctx.waitUntil(
+      digest
+        .finish()
+        .then((hash) => finalize(input, 0, "target", undefined, hash)),
+    );
     return new Response(null, {
-      status: input.response.status,
-      statusText: input.response.statusText,
+      status,
+      statusText,
       headers,
     });
   }
 
   let responseBytes = 0;
+  let sourceCompleted = false;
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const limiter = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
+    async transform(chunk, controller) {
       responseBytes += chunk.byteLength;
       if (responseBytes > input.maxResponseBytes) {
         controller.error(
@@ -130,35 +151,57 @@ export async function targetResponse(
         );
         return;
       }
+      await digest.write(chunk);
       controller.enqueue(chunk);
+    },
+    flush() {
+      sourceCompleted = true;
     },
   });
   const pipeline = input.response.body
     .pipeThrough(limiter)
     .pipeTo(writable)
-    .then(async () => finalize(input, responseBytes, "target"))
-    .catch(async (error: unknown) => {
-      const cancellation = input.cancellationReason?.();
-      const outcome = cancellation === "cancelled" ? "cancelled" : "partial";
-      await finalize(
-        input,
-        responseBytes,
-        outcome,
-        cancellation ??
-          (error instanceof GatewayProblem
-            ? error.problem.code
-            : "upstream_network"),
-      );
-    });
+    .then(() => {
+      // workerd can fulfill pipeTo after a downstream cancellation. Only a
+      // flushed upstream without cancellation is a complete response body.
+      const cancelled = input.cancellationReason?.();
+      if (!sourceCompleted || cancelled) {
+        throw problem(
+          cancelled ?? "upstream_network",
+          "upstream-body",
+          "Response stream did not complete",
+          502,
+        );
+      }
+      return digest.finish();
+    })
+    .then(
+      (hash) => finalize(input, responseBytes, "target", undefined, hash),
+      async (error: unknown) => {
+        await digest.abort();
+        const cancellation = input.cancellationReason?.();
+        const outcome = cancellation === "cancelled" ? "cancelled" : "partial";
+        await finalize(
+          input,
+          responseBytes,
+          outcome,
+          cancellation ??
+            (error instanceof GatewayProblem
+              ? error.problem.code
+              : "upstream_network"),
+        );
+      },
+    );
   input.ctx.waitUntil(pipeline);
   return new Response(readable, {
-    status: input.response.status,
-    statusText: input.response.statusText,
+    status,
+    statusText,
     headers,
   });
 }
 
 export async function relayErrorResponse(input: {
+  fetchOptions?: Pick<FetchOptionsV1, "adapter">;
   problem: OneFetchProblemV1;
   status: number;
   token: string;
@@ -172,6 +215,7 @@ export async function relayErrorResponse(input: {
     protocolVersion: 1,
     requestId: input.requestId,
     nonce: input.nonce,
+    ...browserResponseMetadata(input.fetchOptions ?? {}),
     outcome: "relay-error",
     error: input.problem,
     timing: { phases: [], serverTiming: [] },
@@ -190,7 +234,10 @@ export async function relayErrorResponse(input: {
       await createSignedResponseMetadata(unsigned, input.token),
     ),
   );
-  return Response.json(input.problem, { status: input.status, headers });
+  return Response.json(input.problem, {
+    status: httpTransportStatus(input.status, input.fetchOptions ?? {}),
+    headers,
+  });
 }
 
 async function finalize(
@@ -198,6 +245,7 @@ async function finalize(
   responseBytes: number,
   outcome: CompletionInput["outcome"],
   errorCode?: string,
+  bodySha256?: string,
 ): Promise<void> {
   try {
     const durationMs = performance.now() - input.startedAt;
@@ -218,6 +266,7 @@ async function finalize(
         serverTiming: input.timing.serverTiming,
       },
       bodyComplete: outcome === "target",
+      ...(bodySha256 ? { bodySha256 } : {}),
       ...(errorCode ? { errorCode } : {}),
     });
   } finally {

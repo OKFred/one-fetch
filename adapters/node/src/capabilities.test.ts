@@ -84,6 +84,7 @@ describe("Node fetch-option capabilities", () => {
         .filter(({ fidelity }) => fidelity !== "unsupported")
         .map(({ option, fidelity }) => [option, fidelity]),
     ).toEqual([
+      ["adapter.browserResponse", "translated"],
       ["redirect", "translated"],
       ["timeoutMs", "exact"],
       ["adapter.caPem", "exact"],

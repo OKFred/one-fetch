@@ -1,5 +1,6 @@
 export * from "./audit-signing.js";
 export * from "./auth.js";
+export * from "./browser-response.js";
 export * from "./crypto.js";
 export * from "./fetch-options.js";
 export * from "./ip.js";

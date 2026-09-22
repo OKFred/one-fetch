@@ -8,6 +8,7 @@ import { performance } from "node:perf_hooks";
 
 import {
   classifyFetchOptions,
+  httpTransportStatus,
   createHttpPolicyContext,
   evaluateSystemPolicy,
   evaluateUserDenyRules,
@@ -422,8 +423,12 @@ const handleGatewayRequest = async (
       },
       timing,
     );
-    response.statusCode = upstream.status;
-    response.statusMessage = upstream.statusText;
+    response.statusCode = httpTransportStatus(
+      upstream.status,
+      metadata.fetchOptions,
+    );
+    response.statusMessage =
+      response.statusCode === upstream.status ? upstream.statusText : "OK";
     await streamTarget(
       upstream,
       response,

@@ -7,6 +7,9 @@ import type { OneFetchTimingV1 } from "../_shared/protocol-types.ts";
 import {
   createSignedResponseMetadata,
   IncrementalSha256,
+  browserResponseMetadata,
+  browserEnvelopeHeaders,
+  httpTransportStatus,
 } from "@one-fetch/core";
 
 import { SUPABASE_HEADER_MUTATIONS } from "../_shared/capabilities.ts";
@@ -153,6 +156,7 @@ export async function createTargetResponse({
           protocolVersion: 1,
           requestId: context.metadata.requestId,
           nonce: context.metadata.nonce,
+          ...browserResponseMetadata(context.metadata.fetchOptions),
           outcome: "target",
           target,
           timing,
@@ -186,7 +190,17 @@ export async function createTargetResponse({
     return signedError(context, error, terminal.auditState, terminal.reportId);
   }
 
-  const responseHeaders = outerResponseHeaders(upstream.headers);
+  const envelope = browserResponseMetadata(
+    context.metadata.fetchOptions,
+  ).responseMode;
+  const responseHeaders = envelope
+    ? browserEnvelopeHeaders()
+    : outerResponseHeaders(upstream.headers);
+  const status = httpTransportStatus(
+    upstream.status,
+    context.metadata.fetchOptions,
+  );
+  const statusText = envelope ? "OK" : upstream.statusText;
   responseHeaders.set(ONE_FETCH_RESPONSE_HEADER, encoded);
   responseHeaders.set("server-timing", `of_ttfb;dur=${ttfbMs.toFixed(2)}`);
   if (noBody) {
@@ -206,8 +220,8 @@ export async function createTargetResponse({
       }),
     );
     return new Response(null, {
-      status: upstream.status,
-      statusText: upstream.statusText,
+      status,
+      statusText,
       headers: responseHeaders,
     });
   }
@@ -262,8 +276,8 @@ export async function createTargetResponse({
     },
   );
   return new Response(monitored, {
-    status: upstream.status,
-    statusText: upstream.statusText,
+    status,
+    statusText,
     headers: responseHeaders,
   });
 }

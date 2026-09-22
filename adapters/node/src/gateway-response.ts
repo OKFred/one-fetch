@@ -1,6 +1,10 @@
 import type { ServerResponse } from "node:http";
 
-import { createSignedResponseMetadata } from "@one-fetch/core";
+import {
+  createSignedResponseMetadata,
+  browserResponseMetadata,
+  httpTransportStatus,
+} from "@one-fetch/core";
 import {
   encodeResponseMetadata,
   ONE_FETCH_RESPONSE_HEADER,
@@ -25,6 +29,7 @@ const base = (
   protocolVersion: 1,
   requestId: context.metadata.requestId,
   nonce: context.metadata.nonce,
+  ...browserResponseMetadata(context.metadata.fetchOptions),
   timing,
   configVersionUsed: context.configVersion,
   mutations: [],
@@ -43,11 +48,14 @@ export const sendRelayError = async (
     { ...base(context, timing), error: problem, outcome: "relay-error" },
     context.token,
   );
-  response.writeHead(status, {
-    "Cache-Control": "no-store",
-    "Content-Type": "application/problem+json; charset=utf-8",
-    [ONE_FETCH_RESPONSE_HEADER]: encodeResponseMetadata(metadata),
-  });
+  response.writeHead(
+    httpTransportStatus(status, context.metadata.fetchOptions),
+    {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/problem+json; charset=utf-8",
+      [ONE_FETCH_RESPONSE_HEADER]: encodeResponseMetadata(metadata),
+    },
+  );
   response.end(JSON.stringify({ error: problem }));
 };
 
@@ -62,6 +70,10 @@ export const setTargetResponseMetadata = async (
     context.token,
   );
   response.setHeader("Cache-Control", "no-store");
+  if (metadata.responseMode) {
+    response.setHeader("Content-Type", "application/octet-stream");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+  }
   response.setHeader(
     ONE_FETCH_RESPONSE_HEADER,
     encodeResponseMetadata(metadata),

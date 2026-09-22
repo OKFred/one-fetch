@@ -11,7 +11,11 @@ import type {
   OneFetchTimingV1,
   OneFetchUnsignedResponseMetaV1,
 } from "../_shared/protocol-types.ts";
-import { createSignedResponseMetadata } from "@one-fetch/core";
+import {
+  createSignedResponseMetadata,
+  browserResponseMetadata,
+  httpTransportStatus,
+} from "@one-fetch/core";
 import { z } from "zod";
 
 import type { ExecutionPrincipal } from "../_shared/auth.ts";
@@ -125,6 +129,7 @@ export async function signedError(
     protocolVersion: 1,
     requestId: context.metadata.requestId,
     nonce: context.metadata.nonce,
+    ...browserResponseMetadata(context.metadata.fetchOptions),
     outcome: "relay-error",
     error,
     timing: baseTiming(context.startedAt),
@@ -137,7 +142,10 @@ export async function signedError(
     await createSignedResponseMetadata(unsigned, context.token),
   );
   return json(error, {
-    status: problemStatus(error.code),
+    status: httpTransportStatus(
+      problemStatus(error.code),
+      context.metadata.fetchOptions,
+    ),
     headers: { [ONE_FETCH_RESPONSE_HEADER]: encoded },
   });
 }

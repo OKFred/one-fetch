@@ -2,6 +2,7 @@ import type {
   FetchOptionCapabilityV1,
   OneFetchCapabilitiesV1,
 } from "@one-fetch/protocol";
+import { BROWSER_RESPONSE_CAPABILITY } from "@one-fetch/core";
 
 import { defaultConfigRecord, parseRuntimeConfigJson } from "./config";
 import { stableStringify } from "./crypto";
@@ -30,6 +31,7 @@ export interface InstanceRecord {
 }
 
 export const CLOUDFLARE_FETCH_CAPABILITIES: FetchOptionCapabilityV1[] = [
+  BROWSER_RESPONSE_CAPABILITY,
   {
     option: "redirect",
     fidelity: "exact",
