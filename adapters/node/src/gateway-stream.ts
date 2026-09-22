@@ -138,7 +138,7 @@ export const streamTarget = async (
     const report: ExecutionReportV1 = {
       auditState: context.auditState,
       bodyComplete: outcome === "completed",
-      ...(bytes > 0 ? { bodySha256: hash.digest("hex") } : {}),
+      ...(outcome === "completed" ? { bodySha256: hash.digest("hex") } : {}),
       finishedAt: new Date().toISOString(),
       outcome,
       reportId: context.reportId ?? context.metadata.requestId,

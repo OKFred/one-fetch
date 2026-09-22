@@ -10,8 +10,10 @@ import type {
 } from "./protocol-types.ts";
 
 import type { SupabaseEnvironment } from "./env.ts";
+import { BROWSER_RESPONSE_CAPABILITY } from "@one-fetch/core";
 
 export const SUPABASE_FETCH_OPTIONS: FetchOptionCapabilityV1[] = [
+  BROWSER_RESPONSE_CAPABILITY,
   {
     option: `adapter.${SUPABASE_ORIGINAL_PATH_V1}`,
     fidelity: "exact",
