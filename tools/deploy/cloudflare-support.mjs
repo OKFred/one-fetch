@@ -78,7 +78,13 @@ export function activeVersionId(deployment) {
 
 export function createCloudflareConfigs(options) {
   const names = deploymentNames(options.deploymentId);
+  if (
+    options.accountId !== undefined &&
+    !/^[a-f0-9]{32}$/u.test(options.accountId)
+  )
+    throw new Error("Invalid Cloudflare account ID");
   const common = {
+    ...(options.accountId ? { account_id: options.accountId } : {}),
     compatibility_date: "2026-09-04",
     workers_dev: true,
     observability: { enabled: false },

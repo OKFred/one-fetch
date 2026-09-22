@@ -29,10 +29,15 @@ export async function createCloudflareD1Query(state, dependencies = {}) {
   coordinationIdentity(state);
   const run = dependencies.runWrangler ?? runWrangler;
   const fetch = dependencies.fetch ?? globalThis.fetch;
-  const auth = await run(["auth", "token", "--json"], {
-    json: true,
-    accountId: state.accountId,
-  });
+  let auth;
+  try {
+    auth = await run(["auth", "token", "--json"], {
+      json: true,
+      accountId: state.accountId,
+    });
+  } catch {
+    throw new Error("Cloudflare coordination authentication failed");
+  }
   if (
     !["oauth", "api_token"].includes(auth?.type) ||
     typeof auth.token !== "string" ||

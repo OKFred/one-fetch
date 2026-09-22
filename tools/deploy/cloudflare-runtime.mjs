@@ -26,7 +26,13 @@ export async function runWrangler(arguments_, options = {}) {
       cwd: adapterRoot,
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
-      env: { ...process.env, NO_COLOR: "1" },
+      env: {
+        ...process.env,
+        NO_COLOR: "1",
+        ...(options.accountId
+          ? { CLOUDFLARE_ACCOUNT_ID: options.accountId }
+          : {}),
+      },
     },
   );
   return options.json === true
@@ -34,9 +40,9 @@ export async function runWrangler(arguments_, options = {}) {
     : `${result.stdout}\n${result.stderr}`;
 }
 
-export async function workerExists(name) {
+export async function workerExists(name, run = runWrangler) {
   try {
-    await runWrangler(["versions", "list", "--name", name, "--json"], {
+    await run(["versions", "list", "--name", name, "--json"], {
       json: true,
     });
     return true;
@@ -112,6 +118,7 @@ function configOptions(values, deploymentId, buildId, databaseId) {
     deploymentId,
     buildId,
     databaseId,
+    accountId: values.get("--account-id"),
     adminAllowedOrigins:
       values.get("--admin-origins") ?? "http://localhost:5173",
     xpanelAllowedOrigins:
