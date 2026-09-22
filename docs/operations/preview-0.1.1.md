@@ -26,14 +26,20 @@ rollback. See [the repeatable procedure](node-cross-version-acceptance.md).
 Exact tested commits and receipt hashes belong in dated evidence; passing this
 runner does not replace final-commit CI or full platform acceptance.
 
+The exact push-CI candidate `2329c1f` additionally passes eight actual Node
+archive/OCI/installed, cross-version and helper-interruption runs. The latter
+kill the deployment helper against running packaged services on AMD64 and
+emulated ARM64, preserving orphan-lock evidence before explicit recovery.
+See [CI candidate evidence](node-ci-candidate-2026-09-22.md); this is not final
+Release provenance, a server-process crash or a power-loss guarantee.
+
 ## Release gates still open
 
 - Repeat the published 0.1.0 to candidate 0.1.1 Node rehearsal on the final
   release artifact, including retained credentials, policy and audit signatures.
-- Repeat interrupted-update recovery against final packaged runtimes. Source
-  and standalone-helper fixtures now cover forced process termination; the gap
-  between activation, restart and explicit resume remains an operator-managed
-  boundary, not a full-lifecycle lease or a power-loss durability guarantee.
+- Repeat the now-verified CI packaged helper-interruption procedure on final
+  Release artifacts. The gap between activation, restart and explicit resume
+  remains operator-managed, not a full-lifecycle lease or power-loss guarantee.
 - Final-commit three-platform acceptance, checksums and provenance verification.
 - Explicitly disclose Supabase provider stream-reset limitations and skipped
   probes; client report watching is not proof of upstream socket disconnect.

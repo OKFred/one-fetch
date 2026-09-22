@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-22",
+  "artifact": {
+    "commit": "2329c1f7189816ba46dd90614fedf760e52d78b5",
+    "version": "0.1.1",
+    "pushCiRun": 35683502337,
+    "artifactId": 10676176058,
+    "githubReportedArtifactDigest": "sha256:518a87b576f3d2a08030413df7fa8725b98f343b5c458b6854f310a1c58f24a2",
+    "fileCount": 18,
+    "manifestSubjects": 15,
+    "sha256AndSha512Verified": true,
+    "manifestSha256": "852ad8fc3551bc3e0b181888b16fbaa85b0bf0c2b886a741d0f828de9dee6ebd",
+    "archiveSha256": "a98f6ee63e1cec121eb58b822f28b8da443a4fdea239eceb0ce838cfe4e3a5fd",
+    "helperSha256": "7902f52d311447329559fd158438bfb813d5571166ab6db8314e581b8a891790",
+    "ociSha256": "aa4a7d794ea009e932ad8051b2cc4bf6be6ea2083f29e0b7035f86aac3c03b91",
+    "ociIndexDigest": "sha256:1fdf40e306fbc2899d47315d93614968493cfeb11d4ca02137b0a5c684eb856f",
+    "provenanceVerified": false
+  },
+  "baseline": {
+    "version": "0.1.0",
+    "commit": "21e6b985f32e0dcfab5389dd7b2a77b89f72377b",
+    "archiveSha256": "ddb122ada1614b8585958473383a6a4ac64ceb9e40ab13a2ebb8efe535c8bb5c"
+  },
+  "localCheck": {
+    "commit": "b1293a59e9019cf9a15077f4207baf83afef8fcb",
+    "dirty": false,
+    "passed": true,
+    "rootToolTests": 159,
+    "checkLogSha256": "b95ee2b8a8d49ec351a9b391d26325b9ac087b6a315139c1e0a265dceccc2e2b"
+  },
+  "runs": [
+    {
+      "receipt": "node-ci-2329c1f-archive-amd64.json",
+      "receiptSha256": "481e835d94bf91e681b46022d94cfb510c9dd64d0e91af9e9c1ffcc025839f4c",
+      "runnerCommit": "2329c1f7189816ba46dd90614fedf760e52d78b5",
+      "runnerDirty": false,
+      "mode": "archive",
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "httpPassed": 18,
+      "auditSignatures": 40,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-installed-amd64.json",
+      "receiptSha256": "d1f9dc675c943264f63db3add221d04e99ce83aa380e7d1307b9fb06342ca7c6",
+      "runnerCommit": "2329c1f7189816ba46dd90614fedf760e52d78b5",
+      "runnerDirty": false,
+      "mode": "installed",
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "httpPassed": 18,
+      "auditSignatures": 40,
+      "restoredAuditSignatures": 42,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-installed-arm64.json",
+      "receiptSha256": "bdf5dd16fa36627a896ba0bd031bd29d1d52d6431db00d4ef8d69ce946980176",
+      "runnerCommit": "2329c1f7189816ba46dd90614fedf760e52d78b5",
+      "runnerDirty": false,
+      "mode": "installed",
+      "platform": "linux/arm64",
+      "emulated": true,
+      "passed": true,
+      "httpPassed": 18,
+      "auditSignatures": 39,
+      "restoredAuditSignatures": 41,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-interrupted-amd64-first.json",
+      "receiptSha256": "0d298d870825c9f644669681d90d69074f1daa90e4f3bbdfb947c2f927f14f58",
+      "runnerCommit": "b1293a59e9019cf9a15077f4207baf83afef8fcb",
+      "runnerDirty": false,
+      "mode": "interrupted",
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "httpPassed": null,
+      "auditSignatures": 25,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 5,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-interrupted-arm64-first.json",
+      "receiptSha256": "0ca877438edb63ed9091bd1bb920404fffe03febb0683a1d70783ac909b14d35",
+      "runnerCommit": "b1293a59e9019cf9a15077f4207baf83afef8fcb",
+      "runnerDirty": false,
+      "mode": "interrupted",
+      "platform": "linux/arm64",
+      "emulated": true,
+      "passed": true,
+      "httpPassed": null,
+      "auditSignatures": 25,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 5,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-oci-amd64.json",
+      "receiptSha256": "ac3124efa88bca88b9213618012feb347ea1cf084a8b0a0217f09a7bd703a71c",
+      "runnerCommit": "2329c1f7189816ba46dd90614fedf760e52d78b5",
+      "runnerDirty": false,
+      "mode": "oci",
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "httpPassed": 18,
+      "auditSignatures": 40,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-upgrade-amd64.json",
+      "receiptSha256": "02bb1dbddbd574108fdfe8c56e74f816fd45cc23df091ef93f41885f2b0fb8ed",
+      "runnerCommit": "b1293a59e9019cf9a15077f4207baf83afef8fcb",
+      "runnerDirty": false,
+      "mode": "standard",
+      "platform": "linux/amd64",
+      "emulated": false,
+      "passed": true,
+      "httpPassed": null,
+      "auditSignatures": 19,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    },
+    {
+      "receipt": "node-ci-2329c1f-upgrade-arm64.json",
+      "receiptSha256": "b5973fe8ff6e85cf5fa7642c92b40af13b7efc7779c321b24ed68e79d3e59e14",
+      "runnerCommit": "b1293a59e9019cf9a15077f4207baf83afef8fcb",
+      "runnerDirty": false,
+      "mode": "standard",
+      "platform": "linux/arm64",
+      "emulated": true,
+      "passed": true,
+      "httpPassed": null,
+      "auditSignatures": 19,
+      "restoredAuditSignatures": null,
+      "helperKillScenarios": 0,
+      "cleanup": {
+        "state": "verified",
+        "containerAbsent": true
+      }
+    }
+  ],
+  "allEightOwnedContainersConfirmedAbsent": true,
+  "serverProcessKillTested": false,
+  "powerLossTested": false,
+  "schemaChangingRollbackTested": false,
+  "automaticProductionUnlockAdded": false,
+  "databaseRestoredInPlace": false,
+  "cloudResourcesChanged": false,
+  "mediaCenterRestored": false,
+  "xPanelChanged": false,
+  "finalReleaseAcceptance": false
+}
