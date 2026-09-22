@@ -62,6 +62,7 @@ describe("Cloudflare fetch-option capabilities", () => {
         ({ fidelity }) => fidelity !== "unsupported",
       ).map(({ option, fidelity }) => [option, fidelity]),
     ).toEqual([
+      ["adapter.browserResponse", "translated"],
       ["redirect", "exact"],
       ["timeoutMs", "exact"],
       ["referrer", "translated"],
